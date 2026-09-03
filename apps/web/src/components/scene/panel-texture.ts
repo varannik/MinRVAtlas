@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { BRAND } from "@/lib/brand";
 
 const TILE_WIDTH = 512;
 const TILE_HEIGHT = 256;
@@ -67,13 +68,10 @@ export function createTileTexture(tile: TileContent): THREE.CanvasTexture {
 
   if (ctx) {
     const pad = 16;
-    const backdrop = ctx.createLinearGradient(0, 0, TILE_WIDTH, TILE_HEIGHT);
-    backdrop.addColorStop(0, "#0e1a2c");
-    backdrop.addColorStop(1, "#060b15");
     roundRect(ctx, pad, pad, TILE_WIDTH - pad * 2, TILE_HEIGHT - pad * 2, 28);
-    ctx.fillStyle = backdrop;
+    ctx.fillStyle = "#ffffff";
     ctx.fill();
-    ctx.strokeStyle = withAlpha(tile.accent, 0.32);
+    ctx.strokeStyle = withAlpha(tile.accent, 0.55);
     ctx.lineWidth = 2;
     ctx.stroke();
 
@@ -82,7 +80,7 @@ export function createTileTexture(tile: TileContent): THREE.CanvasTexture {
     ctx.fill();
 
     ctx.textAlign = "left";
-    ctx.fillStyle = "#8ea3c4";
+    ctx.fillStyle = BRAND.shale;
     ctx.font = "600 22px system-ui, sans-serif";
     wrapLines(ctx, tile.label.toUpperCase(), TILE_WIDTH - 110, 2).forEach(
       (line, index) => {
@@ -90,7 +88,7 @@ export function createTileTexture(tile: TileContent): THREE.CanvasTexture {
       },
     );
 
-    ctx.fillStyle = "#eef4ff";
+    ctx.fillStyle = BRAND.rock;
     ctx.font = "700 68px system-ui, sans-serif";
     ctx.fillText(tile.value, pad + 38, 190);
     const valueWidth = ctx.measureText(tile.value).width;

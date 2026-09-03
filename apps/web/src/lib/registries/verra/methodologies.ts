@@ -1,7 +1,8 @@
+import { ACCENT } from "@/lib/brand";
 import type { MethodologyModule } from "../types";
 
-const REDD_ACCENT = "#7ee787";
-const LAND_ACCENT = "#34e0a1";
+const REDD_ACCENT = ACCENT.land;
+const LAND_ACCENT = ACCENT.tech;
 
 const MODULES: MethodologyModule[] = [
   {

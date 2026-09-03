@@ -358,7 +358,7 @@ export function RequirementWorkspace({
   }
 
   return (
-    <div className="glass pointer-events-auto relative z-30 flex max-h-[min(88vh,44rem)] w-[min(36rem,calc(100vw-2.5rem))] flex-col overflow-hidden rounded-2xl shadow-[0_24px_80px_rgba(2,6,14,0.55)] lg:-ml-5 lg:w-full">
+    <div className="glass pointer-events-auto relative z-30 flex h-full w-full flex-col overflow-hidden rounded-2xl shadow-[0_24px_80px_rgba(2,6,14,0.55)]">
       <div
         ref={anchorRef}
         className="pointer-events-none absolute top-1/2 left-0 h-8 w-px -translate-y-1/2"
@@ -622,7 +622,7 @@ export function RequirementWorkspace({
             type="button"
             disabled={!canQueue || busy || submitting}
             onClick={() => void queue()}
-            className="rounded-xl bg-carbon-400/15 px-4 py-2 text-[12px] font-semibold text-carbon-400 ring-1 ring-carbon-400/30 transition-colors enabled:hover:bg-carbon-400/25 disabled:cursor-not-allowed disabled:bg-ink-800/60 disabled:text-mist disabled:ring-line/70"
+            className="rounded-xl bg-carbon-400 px-4 py-2 text-[12px] font-semibold text-off-white ring-1 ring-carbon-400/30 transition-opacity enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:bg-ink-700 disabled:text-mist disabled:ring-line/70"
           >
             {busy
               ? "Running Sentinel…"
@@ -634,7 +634,7 @@ export function RequirementWorkspace({
             type="button"
             disabled={!canSubmit}
             onClick={() => void submitToCertify()}
-            className="rounded-xl bg-cyan/15 px-4 py-2 text-[12px] font-semibold text-cyan ring-1 ring-cyan/30 transition-colors enabled:hover:bg-cyan/25 disabled:cursor-not-allowed disabled:bg-ink-800/60 disabled:text-mist disabled:ring-line/70"
+            className="rounded-xl bg-serpentine px-4 py-2 text-[12px] font-semibold text-off-white ring-1 ring-serpentine/30 transition-opacity enabled:hover:opacity-90 disabled:cursor-not-allowed disabled:bg-ink-700 disabled:text-mist disabled:ring-line/70"
           >
             {submitting
               ? "Submitting…"

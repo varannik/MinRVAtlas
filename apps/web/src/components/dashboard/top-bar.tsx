@@ -1,186 +1,159 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { Boxes, Building2, Check, ChevronDown, Search, ShieldCheck } from "lucide-react";
-import { PROJECTS, REGISTRIES } from "@/lib/projects";
-import { TENANTS, getTenant } from "@/lib/tenants";
+import { Boxes, Building2, ChevronDown, MapPin, Search, ShieldCheck } from "lucide-react";
+import { Globe3DMark } from "./globe-back-button";
+import { RegistrySelect } from "./registry-select";
+import { SubmissionChain } from "./submission-chain";
+import { getTenant } from "@/lib/tenants";
 import { useDashboard } from "@/store/dashboard-store";
+import type { Project, SubmissionBatch } from "@/lib/types";
 
-function TenantSwitcher() {
-  const [open, setOpen] = useState(false);
+/* ── Atlas box (left) ───────────────────────────────────────────── */
+
+function TenantMark({ project }: { project?: Project | null }) {
   const tenantId = useDashboard((state) => state.tenantId);
-  const setTenant = useDashboard((state) => state.setTenant);
   const tenant = getTenant(tenantId);
+  const open = useDashboard((state) => state.portfolioOpen);
+  const togglePortfolio = useDashboard((state) => state.togglePortfolio);
+  const selectProject = useDashboard((state) => state.selectProject);
 
-  return (
-    <div className="relative">
-      <div className="glass flex items-center gap-3 rounded-2xl px-4 py-2.5">
-        <span
-          className="grid size-9 place-items-center rounded-xl ring-1"
-          style={{
-            background: `${tenant.accent}1f`,
-            color: tenant.accent,
-            boxShadow: `inset 0 0 0 1px ${tenant.accent}33`,
-          }}
-        >
-          <Boxes className="size-5" />
+  /* ── Project-selected state ── */
+  if (project) {
+    return (
+      <button
+        type="button"
+        onClick={() => selectProject(null)}
+        aria-label="Back to world map"
+        title="Back to world map"
+        className="glass flex h-12 items-center gap-2.5 rounded-2xl px-3 text-left transition-shadow hover:ring-2 hover:ring-carbon-400/30"
+      >
+        <span className="shrink-0 scale-75">
+          <Globe3DMark />
         </span>
 
         <div className="leading-tight">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold tracking-tight">
-              dMRV Atlas
-            </span>
-            <span className="hidden text-[10px] text-mist xl:inline">
-              Carbon portfolio control room
-            </span>
+          <div className="max-w-40 truncate text-[13px] font-semibold tracking-tight">
+            {project.name}
           </div>
-
-          <button
-            type="button"
-            onClick={() => setOpen((value) => !value)}
-            className="mt-0.5 flex items-center gap-1.5 text-mist transition-colors hover:text-frost"
-          >
-            <Building2 className="size-3" />
+          <div className="mt-px flex items-center gap-1.5 text-mist">
+            <MapPin className="size-3" />
             <span className="text-[11px] font-medium text-frost">
-              {tenant.name}
+              {project.country}
             </span>
-            <span
-              className="rounded-full px-1.5 py-px text-[9px] font-semibold"
-              style={{ background: `${tenant.accent}1f`, color: tenant.accent }}
-            >
-              {tenant.plan}
-            </span>
-            <ChevronDown
-              className={`size-3 transition-transform ${open ? "rotate-180" : ""}`}
-            />
-          </button>
+            <span className="text-[9px] text-mist">·</span>
+            <span className="text-[10px] text-mist">{project.registry}</span>
+          </div>
+        </div>
+      </button>
+    );
+  }
+
+  /* ── Map state (default) ── */
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      aria-controls="portfolio-drawer"
+      onClick={togglePortfolio}
+      className={`glass flex h-12 items-center gap-2.5 rounded-2xl px-3 text-left transition-shadow ${
+        open ? "ring-2 ring-carbon-400/40" : ""
+      }`}
+    >
+      <span
+        className="grid size-8 shrink-0 place-items-center rounded-xl ring-1"
+        style={{
+          background: `${tenant.accent}1f`,
+          color: tenant.accent,
+          boxShadow: `inset 0 0 0 1px ${tenant.accent}33`,
+        }}
+      >
+        <Boxes className="size-4" />
+      </span>
+
+      <div className="leading-tight">
+        <div className="text-[13px] font-semibold tracking-tight">dMRV Atlas</div>
+        <div className="mt-px flex items-center gap-1.5 text-mist">
+          <Building2 className="size-3" />
+          <span className="text-[11px] font-medium text-frost">{tenant.name}</span>
+          <span
+            className="rounded-full px-1.5 py-px text-[9px] font-semibold"
+            style={{ background: `${tenant.accent}1f`, color: tenant.accent }}
+          >
+            {tenant.plan}
+          </span>
         </div>
       </div>
 
-      {open ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close workspace menu"
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-10 cursor-default"
-          />
-          <div className="glass absolute top-full left-0 z-20 mt-2 w-72 overflow-hidden rounded-2xl p-1.5 shadow-2xl">
-            <div className="px-2.5 py-1.5 text-[10px] tracking-[0.14em] text-mist uppercase">
-              Workspaces
-            </div>
-            {TENANTS.map((option) => {
-              const active = option.id === tenantId;
-              const count = PROJECTS.filter(
-                (project) => project.tenantId === option.id,
-              ).length;
-
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => {
-                    setTenant(option.id);
-                    setOpen(false);
-                  }}
-                  className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors ${
-                    active ? "bg-ink-700" : "hover:bg-ink-800"
-                  }`}
-                >
-                  <span
-                    className="grid size-7 shrink-0 place-items-center rounded-lg text-[10px] font-bold"
-                    style={{
-                      background: `${option.accent}1f`,
-                      color: option.accent,
-                    }}
-                  >
-                    {option.short}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-medium text-frost">
-                      {option.name}
-                    </span>
-                    <span className="block text-[10px] text-mist">
-                      {option.plan} · {count} project{count === 1 ? "" : "s"} ·{" "}
-                      {option.seats} seats
-                    </span>
-                  </span>
-                  {active ? (
-                    <Check
-                      className="size-3.5 shrink-0"
-                      style={{ color: option.accent }}
-                    />
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-        </>
-      ) : null}
-    </div>
+      <ChevronDown
+        className={`size-3.5 shrink-0 text-mist transition-transform ${open ? "rotate-180" : ""}`}
+      />
+    </button>
   );
 }
 
-export function TopBar() {
+/* ── Top Bar ────────────────────────────────────────────────────── */
+
+export function TopBar({
+  project,
+  batches,
+  activeBatchId,
+}: {
+  project?: Project | null;
+  batches?: SubmissionBatch[] | null;
+  activeBatchId?: string | null;
+}) {
   const query = useDashboard((state) => state.query);
   const setQuery = useDashboard((state) => state.setQuery);
-  const registryFilter = useDashboard((state) => state.registryFilter);
-  const setRegistryFilter = useDashboard((state) => state.setRegistryFilter);
-
-  const filters = ["all", ...REGISTRIES] as const;
+  const onMap = !project;
 
   return (
-    <header className="pointer-events-auto flex items-start gap-4 px-5 py-3">
-      <TenantSwitcher />
-
-      <label className="glass mt-1 flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl px-4 py-2.5 md:max-w-sm">
-        <Search className="size-4 shrink-0 text-mist" />
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search project, country or methodology"
-          className="w-full bg-transparent text-sm text-frost placeholder:text-mist/70 focus:outline-none"
-        />
-      </label>
-
-      <div className="glass mt-1 hidden items-center gap-1 rounded-2xl p-1.5 lg:flex">
-        {filters.map((filter) => {
-          const active = registryFilter === filter;
-          return (
-            <button
-              key={filter}
-              type="button"
-              onClick={() => setRegistryFilter(filter)}
-              className={`rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
-                active
-                  ? "bg-carbon-400/15 text-carbon-400 ring-1 ring-carbon-400/30"
-                  : "text-mist hover:text-frost"
-              }`}
-            >
-              {filter === "all" ? "All registries" : filter}
-            </button>
-          );
-        })}
+    <header className="pointer-events-auto relative flex h-16 items-center px-5">
+      {/* Left cluster */}
+      <div className="relative z-10 flex h-12 items-center gap-3">
+        <TenantMark project={project} />
+        {onMap ? <RegistrySelect /> : null}
       </div>
 
-      <Link
-        href="/quality"
-        className="glass mt-1 ml-auto hidden items-center gap-2 rounded-2xl px-3.5 py-2.5 text-xs font-medium text-mist transition-colors hover:text-frost sm:flex"
-      >
-        <ShieldCheck className="size-3.5 text-carbon-400" />
-        Quality
-      </Link>
+      {/* Center slot */}
+      {onMap ? (
+        <div className="pointer-events-none absolute inset-x-5 inset-y-0 z-0 flex items-center justify-center">
+          <label className="glass pointer-events-auto flex h-12 w-full max-w-md items-center gap-2.5 rounded-2xl px-4">
+            <Search className="size-4 shrink-0 text-mist" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search project, country or methodology"
+              className="w-full bg-transparent text-sm text-frost placeholder:text-mist/70 focus:outline-none"
+            />
+          </label>
+        </div>
+      ) : batches && activeBatchId ? (
+        <div className="pointer-events-none absolute inset-x-5 inset-y-0 z-0 flex items-center justify-center">
+          <SubmissionChain batches={batches} activeId={activeBatchId} />
+        </div>
+      ) : null}
 
-      <div className="glass mt-1 hidden items-center gap-2 rounded-2xl px-3.5 py-2.5 sm:flex">
-        <span className="relative flex size-2">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-carbon-400/70" />
-          <span className="relative inline-flex size-2 rounded-full bg-carbon-400" />
-        </span>
-        <span className="text-[11px] font-medium tracking-wide text-mist">
-          Telemetry live
-        </span>
+      {/* Right cluster */}
+      <div className="relative z-10 ml-auto flex h-12 items-center gap-3">
+        <Link
+          href="/quality"
+          className="glass hidden h-12 items-center gap-2 rounded-2xl px-4 text-xs font-medium text-mist transition-colors hover:text-frost sm:flex"
+        >
+          <ShieldCheck className="size-3.5 text-carbon-400" />
+          Quality
+        </Link>
+
+        <div
+          className="glass hidden h-12 w-12 place-items-center rounded-2xl sm:grid"
+          title="Telemetry live"
+          aria-label="Telemetry live"
+        >
+          <span className="relative flex size-2">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-carbon-400/70" />
+            <span className="relative inline-flex size-2 rounded-full bg-carbon-400" />
+          </span>
+        </div>
       </div>
     </header>
   );

@@ -1,3 +1,4 @@
+import { ACCENT } from "./brand";
 import type { Tenant } from "./types";
 
 export const TENANTS: Tenant[] = [
@@ -7,7 +8,7 @@ export const TENANTS: Tenant[] = [
     short: "VCP",
     plan: "Enterprise",
     seats: 48,
-    accent: "#34e0a1",
+    accent: ACCENT.land,
   },
   {
     id: "helios",
@@ -15,7 +16,7 @@ export const TENANTS: Tenant[] = [
     short: "HCF",
     plan: "Growth",
     seats: 12,
-    accent: "#4cc4ff",
+    accent: ACCENT.tech,
   },
   {
     id: "terrafix",
@@ -23,7 +24,7 @@ export const TENANTS: Tenant[] = [
     short: "TFR",
     plan: "Enterprise",
     seats: 26,
-    accent: "#9b8cff",
+    accent: ACCENT.storage,
   },
   {
     id: "fourfourone",
@@ -31,7 +32,7 @@ export const TENANTS: Tenant[] = [
     short: "4401",
     plan: "Enterprise",
     seats: 34,
-    accent: "#5ce1e6",
+    accent: ACCENT.alert,
   },
 ];
 

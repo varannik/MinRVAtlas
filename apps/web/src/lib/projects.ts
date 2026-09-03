@@ -1,3 +1,4 @@
+import { ACCENT } from "./brand";
 import type { Project, ProjectStatus, Registry } from "./types";
 
 export const PROJECTS: Project[] = [
@@ -278,11 +279,11 @@ export const STATUS_META: Record<
   ProjectStatus,
   { label: string; color: string }
 > = {
-  draft: { label: "Draft", color: "#7b8aa5" },
-  validation: { label: "Validation", color: "#f5b544" },
-  monitoring: { label: "Monitoring", color: "#4cc4ff" },
-  verification: { label: "Verification", color: "#9b8cff" },
-  issued: { label: "Issued", color: "#34e0a1" },
+  draft: { label: "Draft", color: ACCENT.neutral },
+  validation: { label: "Validation", color: ACCENT.alert },
+  monitoring: { label: "Monitoring", color: ACCENT.tech },
+  verification: { label: "Verification", color: ACCENT.storage },
+  issued: { label: "Issued", color: ACCENT.land },
 };
 
 export function getProject(id: string | null): Project | undefined {

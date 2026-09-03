@@ -78,7 +78,7 @@ export function QualityShell({ children }: { children: ReactNode }) {
                     href={item.href}
                     className={`block rounded-xl px-2.5 py-1.5 text-[13px] ${
                       active
-                        ? "bg-carbon-400/15 text-carbon-400"
+                        ? "bg-ink-800 font-medium text-carbon-400 ring-1 ring-carbon-400/30"
                         : "text-mist hover:bg-ink-800 hover:text-frost"
                     }`}
                   >

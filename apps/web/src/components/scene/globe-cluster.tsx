@@ -178,16 +178,16 @@ export function GlobeCluster() {
   const globe = useMemo(() => {
     const instance = new ThreeGlobe({ animateIn: false });
     instance.showAtmosphere(true);
-    instance.atmosphereColor("#4cc4ff");
-    instance.atmosphereAltitude(0.22);
+    instance.atmosphereColor("#beb290");
+    instance.atmosphereAltitude(0.14);
     instance.globeMaterial(
       new THREE.MeshPhongMaterial({
-        color: new THREE.Color("#071322"),
-        emissive: new THREE.Color("#04101c"),
-        emissiveIntensity: 0.6,
-        shininess: 4,
+        color: new THREE.Color("#d9d4c8"),
+        emissive: new THREE.Color("#f1f0f0"),
+        emissiveIntensity: 0.18,
+        shininess: 8,
         transparent: true,
-        opacity: 0.96,
+        opacity: 0.98,
       }),
     );
     instance.ringResolution(64);
@@ -206,7 +206,7 @@ export function GlobeCluster() {
           .hexPolygonMargin(0.52)
           .hexPolygonUseDots(true)
           .hexPolygonAltitude(0.006)
-          .hexPolygonColor(() => "#1c6f96");
+          .hexPolygonColor(() => "#6f663f");
       })
       .catch(() => undefined);
     return () => {

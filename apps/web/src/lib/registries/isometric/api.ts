@@ -1,3 +1,4 @@
+import { ACCENT } from "@/lib/brand";
 import type { RegistryEnvironment } from "../types";
 
 /**
@@ -208,25 +209,25 @@ export const PHASE_META: Record<
   pre_op: {
     code: "PRE",
     title: "Pre-operational monitoring",
-    accent: "#4cc4ff",
+    accent: ACCENT.tech,
     order: 0,
   },
   feedstock: {
     code: "FDS",
     title: "Feedstock monitoring",
-    accent: "#34e0a1",
+    accent: ACCENT.land,
     order: 1,
   },
   operation: {
     code: "OPS",
     title: "Operational monitoring",
-    accent: "#5ce1e6",
+    accent: ACCENT.storage,
     order: 2,
   },
   post_op: {
     code: "PST",
     title: "Post-closure monitoring",
-    accent: "#ff8f6b",
+    accent: ACCENT.alert,
     order: 3,
   },
 };

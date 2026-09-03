@@ -2,20 +2,12 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { Html } from "@react-three/drei";
-import { KeyRound } from "lucide-react";
 import * as THREE from "three";
-import { SUBMISSION_STATUS_META } from "@/lib/submissions";
+import { BRAND } from "@/lib/brand";
 import { useDashboard } from "@/store/dashboard-store";
 import { dragState } from "./drag-state";
-import { panelAnchor, requirementAnchor } from "./requirement-anchor";
-import {
-  chainFocusX,
-  chainWorkspaceX,
-  WORKSPACE_BOARD_SCALE,
-  WORKSPACE_BOARD_Z,
-  WORKSPACE_OVERLAP_PX,
-} from "./layout";
+import { boardSlot, requirementAnchor } from "./requirement-anchor";
+import { boardSlotPose } from "./layout";
 import {
   BOARD_D,
   BOARD_H,
@@ -45,22 +37,39 @@ const DRIFT = 0.018;
 const AIM_DAMP = 2.6;
 const POSE_DAMP = 1.35;
 
-const BOARD_Y = -0.5;
-const BOARD_Z = 0.4;
-const RIBBON_Y = 1.66;
-const RIBBON_STEP = 1.16;
-const NODE_W = 0.66;
-const NODE_H = 0.4;
+const BOARD_Y = 0;
+const SLOT_PLANE_Z = 0.45;
 
-const DOT_COUNT = 7;
-const DOT_GEOMETRY = new THREE.PlaneGeometry(0.05, 0.048);
+function roundedPlate(
+  width: number,
+  height: number,
+  depth: number,
+  radius: number,
+) {
+  const r = Math.min(radius, width / 2 - 0.001, height / 2 - 0.001);
+  const x = -width / 2;
+  const y = -height / 2;
+  const shape = new THREE.Shape();
+  shape.moveTo(x + r, y);
+  shape.lineTo(x + width - r, y);
+  shape.quadraticCurveTo(x + width, y, x + width, y + r);
+  shape.lineTo(x + width, y + height - r);
+  shape.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  shape.lineTo(x + r, y + height);
+  shape.quadraticCurveTo(x, y + height, x, y + height - r);
+  shape.lineTo(x, y + r);
+  shape.quadraticCurveTo(x, y, x + r, y);
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth,
+    bevelEnabled: false,
+    curveSegments: 6,
+  });
+  geometry.translate(0, 0, -depth / 2);
+  return geometry;
+}
 
-const SLAB_GEOMETRY = new THREE.BoxGeometry(BOARD_W, BOARD_H, BOARD_D);
-const SLAB_EDGES = new THREE.EdgesGeometry(SLAB_GEOMETRY);
 const FACE_GEOMETRY = new THREE.PlaneGeometry(BOARD_W, BOARD_H);
-const PUCK_GEOMETRY = new THREE.BoxGeometry(PUCK_SIZE, PUCK_SIZE, PUCK_DEPTH);
-const NODE_GEOMETRY = new THREE.BoxGeometry(NODE_W, NODE_H, 0.08);
-const NODE_EDGES = new THREE.EdgesGeometry(NODE_GEOMETRY);
+const PUCK_GEOMETRY = roundedPlate(PUCK_SIZE, PUCK_SIZE, PUCK_DEPTH, 0.02);
 
 const FACE_Z = BOARD_D / 2 + 0.002;
 const PUCK_Z = FACE_Z + PUCK_DEPTH / 2;
@@ -100,14 +109,14 @@ function StatusChip({
       }}
     >
       {missing ? (
-        <meshBasicMaterial color="#3f6389" wireframe transparent opacity={0.9} />
+        <meshBasicMaterial color={BRAND.shale} wireframe transparent opacity={0.85} />
       ) : (
         <meshStandardMaterial
           color={color}
           emissive={color}
           emissiveIntensity={STATE_EMISSIVE[item.state]}
-          metalness={0.25}
-          roughness={0.34}
+          metalness={0.08}
+          roughness={0.46}
         />
       )}
     </mesh>
@@ -178,7 +187,6 @@ function RowHit({
 function RequirementBoard({ batch }: { batch: SubmissionBatch }) {
   const groupRef = useRef<THREE.Group>(null);
   const faceMat = useRef<THREE.MeshBasicMaterial>(null);
-  const slabMat = useRef<THREE.MeshStandardMaterial>(null);
   const chipRefs = useRef<(THREE.Mesh | null)[]>([]);
   const hovering = useRef(false);
   const posed = useRef(false);
@@ -234,7 +242,6 @@ function RequirementBoard({ batch }: { batch: SubmissionBatch }) {
     const s = scratch.current;
     const parent = group.parent;
     if (parent) parent.updateWorldMatrix(true, false);
-    const basis = parent ?? group;
     const receded = Boolean(selectedSlotId);
     const reduced =
       typeof window !== "undefined" &&
@@ -251,7 +258,7 @@ function RequirementBoard({ batch }: { batch: SubmissionBatch }) {
       .multiply(state.camera.quaternion);
     s.restEuler.setFromQuaternion(s.camLocalQuat, "YXZ");
 
-    s.worldPoint.set(0, BOARD_Y, BOARD_Z + FACE_Z).applyMatrix4(basis.matrixWorld);
+    s.worldPoint.set(0, 0, FACE_Z).applyMatrix4(group.matrixWorld);
     state.camera.getWorldDirection(s.worldNormal).negate();
     s.hitPlane.setFromNormalAndCoplanarPoint(s.worldNormal, s.worldPoint);
 
@@ -263,12 +270,14 @@ function RequirementBoard({ batch }: { batch: SubmissionBatch }) {
       s.offset.copy(s.hitPoint).sub(s.worldPoint);
       const localX = s.offset.dot(s.camRight);
       const localY = s.offset.dot(s.camUp);
-      const onFace =
-        Math.abs(localX) <= BOARD_W / 2 && Math.abs(localY) <= BOARD_H / 2;
+      group.getWorldScale(s.ndc);
+      const halfW = (BOARD_W / 2) * Math.abs(s.ndc.x);
+      const halfH = (BOARD_H / 2) * Math.abs(s.ndc.y);
+      const onFace = Math.abs(localX) <= halfW && Math.abs(localY) <= halfH;
       hovering.current = onFace && !receded;
       if (onFace) {
-        pointer.current.x = THREE.MathUtils.clamp(localX / (BOARD_W / 2), -1, 1);
-        pointer.current.y = THREE.MathUtils.clamp(localY / (BOARD_H / 2), -1, 1);
+        pointer.current.x = THREE.MathUtils.clamp(localX / halfW, -1, 1);
+        pointer.current.y = THREE.MathUtils.clamp(localY / halfH, -1, 1);
       }
     } else {
       hovering.current = false;
@@ -306,8 +315,7 @@ function RequirementBoard({ batch }: { batch: SubmissionBatch }) {
       step,
     );
 
-    const faceOpacity = receded && !reduced ? 0.34 : 1;
-    const slabOpacity = receded && !reduced ? 0.38 : 1;
+    const faceOpacity = 1;
     if (faceMat.current) {
       faceMat.current.opacity = THREE.MathUtils.damp(
         faceMat.current.opacity,
@@ -316,16 +324,8 @@ function RequirementBoard({ batch }: { batch: SubmissionBatch }) {
         step,
       );
       const faded = faceMat.current.opacity < 0.99;
-      faceMat.current.transparent = faded;
+      faceMat.current.transparent = true;
       faceMat.current.depthWrite = !faded;
-    }
-    if (slabMat.current) {
-      slabMat.current.opacity = THREE.MathUtils.damp(
-        slabMat.current.opacity,
-        slabOpacity,
-        6,
-        step,
-      );
     }
 
     for (let i = 0; i < itemRows.length; i += 1) {
@@ -366,7 +366,7 @@ function RequirementBoard({ batch }: { batch: SubmissionBatch }) {
         material.transparent = true;
         material.opacity = THREE.MathUtils.damp(
           material.opacity,
-          receded && !reduced ? (hot ? 0.72 : 0.32) : 1,
+          receded && !reduced ? (hot ? 1 : 0.92) : 1,
           6,
           step,
         );
@@ -388,26 +388,7 @@ function RequirementBoard({ batch }: { batch: SubmissionBatch }) {
   });
 
   return (
-    <group ref={groupRef} position={[0, BOARD_Y, BOARD_Z]}>
-      <mesh geometry={SLAB_GEOMETRY} raycast={() => null}>
-        <meshStandardMaterial
-          ref={slabMat}
-          color="#04101d"
-          metalness={0.35}
-          roughness={0.62}
-          transparent
-          opacity={1}
-        />
-      </mesh>
-
-      <lineSegments geometry={SLAB_EDGES} raycast={() => null}>
-        <lineBasicMaterial
-          color={SUBMISSION_STATUS_META[batch.status].color}
-          transparent
-          opacity={0.45}
-        />
-      </lineSegments>
-
+    <group ref={groupRef}>
       <mesh
         geometry={FACE_GEOMETRY}
         position={[0, 0, FACE_Z]}
@@ -418,7 +399,8 @@ function RequirementBoard({ batch }: { batch: SubmissionBatch }) {
           ref={faceMat}
           map={texture}
           toneMapped={false}
-          transparent={false}
+          transparent
+          alphaTest={0.2}
           depthWrite
           opacity={1}
         />
@@ -453,152 +435,9 @@ function RequirementBoard({ batch }: { batch: SubmissionBatch }) {
   );
 }
 
-function RibbonNode({
-  batch,
-  x,
-  active,
-}: {
-  batch: SubmissionBatch;
-  x: number;
-  active: boolean;
-}) {
-  const groupRef = useRef<THREE.Group>(null);
-  const selectSubmission = useDashboard((state) => state.selectSubmission);
-  const status = SUBMISSION_STATUS_META[batch.status];
-
-  useFrame((_, delta) => {
-    const group = groupRef.current;
-    if (!group) return;
-    group.scale.setScalar(
-      THREE.MathUtils.damp(group.scale.x, active ? 1 : 0.86, 6, Math.min(delta, 0.1)),
-    );
-  });
-
-  return (
-    <group ref={groupRef} position={[x, 0, active ? 0.06 : 0]}>
-      <mesh
-        geometry={NODE_GEOMETRY}
-        onClick={(event) => {
-          event.stopPropagation();
-          if (dragState.moved) return;
-          selectSubmission(batch.id);
-        }}
-        onPointerOver={(event) => {
-          event.stopPropagation();
-          document.body.style.cursor = "pointer";
-        }}
-        onPointerOut={() => {
-          document.body.style.cursor = "auto";
-        }}
-      >
-        <meshStandardMaterial
-          color={active ? "#0b1c30" : "#07131f"}
-          metalness={0.3}
-          roughness={0.6}
-        />
-      </mesh>
-
-      <lineSegments geometry={NODE_EDGES} raycast={() => null}>
-        <lineBasicMaterial
-          color={status.color}
-          transparent
-          opacity={active ? 0.85 : 0.35}
-        />
-      </lineSegments>
-
-      <mesh position={[0, -NODE_H / 2 + 0.06, 0.05]} raycast={() => null}>
-        <planeGeometry args={[NODE_W - 0.12, 0.035]} />
-        <meshBasicMaterial color="#12253c" toneMapped={false} />
-      </mesh>
-      <mesh
-        position={[
-          -(NODE_W - 0.12) / 2 + ((NODE_W - 0.12) * batch.completion) / 200,
-          -NODE_H / 2 + 0.06,
-          0.052,
-        ]}
-        raycast={() => null}
-      >
-        <planeGeometry args={[((NODE_W - 0.12) * batch.completion) / 100, 0.035]} />
-        <meshBasicMaterial color={status.color} toneMapped={false} />
-      </mesh>
-
-      <Html position={[0, 0.05, 0.06]} center style={{ pointerEvents: "none" }}>
-        <div
-          className={`w-28 text-center transition-opacity duration-200 ${
-            active ? "opacity-100" : "opacity-65"
-          }`}
-        >
-          <div className="font-mono text-[10px] font-semibold text-frost">
-            B{batch.sequence}
-          </div>
-          <div
-            className="text-[9px] font-medium"
-            style={{ color: status.color }}
-          >
-            {status.label} · {batch.completion}%
-          </div>
-        </div>
-      </Html>
-    </group>
-  );
-}
-
 /**
- * A dotted link carrying the key that seals one batch to the next: the child
- * batch stores this hash as its parent, so a monitoring period cannot be
- * re-credited or edited after the fact without breaking the chain.
- */
-function RibbonLink({
-  x,
-  hash,
-  lit,
-}: {
-  x: number;
-  hash: string;
-  lit: boolean;
-}) {
-  const length = RIBBON_STEP - NODE_W;
-  const gap = length / (DOT_COUNT - 1);
-
-  return (
-    <group position={[x, 0, -0.02]}>
-      {Array.from({ length: DOT_COUNT }, (_, index) => (
-        <mesh
-          key={index}
-          geometry={DOT_GEOMETRY}
-          position={[-length / 2 + index * gap, 0, 0]}
-          raycast={() => null}
-        >
-          <meshBasicMaterial
-            color={lit ? "#5ce1e6" : "#2f5b86"}
-            transparent
-            opacity={lit ? 0.95 : 0.7}
-            toneMapped={false}
-          />
-        </mesh>
-      ))}
-
-      <Html position={[0, 0.15, 0.05]} center style={{ pointerEvents: "none" }}>
-        <div
-          className={`flex items-center gap-1 rounded-md bg-ink-900/85 px-1.5 py-0.5 ring-1 transition-colors ${
-            lit ? "ring-cyan/45" : "ring-line/70"
-          }`}
-        >
-          <KeyRound
-            className={`size-2.5 shrink-0 ${lit ? "text-cyan" : "text-mist"}`}
-          />
-          <span className="font-mono text-[8px] leading-none text-mist">
-            {hash.slice(0, 8)}
-          </span>
-        </div>
-      </Html>
-    </group>
-  );
-}
-
-/**
- * The chain of submission batches for one project: a hash-linked ribbon of
- * batches on top, and the requirement board for the selected batch below it.
+ * Requirement board for the selected submission batch. Batch switching lives in
+ * the DOM submission chain, not on this mesh.
  */
 export function SubmissionBoard({
   batches,
@@ -608,9 +447,8 @@ export function SubmissionBoard({
   focusedId: string | null;
 }) {
   const rootRef = useRef<THREE.Group>(null);
-  const edgeRef = useRef(new THREE.Vector3());
-  const { viewport, size, camera, gl } = useThree();
-  const selectedSlotId = useDashboard((state) => state.selectedSlotId);
+  const snapped = useRef(false);
+  const { camera, gl } = useThree();
 
   const focusedIndex = useMemo(() => {
     if (!batches) return 0;
@@ -618,54 +456,40 @@ export function SubmissionBoard({
     return index >= 0 ? index : batches.length - 1;
   }, [batches, focusedId]);
 
-  const ribbonOffset = batches ? ((batches.length - 1) * RIBBON_STEP) / 2 : 0;
-
   useFrame((_, delta) => {
     const root = rootRef.current;
     if (!root) return;
     const step = Math.min(delta, 0.1);
-    const visible = Boolean(batches);
-    const receded = Boolean(selectedSlotId);
-    const reduced =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const wide = size.width >= 1024;
-    const targetScale = visible
-      ? receded && !reduced && wide
-        ? WORKSPACE_BOARD_SCALE
-        : receded && !wide
-          ? 0.9
-          : 1
-      : 0.001;
+    const pose =
+      batches && boardSlot.visible
+        ? boardSlotPose(
+            boardSlot,
+            camera,
+            gl.domElement.getBoundingClientRect(),
+            SLOT_PLANE_Z,
+            BOARD_W,
+            BOARD_H,
+          )
+        : null;
 
-    let targetX = receded
-      ? chainWorkspaceX(viewport)
-      : chainFocusX(viewport, true);
-    const targetY = 0;
-    if (receded && wide && panelAnchor.visible) {
-      const factor = Math.max(viewport.factor, 1e-3);
-      const edge = edgeRef.current;
-      edge.set(BOARD_W / 2, 0, 0);
-      edge.applyMatrix4(root.matrixWorld);
-      edge.project(camera);
-      const rect = gl.domElement.getBoundingClientRect();
-      const currentRight = rect.left + (edge.x * 0.5 + 0.5) * rect.width;
-      const desiredRight = panelAnchor.screenX + WORKSPACE_OVERLAP_PX;
-      targetX = root.position.x + (desiredRight - currentRight) / factor;
+    const targetScale = pose?.scale ?? 0.001;
+    const targetX = pose?.x ?? 0;
+    const targetY = pose?.y ?? 0;
+    const targetZ = pose?.z ?? SLOT_PLANE_Z;
+
+    if (pose && !snapped.current) {
+      root.position.set(targetX, targetY, targetZ);
+      root.scale.setScalar(targetScale);
+      snapped.current = true;
+    } else if (!pose) {
+      snapped.current = false;
     }
 
-    const posDamp = receded ? 10 : 5;
-    const scaleDamp = receded ? 8 : 6;
-    root.position.x = THREE.MathUtils.damp(root.position.x, targetX, posDamp, step);
-    root.position.y = THREE.MathUtils.damp(root.position.y, targetY, posDamp, step);
-    root.position.z = THREE.MathUtils.damp(
-      root.position.z,
-      receded && !reduced ? WORKSPACE_BOARD_Z : 0,
-      posDamp,
-      step,
-    );
+    root.position.x = THREE.MathUtils.damp(root.position.x, targetX, 8, step);
+    root.position.y = THREE.MathUtils.damp(root.position.y, targetY, 8, step);
+    root.position.z = THREE.MathUtils.damp(root.position.z, targetZ, 8, step);
     root.scale.setScalar(
-      THREE.MathUtils.damp(root.scale.x, targetScale, scaleDamp, step),
+      THREE.MathUtils.damp(root.scale.x, targetScale, 8, step),
     );
     root.visible = root.scale.x > 0.02;
   });
@@ -675,27 +499,6 @@ export function SubmissionBoard({
   return (
     <group ref={rootRef} scale={0.001}>
       {focused ? <RequirementBoard key={focused.id} batch={focused} /> : null}
-
-      {selectedSlotId ? null : (
-        <group position={[0, RIBBON_Y, 0]}>
-          {batches?.map((batch, index) => (
-            <RibbonNode
-              key={batch.id}
-              batch={batch}
-              x={index * RIBBON_STEP - ribbonOffset}
-              active={index === focusedIndex}
-            />
-          ))}
-          {batches?.slice(0, -1).map((batch, index) => (
-            <RibbonLink
-              key={`${batch.id}-link`}
-              x={(index + 0.5) * RIBBON_STEP - ribbonOffset}
-              hash={batch.hash}
-              lit={index === focusedIndex || index + 1 === focusedIndex}
-            />
-          ))}
-        </group>
-      )}
     </group>
   );
 }

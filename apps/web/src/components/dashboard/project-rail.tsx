@@ -15,7 +15,7 @@ export function ProjectRail() {
   const selectProject = useDashboard((state) => state.selectProject);
 
   return (
-    <aside className="glass pointer-events-auto flex w-80 max-w-[86vw] flex-col overflow-hidden rounded-2xl">
+    <aside className="glass pointer-events-auto flex h-full w-80 max-w-[86vw] flex-col overflow-hidden rounded-2xl">
       <div className="flex items-baseline justify-between border-b border-line/70 px-4 py-3">
         <h2 className="text-xs font-semibold tracking-[0.14em] text-mist uppercase">
           Portfolio

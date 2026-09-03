@@ -40,13 +40,15 @@ function Tile({
 
   return (
     <group ref={groupRef} position={[0, -index * TILE_ROW_GAP, 0]} scale={0.001}>
-      <mesh position={[0, 0, -0.03]}>
-        <boxGeometry args={[TILE_WIDTH, TILE_HEIGHT, 0.05]} />
-        <meshStandardMaterial color="#060c17" metalness={0.4} roughness={0.5} />
-      </mesh>
       <mesh>
         <planeGeometry args={[TILE_WIDTH, TILE_HEIGHT]} />
-        <meshBasicMaterial map={texture} transparent toneMapped={false} />
+        <meshBasicMaterial
+          map={texture}
+          transparent
+          alphaTest={0.2}
+          depthWrite={false}
+          toneMapped={false}
+        />
       </mesh>
     </group>
   );

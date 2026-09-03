@@ -19,6 +19,7 @@ interface DashboardState {
   selectedSlotId: string | null;
   registryFilter: RegistryFilter;
   query: string;
+  portfolioOpen: boolean;
   /** Requirements in force for the selected project, and where they came from. */
   specProjectId: string | null;
   requirementSpec: RequirementSpec | null;
@@ -36,6 +37,8 @@ interface DashboardState {
   selectRequirement: (slotId: string | null) => void;
   setRegistryFilter: (registry: RegistryFilter) => void;
   setQuery: (query: string) => void;
+  setPortfolioOpen: (open: boolean) => void;
+  togglePortfolio: () => void;
 }
 
 export const useDashboard = create<DashboardState>((set) => ({
@@ -45,8 +48,9 @@ export const useDashboard = create<DashboardState>((set) => ({
   hoveredProjectId: null,
   hoveredSlotId: null,
   selectedSlotId: null,
-  registryFilter: "all",
+  registryFilter: "Isometric",
   query: "",
+  portfolioOpen: false,
   specProjectId: null,
   requirementSpec: null,
   specMeta: null,
@@ -60,10 +64,11 @@ export const useDashboard = create<DashboardState>((set) => ({
       hoveredProjectId: null,
       hoveredSlotId: null,
       selectedSlotId: null,
-      registryFilter: "all",
+      registryFilter: "Isometric",
       specProjectId: null,
       requirementSpec: null,
       specMeta: null,
+      portfolioOpen: false,
     }),
   selectProject: (id) => {
     const project = getProject(id);
@@ -72,6 +77,7 @@ export const useDashboard = create<DashboardState>((set) => ({
       selectedSubmissionId: project ? getLatestSubmissionId(project) : null,
       hoveredSlotId: null,
       selectedSlotId: null,
+      portfolioOpen: false,
     });
   },
   selectSubmission: (id) =>
@@ -81,4 +87,7 @@ export const useDashboard = create<DashboardState>((set) => ({
   selectRequirement: (slotId) => set({ selectedSlotId: slotId, hoveredSlotId: slotId }),
   setRegistryFilter: (registry) => set({ registryFilter: registry }),
   setQuery: (query) => set({ query }),
+  setPortfolioOpen: (open) => set({ portfolioOpen: open }),
+  togglePortfolio: () =>
+    set((state) => ({ portfolioOpen: !state.portfolioOpen })),
 }));

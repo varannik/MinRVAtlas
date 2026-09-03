@@ -14,3 +14,12 @@ export const panelAnchor = {
   screenY: 0,
   visible: false,
 };
+
+/** DOM slot the 3D requirement board is fitted into. */
+export const boardSlot = {
+  left: 0,
+  top: 0,
+  width: 0,
+  height: 0,
+  visible: false,
+};

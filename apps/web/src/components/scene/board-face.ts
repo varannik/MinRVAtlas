@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { BRAND, FILL, statusFill } from "@/lib/brand";
 import { ITEM_STATE_META } from "@/lib/item-state";
 import { formatCompact } from "@/lib/format";
 import { SUBMISSION_STATUS_META } from "@/lib/submissions";
@@ -39,16 +40,16 @@ const SANS =
 const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
 export const STATE_COLOR: Record<ItemState, string> = {
-  complete: "#34e0a1",
-  pending: "#f5b544",
-  rejected: "#f2647c",
-  missing: "#31506f",
+  complete: FILL.complete,
+  pending: FILL.pending,
+  rejected: FILL.rejected,
+  missing: FILL.missing,
 };
 
 export const STATE_EMISSIVE: Record<ItemState, number> = {
-  complete: 0.55,
-  pending: 0.3,
-  rejected: 0.6,
+  complete: 0.04,
+  pending: 0.04,
+  rejected: 0.04,
   missing: 0,
 };
 
@@ -209,23 +210,22 @@ export function createBoardTexture(
   const ctx = canvas.getContext("2d")!;
   const status = SUBMISSION_STATUS_META[batch.status];
 
-  const backdrop = ctx.createLinearGradient(0, 0, 0, TEX_H);
-  backdrop.addColorStop(0, "#0a1728");
-  backdrop.addColorStop(1, "#050c17");
-  roundRect(ctx, 2, 2, TEX_W - 4, TEX_H - 4, 18);
-  ctx.fillStyle = backdrop;
+  const corner = 28;
+  ctx.clearRect(0, 0, TEX_W, TEX_H);
+  roundRect(ctx, 0, 0, TEX_W, TEX_H, corner);
+  ctx.fillStyle = "#ffffff";
   ctx.fill();
-  ctx.strokeStyle = withAlpha(status.color, 0.35);
-  ctx.lineWidth = 3;
-  ctx.stroke();
+  ctx.save();
+  roundRect(ctx, 0, 0, TEX_W, TEX_H, corner);
+  ctx.clip();
 
   // Header block.
   ctx.textAlign = "left";
-  ctx.fillStyle = "#eaf2ff";
+  ctx.fillStyle = BRAND.rock;
   ctx.font = `600 30px ${MONO}`;
   ctx.fillText(batch.id, PAD, 62);
 
-  ctx.fillStyle = "#8fa3bd";
+  ctx.fillStyle = BRAND.shale;
   ctx.font = `400 16px ${SANS}`;
   ctx.fillText(
     `${batch.periodLabel} · ${formatCompact(batch.volume)} tCO₂e · ${batch.specVersion}`,
@@ -237,7 +237,7 @@ export function createBoardTexture(
   ctx.fillStyle = status.color;
   ctx.font = `600 40px ${SANS}`;
   ctx.fillText(`${batch.completion}%`, TEX_W - PAD, 62);
-  ctx.fillStyle = "#7f93ad";
+  ctx.fillStyle = BRAND.shale;
   ctx.font = `600 13px ${SANS}`;
   ctx.fillText(
     `${status.label.toUpperCase()} · ${batch.items.length - batch.outstanding}/${batch.items.length} READY`,
@@ -248,12 +248,12 @@ export function createBoardTexture(
   // Completion bar.
   const barY = 116;
   roundRect(ctx, PAD, barY, TEX_W - PAD * 2, 6, 3);
-  ctx.fillStyle = "#13253c";
+  ctx.fillStyle = withAlpha(BRAND.sand, 0.55);
   ctx.fill();
   const fill = ((TEX_W - PAD * 2) * batch.completion) / 100;
   if (fill > 6) {
     roundRect(ctx, PAD, barY, fill, 6, 3);
-    ctx.fillStyle = status.color;
+    ctx.fillStyle = statusFill(batch.status);
     ctx.fill();
   }
 
@@ -275,7 +275,7 @@ export function createBoardTexture(
       ctx.font = `700 13px ${SANS}`;
       ctx.fillText(group.code, left + 9, row.y + 4.5);
 
-      ctx.fillStyle = "#cfe0f5";
+      ctx.fillStyle = BRAND.rock;
       ctx.font = `600 17px ${SANS}`;
       const title = group.title.toUpperCase();
       ctx.fillText(title, left + 54, row.y + 5.5);
@@ -312,14 +312,14 @@ export function createBoardTexture(
         ? { text: stateTag, color: ITEM_STATE_META[item.state].color }
         : item.mandatory
           ? null
-          : { text: "OPTIONAL", color: "#7f93ad" };
+          : { text: "OPTIONAL", color: BRAND.shale };
 
     const tagWidth = tag
       ? drawTag(ctx, tag.text, right, row.y, tag.color) + 10
       : 0;
 
     ctx.textAlign = "left";
-    ctx.fillStyle = item.state === "missing" ? "#6f86a5" : "#d9e6f6";
+    ctx.fillStyle = item.state === "missing" ? BRAND.shale : BRAND.rock;
     ctx.font = `${item.mandatory ? 500 : 400} 20px ${SANS}`;
     ctx.fillText(
       clip(
@@ -335,7 +335,7 @@ export function createBoardTexture(
   // Hash chain footer.
   ctx.font = `400 14px ${MONO}`;
   ctx.textAlign = "left";
-  ctx.fillStyle = "#5f7794";
+  ctx.fillStyle = BRAND.shale;
   ctx.fillText(`hash ${batch.hash}`, PAD, TEX_H - 24);
   ctx.textAlign = "right";
   ctx.fillText(
@@ -344,8 +344,16 @@ export function createBoardTexture(
     TEX_H - 24,
   );
 
+  ctx.restore();
+  roundRect(ctx, 1.5, 1.5, TEX_W - 3, TEX_H - 3, Math.max(corner - 1.5, 1));
+  ctx.strokeStyle = withAlpha(BRAND.sand, 0.7);
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 4;
+  texture.premultiplyAlpha = false;
+  texture.needsUpdate = true;
   return texture;
 }

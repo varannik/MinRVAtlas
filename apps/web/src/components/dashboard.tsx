@@ -3,12 +3,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowLeft } from "lucide-react";
+import { BoardSlot } from "./dashboard/board-slot";
 import { ProjectRail } from "./dashboard/project-rail";
 import { RequirementWorkspace } from "./dashboard/requirement-workspace";
-import { SceneLegend } from "./dashboard/scene-legend";
 import { SpatialConnector } from "./dashboard/spatial-connector";
-import { SubmissionPanel } from "./dashboard/submission-panel";
 import { TopBar } from "./dashboard/top-bar";
 import { getSubmissions } from "@/lib/submissions";
 import { overlayBatches } from "@/lib/sentinel/overlay";
@@ -45,6 +43,8 @@ export function Dashboard() {
   const selectSubmission = useDashboard((state) => state.selectSubmission);
   const selectRequirement = useDashboard((state) => state.selectRequirement);
   const selectedSlotId = useDashboard((state) => state.selectedSlotId);
+  const portfolioOpen = useDashboard((state) => state.portfolioOpen);
+  const setPortfolioOpen = useDashboard((state) => state.setPortfolioOpen);
   const setRequirementSpec = useDashboard((state) => state.setRequirementSpec);
   const loadLocations = useLocationStore((state) => state.load);
   const pipelineByKey = usePipeline((state) => state.byKey);
@@ -88,6 +88,10 @@ export function Dashboard() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        if (useDashboard.getState().portfolioOpen) {
+          setPortfolioOpen(false);
+          return;
+        }
         if (selectedSlotIdRef.current) {
           selectRequirement(null);
           return;
@@ -108,7 +112,7 @@ export function Dashboard() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [batch, batches, selectProject, selectRequirement, selectSubmission]);
+  }, [batch, batches, selectProject, selectRequirement, selectSubmission, setPortfolioOpen]);
 
   return (
     <main className="fixed inset-0 overflow-hidden">
@@ -117,111 +121,83 @@ export function Dashboard() {
       </div>
 
       <div className="pointer-events-none absolute inset-0 flex flex-col">
-        <AnimatePresence>
-          {workspaceOpen ? (
-            <motion.button
-              key="shade"
-              type="button"
-              aria-label="Dismiss requirement overlay"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: reduceMotion ? 0.15 : 0.4, ease: EASE }}
-              onClick={() => selectRequirement(null)}
-              className="pointer-events-auto fixed inset-0 z-20 cursor-pointer border-0 bg-ink-950/62 p-0 appearance-none"
-            />
-          ) : null}
-        </AnimatePresence>
-
         <SpatialConnector />
-        <TopBar />
+        <div className="relative z-50">
+          <TopBar
+            project={project}
+            batches={batches}
+            activeBatchId={batch?.id}
+          />
+        </div>
 
-        <div className="relative flex min-h-0 flex-1 gap-4 px-5 pt-1">
-          <AnimatePresence mode="popLayout">
-            {project ? (
-              <motion.div
-                key="back"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.3, ease: EASE }}
-                className="self-start"
-              >
-                <button
-                  type="button"
-                  onClick={() =>
-                    workspaceOpen ? selectRequirement(null) : selectProject(null)
-                  }
-                  className="glass pointer-events-auto relative z-40 flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-medium text-mist transition-colors hover:text-frost"
+        {project ? (
+          <div
+            className={`relative z-25 min-h-0 flex-1 px-5 pt-1 pb-1 ${
+              workspaceOpen
+                ? "grid grid-cols-5 gap-4"
+                : "flex justify-center"
+            }`}
+          >
+            <div
+              className={
+                workspaceOpen
+                  ? "col-span-2 min-h-0 min-w-0"
+                  : "h-full w-full max-w-5xl"
+              }
+            >
+              <BoardSlot />
+            </div>
+
+            <AnimatePresence>
+              {batches && batch && selectedItem ? (
+                <motion.div
+                  key="workspace"
+                  initial={{ opacity: 0, x: 28 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{
+                    duration: reduceMotion ? 0.2 : 0.45,
+                    ease: EASE,
+                  }}
+                  className="pointer-events-none col-span-3 flex min-h-0 min-w-0"
                 >
-                  <ArrowLeft className="size-4" />
-                  {workspaceOpen ? "Back to requirements" : "Back to world map"}
-                </button>
-              </motion.div>
-            ) : (
+                  <RequirementWorkspace item={selectedItem} batch={batch} />
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </div>
+        ) : (
+          <div className="relative min-h-0 flex-1" />
+        )}
+
+        <AnimatePresence>
+          {portfolioOpen ? (
+            <>
+              <motion.button
+                key="portfolio-shade"
+                type="button"
+                aria-label="Close portfolio"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: reduceMotion ? 0.15 : 0.25, ease: EASE }}
+                onClick={() => setPortfolioOpen(false)}
+                className="pointer-events-auto absolute inset-x-0 top-16 bottom-0 z-30 cursor-pointer border-0 bg-off-white/40 p-0 appearance-none"
+              />
               <motion.div
-                key="rail"
+                key="portfolio-drawer"
+                id="portfolio-drawer"
                 initial={{ opacity: 0, x: -28 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -28 }}
-                transition={{ duration: 0.35, ease: EASE }}
-                className="flex min-h-0"
+                transition={{ duration: reduceMotion ? 0.2 : 0.35, ease: EASE }}
+                className="pointer-events-auto absolute top-16 bottom-5 left-5 z-40 flex min-h-0"
               >
                 <ProjectRail />
               </motion.div>
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {project && batches && batch && selectedItem ? (
-              <motion.div
-                key="workspace"
-                initial={{ opacity: 0, x: 36, scale: 0.98 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: 24, scale: 0.98 }}
-                transition={{
-                  duration: reduceMotion ? 0.2 : 0.55,
-                  delay: reduceMotion ? 0 : 0.08,
-                  ease: EASE,
-                }}
-                className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center px-4 lg:inset-y-0 lg:left-auto lg:right-5 lg:w-[min(36rem,46vw)] lg:justify-end lg:px-0"
-              >
-                <RequirementWorkspace item={selectedItem} batch={batch} />
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {project && batches && batch ? (
-              <motion.div
-                key="panel"
-                className="absolute inset-y-0 right-5 z-10 flex min-h-0"
-                initial={{ opacity: 0, x: 28 }}
-                animate={{
-                  opacity: 1,
-                  x: workspaceOpen ? "calc(100% + 1.25rem)" : 0,
-                }}
-                exit={{ opacity: 0, x: 28 }}
-                transition={{ duration: reduceMotion ? 0.2 : 0.55, ease: EASE }}
-                style={{
-                  pointerEvents: workspaceOpen ? "none" : "auto",
-                }}
-              >
-                <SubmissionPanel
-                  project={project}
-                  batches={batches}
-                  batch={batch}
-                />
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-        </div>
-
-        <footer className="px-5 py-4">
-          <SceneLegend
-            mode={project ? (workspaceOpen ? "workspace" : "chain") : "map"}
-          />
-        </footer>
+            </>
+          ) : null}
+        </AnimatePresence>
       </div>
     </main>
   );

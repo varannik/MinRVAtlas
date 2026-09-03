@@ -86,7 +86,7 @@ export function SpatialConnector() {
       <path
         ref={glowRef}
         fill="none"
-        stroke="rgba(92, 225, 230, 0.16)"
+        stroke="rgba(139, 156, 70, 0.28)"
         strokeWidth="1.25"
         strokeDasharray="1.5 8"
         opacity="0"
@@ -95,7 +95,7 @@ export function SpatialConnector() {
       <path
         ref={dashRef}
         fill="none"
-        stroke="rgba(220, 231, 248, 0.38)"
+        stroke="rgba(7, 8, 8, 0.28)"
         strokeWidth="1"
         strokeLinecap="round"
         strokeDasharray="1.5 8"
@@ -106,7 +106,7 @@ export function SpatialConnector() {
         key={selectedSlotId}
         ref={growRef}
         fill="none"
-        stroke="rgba(220, 231, 248, 0.55)"
+        stroke="rgba(7, 8, 8, 0.45)"
         strokeWidth="1"
         strokeLinecap="round"
         pathLength={1}

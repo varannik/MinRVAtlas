@@ -1,3 +1,4 @@
+import { ACCENT } from "@/lib/brand";
 import type { RegistryRulebook } from "../rulebook";
 
 export const RULEBOOK: RegistryRulebook = {
@@ -14,7 +15,7 @@ export const RULEBOOK: RegistryRulebook = {
       id: "puro-output",
       code: "OR",
       title: "Output report",
-      accent: "#34e0a1",
+      accent: ACCENT.land,
       items: [
         {
           id: "output-report",
@@ -67,7 +68,7 @@ export const RULEBOOK: RegistryRulebook = {
       id: "puro-audit",
       code: "AU",
       title: "Audit trail",
-      accent: "#f5b544",
+      accent: ACCENT.alert,
       items: [
         {
           id: "facility-audit",

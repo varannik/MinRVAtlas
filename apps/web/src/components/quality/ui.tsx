@@ -41,7 +41,7 @@ export function Button({
     default:
       "border-line bg-ink-800 text-frost hover:bg-ink-700",
     primary:
-      "border-carbon-400/40 bg-carbon-400/15 text-carbon-400 hover:bg-carbon-400/25",
+      "border-carbon-400 bg-carbon-400 text-off-white hover:opacity-90",
     danger:
       "border-signal-rose/40 bg-signal-rose/10 text-signal-rose hover:bg-signal-rose/20",
   };
@@ -126,7 +126,7 @@ export function DataTable({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-2xl border border-line bg-ink-900 px-4 py-10 text-center text-sm text-mist">
+      <div className="rounded-2xl border border-line bg-ink-800 px-4 py-10 text-center text-sm text-mist">
         {empty}
       </div>
     );
@@ -196,7 +196,7 @@ export function Modal({
       <button
         type="button"
         aria-label="Close dialog"
-        className="absolute inset-0 bg-ink-950/70"
+        className="absolute inset-0 bg-rock/40"
         onClick={onClose}
       />
       <div className="relative z-10 max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-line bg-ink-800 p-5 shadow-2xl">

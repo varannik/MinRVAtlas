@@ -2,13 +2,12 @@
 
 import { useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Stars } from "@react-three/drei";
-import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
 import { GlobeCluster } from "./globe-cluster";
 import { KpiTiles } from "./kpi-tiles";
 import { SubmissionBoard } from "./submission-board";
 import type { TileContent } from "./panel-texture";
+import { BRAND, FILL } from "@/lib/brand";
 import { formatCompact } from "@/lib/format";
 import { getSubmissions } from "@/lib/submissions";
 import { overlayBatches } from "@/lib/sentinel/overlay";
@@ -35,7 +34,7 @@ function BackdropScrim({
     const material = mesh.material as THREE.MeshBasicMaterial;
     material.opacity = THREE.MathUtils.damp(
       material.opacity,
-      active ? (deep ? 0.9 : 0.82) : 0,
+      active ? (deep ? 0.88 : 0.72) : 0,
       3.5,
       Math.min(delta, 0.1),
     );
@@ -46,7 +45,7 @@ function BackdropScrim({
     <mesh ref={ref} position={[0, 0, -1]} raycast={() => null}>
       <planeGeometry args={[80, 60]} />
       <meshBasicMaterial
-        color="#04060c"
+        color={BRAND.offWhite}
         transparent
         opacity={0}
         depthWrite={false}
@@ -91,25 +90,25 @@ export function DmrvScene() {
         label: "Credits issued to date",
         value: formatCompact(issued),
         unit: "tCO₂e",
-        accent: "#34e0a1",
+        accent: FILL.complete,
       },
       {
         label: "Forecast annual removals",
         value: formatCompact(forecast),
         unit: "tCO₂e / yr",
-        accent: "#4cc4ff",
+        accent: BRAND.serpentine,
       },
       {
         label: "Live sensor streams",
         value: formatCompact(sensors),
         unit: "devices",
-        accent: "#9b8cff",
+        accent: BRAND.sand,
       },
       {
         label: "Batches in flight",
         value: `${openBatches}`,
         unit: "submissions",
-        accent: "#f5b544",
+        accent: BRAND.canyon,
       },
     ];
   }, [projects]);
@@ -120,37 +119,25 @@ export function DmrvScene() {
       dpr={[1, 2]}
       gl={{ antialias: true, powerPreference: "high-performance" }}
     >
-      <color attach="background" args={["#04060c"]} />
+      <color attach="background" args={[BRAND.offWhite]} />
 
-      <hemisphereLight intensity={0.35} groundColor="#02040a" color="#8ec5ff" />
-      <ambientLight intensity={0.5} />
-      <directionalLight position={[5, 4, 6]} intensity={1.5} color="#dceaff" />
-      <directionalLight position={[-6, -2, -4]} intensity={0.7} color="#2f6fa8" />
-
-      <Stars
-        radius={80}
-        depth={40}
-        count={2600}
-        factor={3.2}
-        saturation={0}
-        fade
-        speed={0.4}
+      <hemisphereLight
+        intensity={0.9}
+        groundColor={BRAND.sand}
+        color="#f7f3ec"
+      />
+      <ambientLight intensity={0.95} />
+      <directionalLight position={[5, 4, 6]} intensity={1.35} color="#fff8f0" />
+      <directionalLight
+        position={[-6, -2, -4]}
+        intensity={0.4}
+        color={BRAND.calcite}
       />
 
       <GlobeCluster />
       <BackdropScrim active={Boolean(selected)} deep={false} />
       <SubmissionBoard batches={batches} focusedId={selectedSubmissionId} />
       <KpiTiles tiles={tiles} visible={!selected} />
-
-      <EffectComposer>
-        <Bloom
-          intensity={0.62}
-          luminanceThreshold={0.34}
-          luminanceSmoothing={0.85}
-          mipmapBlur
-        />
-        <Vignette offset={0.32} darkness={0.7} />
-      </EffectComposer>
     </Canvas>
   );
 }

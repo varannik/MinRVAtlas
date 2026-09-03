@@ -1,3 +1,4 @@
+import { ACCENT } from "./brand";
 import { getRequirementSpec } from "./registries";
 import type {
   BatchGroup,
@@ -62,11 +63,11 @@ const STATUS_META: Record<
   SubmissionStatus,
   { label: string; color: string }
 > = {
-  assembling: { label: "Assembling", color: "#f5b544" },
-  submitted: { label: "Submitted", color: "#4cc4ff" },
-  "in-verification": { label: "In verification", color: "#9b8cff" },
-  issued: { label: "Issued", color: "#34e0a1" },
-  rejected: { label: "Rejected", color: "#f2647c" },
+  assembling: { label: "Assembling", color: ACCENT.alert },
+  submitted: { label: "Submitted", color: ACCENT.tech },
+  "in-verification": { label: "In verification", color: ACCENT.storage },
+  issued: { label: "Issued", color: ACCENT.land },
+  rejected: { label: "Rejected", color: ACCENT.reject },
 };
 
 export const SUBMISSION_STATUS_META = STATUS_META;

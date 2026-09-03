@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -16,6 +16,11 @@ export const metadata: Metadata = {
   title: "dMRV Atlas — Carbon Project Control Room",
   description:
     "A 3D digital MRV dashboard for carbon market portfolios: pin projects on an interactive globe and inspect the document and data package required for submission.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#F1F0F0",
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

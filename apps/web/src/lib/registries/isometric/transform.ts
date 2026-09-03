@@ -1,3 +1,4 @@
+import { ACCENT } from "@/lib/brand";
 import type {
   ItemKind,
   Project,
@@ -39,7 +40,7 @@ export type LiveEnrichment = {
 const UNKNOWN_PHASE = {
   code: "OTH",
   title: "Other monitoring",
-  accent: "#5b6b85",
+  accent: ACCENT.neutral,
   order: 99,
 };
 

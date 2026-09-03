@@ -1,3 +1,4 @@
+import { ACCENT } from "@/lib/brand";
 import type { SpecEvidence, SpecGroup, SpecItem } from "../../types";
 import type {
   Datapoint,
@@ -6,8 +7,8 @@ import type {
   SourceUrlInfo,
 } from "./api";
 
-const DOC_ACCENT = "#9b8cff";
-const DATA_ACCENT = "#4cc4ff";
+const DOC_ACCENT = ACCENT.storage;
+const DATA_ACCENT = ACCENT.tech;
 
 export function sourceFetchability(source: Source | undefined): {
   fetchable: boolean;

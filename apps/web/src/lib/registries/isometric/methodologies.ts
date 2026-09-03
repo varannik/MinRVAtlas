@@ -1,8 +1,9 @@
+import { ACCENT } from "@/lib/brand";
 import type { MethodologyModule } from "../types";
 
-const TECH_ACCENT = "#4cc4ff";
+const TECH_ACCENT = ACCENT.tech;
 
-const STORAGE_ACCENT = "#8f8cff";
+const STORAGE_ACCENT = ACCENT.storage;
 
 const MODULES: MethodologyModule[] = [
   {

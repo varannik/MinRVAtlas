@@ -51,7 +51,7 @@ export function DatasetsPage() {
             <Button onClick={() => void load()} disabled={!projectId}>
               Refresh
             </Button>
-            <label className="cursor-pointer rounded-xl border border-carbon-400/40 bg-carbon-400/15 px-3 py-1.5 text-xs font-medium text-carbon-400">
+            <label className="cursor-pointer rounded-xl border border-carbon-400 bg-carbon-400 px-3 py-1.5 text-xs font-medium text-off-white">
               Upload CSV
               <input
                 type="file"
