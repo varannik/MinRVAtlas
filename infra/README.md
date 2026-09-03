@@ -48,7 +48,7 @@ CONFIRM=YES APP=minrv-ew2-prod make deploy
 
 ## After first deploy
 
-1. In the AWS console, complete the **PENDING** GitHub connection `minrv-ew2-github` (eu-west-2) for `4401/3DMinRV`.
+1. In the AWS console, complete the **PENDING** GitHub connection `minrv-ew2-github` (eu-west-2) for `varannik/MinRVAtlas`.
 2. Put Isometric tokens into `minrv/ew2/{stage}/isometric` (do not copy Ireland secrets).
 3. Push to GitHub, or `make pipeline-start`. Images are `apps/web/Dockerfile` and `apps/sentinel/backend/Dockerfile`.
 4. Smoke: Next `GET /api/registry/requirements?projectId=fujairah-mineral`; Quality Console `/quality`; Sentinel `GET /api/health` via the **internal** ALB only.

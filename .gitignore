@@ -18,6 +18,9 @@ apps/web/out/
 # production
 build/
 
+# local commit message (git commit -F COMMIT_MSG)
+COMMIT_MSG
+
 # misc
 .DS_Store
 *.pem

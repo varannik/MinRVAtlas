@@ -7,7 +7,7 @@ Developer
     |
     | git push  (or: make pipeline-start)
     v
-GitHub  4401/3DMinRV  (configured branch, default main)
+GitHub  varannik/MinRVAtlas  (configured branch, default main)
     |
     | AWS CodeConnections  (minrv-ew2-github, eu-west-2)
     v
@@ -147,7 +147,7 @@ CodeBuild prints commit SHA, image URI, digest, ECR repository, ECS cluster, and
 | Symptom | What to check |
 | --- | --- |
 | Pipeline never starts on push | Connection `minrv-ew2-github` still **PENDING** — complete it in eu-west-2 Developer Tools → Connections. A connection in **eu-west-3** cannot drive this pipeline. |
-| Source action fails | GitHub App not authorized for `4401/3DMinRV`, or wrong branch (`GITHUB_BRANCH`). |
+| Source action fails | GitHub App not authorized for `varannik/MinRVAtlas`, or wrong branch (`GITHUB_BRANCH`). |
 | Build fails on tests | Web: `tsc` / `eslint`. Sentinel: `pytest` under `ENVIRONMENT=test`. Fix code; do not skip. |
 | `Image tag already exists` then skip | Expected for immutable tags when sandbox and prod build the same SHA. |
 | Deploy succeeds, 0 running tasks | `desiredCount` is 0 — see §5. |
@@ -203,7 +203,7 @@ aws sts get-caller-identity   # must be 625239230739
 cd infra && npx cdk synth minrv-ew2-ecr 'minrv-ew2-sandbox/*'
 
 # 3. Landing zone + pipeline stacks (sandbox)
-cd /path/to/3DMinRV && make deploy
+cd /path/to/MinRVAtlas && make deploy
 
 # 4. Complete GitHub connection in the eu-west-2 console (PENDING → AVAILABLE)
 

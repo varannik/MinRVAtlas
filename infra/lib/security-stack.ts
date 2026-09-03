@@ -135,8 +135,8 @@ export class SecurityStack extends Ew2Stack {
 
   private createDeployRole(): iam.Role {
     const { cfg } = this;
-    const org = cfg.githubOrg ?? "4401";
-    const repo = cfg.githubRepo ?? "3DMinRV";
+    const org = cfg.githubOrg ?? "varannik";
+    const repo = cfg.githubRepo ?? "MinRVAtlas";
     const providerArn = `arn:aws:iam::${ACCOUNT}:oidc-provider/token.actions.githubusercontent.com`;
     const provider = iam.OpenIdConnectProvider.fromOpenIdConnectProviderArn(
       this,

@@ -68,8 +68,8 @@ export class PipelineStack extends Ew2Stack {
       serviceName: resourceName(cfg.stageName, "beat"),
     });
 
-    const org = cfg.githubOrg ?? "4401";
-    const repo = cfg.githubRepo ?? "3DMinRV";
+    const org = cfg.githubOrg ?? "varannik";
+    const repo = cfg.githubRepo ?? "MinRVAtlas";
     const branch = cfg.githubBranch ?? "main";
     const retention =
       cfg.logRetentionDays >= 365

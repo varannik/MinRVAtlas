@@ -330,7 +330,7 @@ Laptop or GitHub OIDC assumes a deploy role that may:
 - ECR push to `minrv-ew2-*`
 - S3 on the bootstrap asset bucket in **eu-west-2**
 
-Trust GitHub OIDC `repo:<org>/3DMinRV:environment:sandbox` / `:prod`. No long-lived access keys.
+Trust GitHub OIDC `repo:varannik/MinRVAtlas:environment:sandbox` / `:prod`. No long-lived access keys.
 
 ### 6.2 ECS task execution
 
