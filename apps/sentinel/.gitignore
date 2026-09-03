@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+.venv/
+venv/
+
+# Node (if anything is run locally)
+node_modules/
+
+# Docker volumes (local only)
+postgres_data/
+uploads_data/
+
+# Secrets / local config
+.env.local
+.env.production
+secrets/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+celery*.log
+
+# Added by production hardening
+*.pyc
+uploads/
+build/
+*.pem
+*.key
+*.cert

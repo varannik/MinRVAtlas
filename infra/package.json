@@ -1,0 +1,26 @@
+{
+  "name": "minrv-ew2-infra",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AWS CDK for 3DMinRV + Data Sentinel in eu-west-2",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "cdk": "cdk",
+    "synth": "cdk synth",
+    "status": "ts-node --prefer-ts-exts scripts/resume-deploy.ts status",
+    "bootstrap": "ts-node --prefer-ts-exts scripts/resume-deploy.ts bootstrap",
+    "diff": "ts-node --prefer-ts-exts scripts/resume-deploy.ts diff",
+    "deploy": "ts-node --prefer-ts-exts scripts/resume-deploy.ts deploy",
+    "destroy": "ts-node --prefer-ts-exts scripts/resume-deploy.ts destroy"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.221.0",
+    "constructs": "^10.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "aws-cdk": "^2.221.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}

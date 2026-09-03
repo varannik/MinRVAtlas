@@ -1,0 +1,22 @@
+version: 0.2
+
+cache:
+  paths:
+    - "/root/.cache/pip/**/*"
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.11
+    commands:
+      - echo "Python $(python3 --version)"
+      - chmod +x infra/buildspec/push-image.sh
+  build:
+    commands:
+      - infra/buildspec/push-image.sh
+
+artifacts:
+  files:
+    - imagedefinitions-api.json
+    - imagedefinitions-worker.json
+    - imagedefinitions-beat.json

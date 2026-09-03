@@ -1,0 +1,12 @@
+{
+  "name": "3dminrv",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix apps/web run dev",
+    "build": "npm --prefix apps/web run build",
+    "start": "npm --prefix apps/web run start",
+    "lint": "npm --prefix apps/web run lint",
+    "sentinel:up": "docker compose -f apps/sentinel/docker-compose.yml up postgres redis backend worker beat",
+    "sentinel:smoke": "node scripts/sentinel-smoke.mjs"
+  }
+}

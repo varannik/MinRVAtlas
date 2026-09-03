@@ -1,0 +1,130 @@
+
+services:
+  # ── PostgreSQL Database ─────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    container_name: ds_postgres
+    env_file:
+      - .env.production
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-datasentinel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-datasentinel_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-datasentinel}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U datasentinel"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    container_name: ds_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+
+  # ── FastAPI Backend ─────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ds_backend
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-dir", "/app/app"]
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.production
+    environment:
+      PYTHONPATH: /app
+      SENTINEL_SERVICE_TOKEN: ${SENTINEL_SERVICE_TOKEN:-local-sentinel-m2m-token}
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+          cpus: '2.0'
+        reservations:
+          memory: 512m
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ── Celery Worker ───────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ds_worker
+    env_file:
+      - .env.production
+    environment:
+      PYTHONPATH: /app
+      SENTINEL_SERVICE_TOKEN: ${SENTINEL_SERVICE_TOKEN:-local-sentinel-m2m-token}
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: '1.0'
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2
+    restart: unless-stopped
+
+  # ── Celery Beat Scheduler ───────────────────────────────────────────────────
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ds_beat
+    env_file:
+      - .env.production
+    environment:
+      PYTHONPATH: /app
+    volumes:
+      - uploads_data:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.tasks.celery_app beat --loglevel=info --scheduler celery.beat:PersistentScheduler
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: '0.25'
+
+  # No UI service. Operators use 3DMinRV http://localhost:3000/quality
+  # Do not bind anything else to :3000. Never put FastAPI on a public ALB.
+
+volumes:
+  postgres_data:
+  uploads_data:

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 style="color:#1A1D27;font-size:20px;font-weight:700;margin-top:0;">Welcome to DataSentinel</h2>
+<p style="color:#444;font-size:14px;line-height:1.6;">
+  Hi {{ name }},
+</p>
+<p style="color:#444;font-size:14px;line-height:1.6;">
+  <strong>{{ invited_by }}</strong> has invited you to join the DataSentinel DQA Platform
+  with the role of <strong>{{ role }}</strong>.
+</p>
+<p style="color:#444;font-size:14px;line-height:1.6;">
+  Click the button below to set your password and access your account.
+  This invite link expires in <strong>72 hours</strong>.
+</p>
+<p style="margin:32px 0;">
+  <a href="{{ invite_url }}"
+     style="background:#E8613C;color:#ffffff;padding:12px 28px;border-radius:6px;
+            text-decoration:none;font-weight:700;font-size:14px;display:inline-block;">
+    Set Your Password
+  </a>
+</p>
+<p style="color:#888;font-size:12px;">
+  Or copy and paste this URL into your browser:<br>
+  <a href="{{ invite_url }}" style="color:#E8613C;word-break:break-all;">{{ invite_url }}</a>
+</p>
+{% endblock %}
