@@ -37,6 +37,8 @@ export type PipelineResult = {
   totalViolations?: number;
   readinessScore?: number | null;
   mappedColumns?: Record<string, string>;
+  schemaBlocked?: boolean;
+  schemaMissing?: string[];
   registryChecks?: RegistryCheck[];
   readyToSubmit?: boolean;
   blockReason?: string;
@@ -61,6 +63,11 @@ function statusOf(
 }
 
 export function pipelineBlockReason(result: PipelineResult): string | undefined {
+  if (result.schemaBlocked) {
+    return result.schemaMissing?.length
+      ? `Missing required columns: ${result.schemaMissing.join(", ")}`
+      : "File does not match this requirement’s columns";
+  }
   if (result.error) return result.error;
   if (statusOf(result, "dqa") === "failed") {
     return result.engines.dqa?.detail || "DQA hard-gate fail";
@@ -81,6 +88,7 @@ export function pipelineBlockReason(result: PipelineResult): string | undefined 
 }
 
 export function computeReadyToSubmit(result: PipelineResult): boolean {
+  if (result.schemaBlocked) return false;
   if (result.error) return false;
   const entries = Object.entries(result.engines);
   if (entries.length === 0) return false;
@@ -96,6 +104,7 @@ export function computeReadyToSubmit(result: PipelineResult): boolean {
 }
 
 export function itemStateFromPipeline(result: PipelineResult): ItemState {
+  if (result.schemaBlocked) return "rejected";
   const dqa = statusOf(result, "dqa");
   const anomaly = statusOf(result, "anomaly");
   const vv = statusOf(result, "vv");

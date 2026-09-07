@@ -265,6 +265,7 @@ export const PROJECTS: Project[] = [
     bufferPct: 2,
     creditingStart: 2025,
     creditingYears: 15,
+    origin: "catalog",
   },
 ];
 

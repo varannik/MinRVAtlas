@@ -38,7 +38,7 @@ export function SiteLocationFields({ project }: { project: Project }) {
     parsedLng !== null &&
     (parsedLat !== latValue || parsedLng !== lngValue);
   const operatorPin = Boolean(overlay);
-  const registryLinked = hasConnection(project.tenantId, project.id);
+  const registryLinked = hasConnection(project.tenantId, project.id, project.registry);
 
   function update(field: "lat" | "lng", value: string) {
     setDraft({ lat, lng, [field]: value });

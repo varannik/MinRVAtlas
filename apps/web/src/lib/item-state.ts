@@ -5,9 +5,10 @@ export const ITEM_STATE_META: Record<
   ItemState,
   { label: string; color: string }
 > = {
-  complete: { label: "Verified", color: ACCENT.land },
-  pending: { label: "In review", color: ACCENT.alert },
-  rejected: { label: "Rejected", color: ACCENT.reject },
+  submitted: { label: "Submitted", color: ACCENT.land },
+  complete: { label: "Ready", color: ACCENT.tech },
+  pending: { label: "Partial", color: ACCENT.alert },
+  rejected: { label: "Rework", color: ACCENT.reject },
   missing: { label: "Missing", color: ACCENT.neutral },
 };
 

@@ -1,5 +1,6 @@
 import { getProject } from "@/lib/projects";
 import { getRequirementSpec } from "@/lib/registries";
+import { bindMethodologySlot } from "@/lib/slot-schema";
 import type { ItemKind } from "@/lib/types";
 import {
   evaluateInsituMineralization,
@@ -16,13 +17,18 @@ export type RegistryRulesInput = {
   csvText: string | null;
   periodStart?: string | null;
   periodEnd?: string | null;
+  label?: string;
 };
 
 function skipped(detail: string): Step3Evaluation {
   return { status: "skipped", detail, checks: [] };
 }
 
-function cadenceForSlot(catalogProjectId: string, slotId: string): string | null {
+function cadenceForSlot(
+  catalogProjectId: string,
+  slotId: string,
+  label?: string,
+): string | null {
   const project = getProject(catalogProjectId);
   if (!project) return null;
   const spec = getRequirementSpec(project);
@@ -32,6 +38,13 @@ function cadenceForSlot(catalogProjectId: string, slotId: string): string | null
       if (slotId === id || slotId.endsWith(`.${item.id}`) || slotId === item.id) {
         return item.cadence ?? null;
       }
+    }
+  }
+  const bound = bindMethodologySlot(slotId, label);
+  if (!bound) return null;
+  for (const group of spec.groups) {
+    for (const item of group.items) {
+      if (item.id === bound) return item.cadence ?? null;
     }
   }
   return null;
@@ -55,12 +68,13 @@ export function evaluateRegistryRules(input: RegistryRulesInput): Step3Evaluatio
       `No Step-3 checks for methodology ${project.methodologyKey}`,
     );
   }
+  const bound = bindMethodologySlot(input.slotId, input.label);
   return evaluateInsituMineralization({
-    slotId: input.slotId,
+    slotId: bound ? `${bound}` : input.slotId,
     kind: input.kind,
     csvText: input.csvText,
     periodStart: input.periodStart,
     periodEnd: input.periodEnd,
-    cadence: cadenceForSlot(input.catalogProjectId, input.slotId),
+    cadence: cadenceForSlot(input.catalogProjectId, input.slotId, input.label),
   });
 }

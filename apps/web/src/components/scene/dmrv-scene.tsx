@@ -11,6 +11,8 @@ import { BRAND, FILL } from "@/lib/brand";
 import { formatCompact } from "@/lib/format";
 import { getSubmissions } from "@/lib/submissions";
 import { overlayBatches } from "@/lib/sentinel/overlay";
+import { periodsFor, usePeriodStore } from "@/store/period-store";
+import { useRegistrySubmit } from "@/store/registry-submit-store";
 import {
   useResolvedProject,
   useVisibleProjects,
@@ -63,6 +65,8 @@ export function DmrvScene() {
   const specProjectId = useDashboard((state) => state.specProjectId);
   const requirementSpec = useDashboard((state) => state.requirementSpec);
   const pipelineByKey = usePipeline((state) => state.byKey);
+  const submitByKey = useRegistrySubmit((state) => state.byKey);
+  const periodMap = usePeriodStore((state) => state.byProject);
   const selected = useResolvedProject(selectedProjectId);
 
   const spec =
@@ -70,11 +74,13 @@ export function DmrvScene() {
 
   const batches = useMemo(() => {
     if (!selected) return null;
+    const periods = periodMap[selected.id] ?? periodsFor(selected.id);
     return overlayBatches(
-      getSubmissions(selected, spec ?? undefined),
+      getSubmissions(selected, spec ?? undefined, periods),
       pipelineByKey,
+      submitByKey,
     );
-  }, [pipelineByKey, selected, spec]);
+  }, [periodMap, pipelineByKey, selected, spec, submitByKey]);
 
   const tiles = useMemo<TileContent[]>(() => {
     const issued = projects.reduce((sum, p) => sum + p.creditsIssued, 0);
@@ -105,9 +111,9 @@ export function DmrvScene() {
         accent: BRAND.sand,
       },
       {
-        label: "Batches in flight",
+        label: "Periods in flight",
         value: `${openBatches}`,
-        unit: "submissions",
+        unit: "reporting windows",
         accent: BRAND.canyon,
       },
     ];

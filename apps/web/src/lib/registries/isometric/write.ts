@@ -9,10 +9,14 @@ import type { RegistryCredentials, RegistryEnvironment } from "../types";
 import {
   MRV_BASE_URL,
   datapointsPath,
+  ghgEntriesPath,
+  ghgStatementsPath,
   ghgStatementSubmitPath,
   monitoringSubmissionsPath,
   sourcesPath,
   type Datapoint,
+  type GhgEntry,
+  type GhgStatement,
   type MonitoringSubmission,
   type Source,
 } from "./api";
@@ -80,6 +84,7 @@ export type GhgWriteInput = {
   reportUrl: string;
   submittedSlotIds: string[];
   mandatorySlotIds: string[];
+  statementId?: string;
   environment: RegistryEnvironment;
   credentials: RegistryCredentials;
 };
@@ -480,12 +485,13 @@ export async function submitSlot(input: SlotWriteInput): Promise<SlotWriteResult
 
 export async function submitGhgStatement(input: GhgWriteInput): Promise<GhgWriteResult> {
   const now = new Date().toISOString();
-  const statementId = process.env.ISOMETRIC_GHG_STATEMENT_ID?.trim();
+  const statementId =
+    input.statementId?.trim() || process.env.ISOMETRIC_GHG_STATEMENT_ID?.trim();
   if (!statementId) {
     return {
       ok: false,
       blocked:
-        "Set ISOMETRIC_GHG_STATEMENT_ID. GHG statement submit is last and is not created from the board.",
+        "Create a GHG statement for this period first, then submit it with a report URL.",
       warnings: [],
       updatedAt: now,
     };
@@ -532,5 +538,248 @@ export async function submitGhgStatement(input: GhgWriteInput): Promise<GhgWrite
       error: classified.message,
       updatedAt: now,
     };
+  }
+}
+
+export type GhgEntryComponentDraft = {
+  componentId: string;
+  inputs: {
+    inputKey: string;
+    displayName: string;
+    magnitude: number;
+    unit: string;
+    stddev?: number;
+  }[];
+};
+
+export type GhgEntryWriteInput = {
+  tenantId: string;
+  catalogProjectId: string;
+  batchId: string;
+  templateId: string;
+  startedOn: string;
+  completedOn: string;
+  notes: string;
+  periodEnd?: string;
+  pipeline: PipelineResult;
+  files: SubmitFile[];
+  components: GhgEntryComponentDraft[];
+  environment: RegistryEnvironment;
+  credentials: RegistryCredentials;
+};
+
+export type GhgEntryWriteResult = {
+  ok: boolean;
+  blocked?: string;
+  entryId?: string;
+  datapointIds: string[];
+  sourceIds: string[];
+  netKg?: number | null;
+  warnings: string[];
+  error?: string;
+};
+
+export type StatementCreateInput = {
+  environment: RegistryEnvironment;
+  credentials: RegistryCredentials;
+  endOn: string;
+};
+
+export type StatementCreateResult = {
+  ok: boolean;
+  blocked?: string;
+  statementId?: string;
+  error?: string;
+};
+
+export async function createGhgEntry(
+  input: GhgEntryWriteInput,
+): Promise<GhgEntryWriteResult> {
+  if (
+    input.pipeline.engines.dqa?.status === "failed" ||
+    input.pipeline.gatePassed === false
+  ) {
+    return {
+      ok: false,
+      blocked: "DQA hard-gate fail — Certify write refused",
+      datapointIds: [],
+      sourceIds: [],
+      warnings: [],
+    };
+  }
+  if (input.pipeline.engines.anomaly?.status === "failed") {
+    return {
+      ok: false,
+      blocked: "Critical anomaly — Certify write refused",
+      datapointIds: [],
+      sourceIds: [],
+      warnings: [],
+    };
+  }
+  const dqaPassed = input.pipeline.engines.dqa?.status === "passed";
+  if (!dqaPassed && input.pipeline.engines.dqa?.status !== "skipped") {
+    return {
+      ok: false,
+      blocked: "Run quality check first",
+      datapointIds: [],
+      sourceIds: [],
+      warnings: [],
+    };
+  }
+  await confirmDqa(input.pipeline, dqaPassed);
+
+  const slotInput: SlotWriteInput = {
+    tenantId: input.tenantId,
+    catalogProjectId: input.catalogProjectId,
+    slotId: `ghg-entry:${input.templateId}`,
+    batchId: input.batchId,
+    kind: "dataset",
+    label: "GHG entry",
+    notes: input.notes,
+    requirementId: input.templateId,
+    specOrigin: "registry-api",
+    periodStart: input.startedOn,
+    periodEnd: input.completedOn,
+    pipeline: input.pipeline,
+    files: input.files,
+    environment: input.environment,
+    credentials: input.credentials,
+  };
+
+  const sourceIds: string[] = [];
+  for (const file of input.files) {
+    const source = await uploadSource(slotInput, file);
+    sourceIds.push(source.id);
+  }
+
+  const warnings: string[] = [];
+  const componentPayload: {
+    ghg_entry_template_component_id: string;
+    inputs: {
+      __typename: "CreateComponentScalarInput";
+      input_key: string;
+      datapoint_id: string;
+    }[];
+  }[] = [];
+
+  const datapointIds: string[] = [];
+  for (const component of input.components) {
+    const inputs: {
+      __typename: "CreateComponentScalarInput";
+      input_key: string;
+      datapoint_id: string;
+    }[] = [];
+    for (const draft of component.inputs) {
+      try {
+        const point = await mrvJson<Datapoint>(
+          input.environment,
+          datapointsPath(),
+          input.credentials,
+          {
+            body: {
+              project_id: input.credentials.externalProjectId,
+              display_name: draft.displayName.slice(0, 150),
+              type: "REPORTED",
+              quantity: {
+                magnitude: draft.magnitude,
+                unit: draft.unit,
+                ...(draft.stddev != null
+                  ? { standard_deviation: draft.stddev }
+                  : {}),
+              },
+              description: (input.notes || draft.displayName).slice(0, 500),
+              source_ids: sourceIds,
+              measured_at: toDate(input.completedOn, true),
+              supplier_reference_id: referenceId([
+                "minrv-ghg-dp",
+                input.batchId,
+                component.componentId,
+                draft.inputKey,
+                crypto.randomUUID(),
+              ]),
+            },
+          },
+        );
+        datapointIds.push(point.id);
+        inputs.push({
+          __typename: "CreateComponentScalarInput",
+          input_key: draft.inputKey,
+          datapoint_id: point.id,
+        });
+      } catch (error) {
+        const classified = classifyRegistryFailure(error);
+        warnings.push(`Datapoint skipped (${draft.displayName}): ${classified.message}`);
+      }
+    }
+    if (inputs.length > 0) {
+      componentPayload.push({
+        ghg_entry_template_component_id: component.componentId,
+        inputs,
+      });
+    }
+  }
+
+  try {
+    const entry = await mrvJson<GhgEntry>(
+      input.environment,
+      ghgEntriesPath(),
+      input.credentials,
+      {
+        body: {
+          supplier_reference_id: referenceId([
+            "minrv-ghg",
+            input.batchId,
+            input.templateId,
+            crypto.randomUUID(),
+          ]),
+          started_on: input.startedOn,
+          completed_on: input.completedOn,
+          project_id: input.credentials.externalProjectId,
+          ghg_entry_template_id: input.templateId,
+          ...(componentPayload.length > 0
+            ? { ghg_entry_template_components: componentPayload }
+            : {}),
+        },
+      },
+    );
+    return {
+      ok: true,
+      entryId: entry.id,
+      datapointIds,
+      sourceIds,
+      netKg: entry.co2e_net_removed_kg ?? null,
+      warnings,
+    };
+  } catch (error) {
+    const classified = classifyRegistryFailure(error);
+    return {
+      ok: false,
+      datapointIds,
+      sourceIds,
+      warnings,
+      error: classified.message,
+    };
+  }
+}
+
+export async function createGhgStatement(
+  input: StatementCreateInput,
+): Promise<StatementCreateResult> {
+  try {
+    const row = await mrvJson<GhgStatement>(
+      input.environment,
+      ghgStatementsPath(),
+      input.credentials,
+      {
+        body: {
+          project_id: input.credentials.externalProjectId,
+          end_on: input.endOn,
+        },
+      },
+    );
+    return { ok: true, statementId: row.id };
+  } catch (error) {
+    const classified = classifyRegistryFailure(error);
+    return { ok: false, error: classified.message };
   }
 }

@@ -20,6 +20,22 @@ export const REGISTRY_BASE_URL: Record<RegistryEnvironment, string> = {
 /** Relay-style pagination caps page size at 50. */
 export const PAGE_SIZE = 50;
 
+export function projectsPath(): string {
+  return "/projects";
+}
+
+export function projectPath(projectId: string): string {
+  return `/projects/${projectId}`;
+}
+
+export function ghgEntryTemplatesPath(projectId: string): string {
+  return `/projects/${projectId}/ghg_entry_templates`;
+}
+
+export function storageLocationsPath(projectId: string): string {
+  return `/projects/${projectId}/storage_locations`;
+}
+
 export function monitoringRequirementsPath(projectId: string): string {
   return `/projects/${projectId}/monitoring_requirements`;
 }
@@ -29,6 +45,14 @@ export function monitoringSubmissionsPath(
   requirementId: string,
 ): string {
   return `/projects/${projectId}/monitoring_requirements/${requirementId}/submissions`;
+}
+
+export function monitoringSubmissionPath(
+  projectId: string,
+  requirementId: string,
+  submissionId: string,
+): string {
+  return `/projects/${projectId}/monitoring_requirements/${requirementId}/submissions/${submissionId}`;
 }
 
 export function sourcesPath(): string {
@@ -59,8 +83,61 @@ export function dataUploadSubmissionPath(id: string): string {
   return `/data-upload-submissions/${id}`;
 }
 
+export function ghgStatementsPath(): string {
+  return "/ghg_statements";
+}
+
 export function ghgStatementSubmitPath(statementId: string): string {
   return `/ghg_statements/${statementId}/submit`;
+}
+
+export function ghgEntriesPath(): string {
+  return "/ghg_entries";
+}
+
+export function ghgEntryPath(entryId: string): string {
+  return `/ghg_entries/${entryId}`;
+}
+
+export type GhgStatementStatus =
+  | "draft"
+  | "submitted"
+  | "in_verification"
+  | "verified"
+  | "rejected"
+  | "issued"
+  | "DRAFT"
+  | "AWAITING_VERIFICATION"
+  | "VERIFIED"
+  | "CREDITS_ISSUED"
+  | "FAILED_VERIFICATION";
+
+export interface GhgStatement {
+  id: string;
+  project_id?: string | null;
+  reporting_period_start_at?: string | null;
+  reporting_period_end_at?: string | null;
+  start_on?: string | null;
+  started_on?: string | null;
+  start_date?: string | null;
+  end_on?: string | null;
+  ended_on?: string | null;
+  end_date?: string | null;
+  status?: string | null;
+  ghg_entry_ids?: string[];
+  co2e_net_removed_kg?: number | null;
+}
+
+export interface GhgEntry {
+  id: string;
+  ghg_statement_id?: string | null;
+  started_on?: string | null;
+  completed_on?: string | null;
+  credit_type?: CreditType | string | null;
+  co2e_net_removed_kg?: number | null;
+  co2e_net_removed_without_discount_kg?: number | null;
+  feedstock_type_id?: string | null;
+  supplier_reference_id?: string | null;
 }
 
 export type MonitoringPhase = "pre_op" | "operation" | "post_op" | "feedstock";
@@ -174,6 +251,60 @@ export interface ProjectDocument {
   display_name: string;
   url: string;
   submission_date: string;
+}
+
+export interface CertifyProject {
+  id: string;
+  name: string;
+  country_code: string;
+  description?: string | null;
+  short_description?: string | null;
+  risk_of_reversal?: string | null;
+  created_at?: string | null;
+}
+
+export type CreditType = "REMOVAL" | "REDUCTION";
+
+export interface GhgEntryTemplateComponentInput {
+  input_key: string;
+  datapoint_id: string | null;
+  display_name: string;
+  type?: string;
+  quantity_kind?: string;
+}
+
+export interface GhgEntryTemplateComponent {
+  id: string;
+  display_name: string;
+  description?: string | null;
+  blueprint_key: string;
+  inputs: GhgEntryTemplateComponentInput[];
+}
+
+export interface GhgEntryTemplateComponentGroup {
+  id: string;
+  key: string;
+  display_name: string;
+  description?: string;
+  components: GhgEntryTemplateComponent[];
+}
+
+export interface GhgEntryTemplate {
+  id: string;
+  display_name: string;
+  project_id: string;
+  credit_type: CreditType | string;
+  groups: GhgEntryTemplateComponentGroup[];
+}
+
+export interface StorageLocation {
+  id: string;
+  name: string;
+  description?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  storage_method?: string;
+  project_id: string;
 }
 
 export const FREQUENCY_LABEL: Record<Frequency, string> = {

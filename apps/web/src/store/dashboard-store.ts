@@ -1,8 +1,6 @@
 "use client";
 
 import { create } from "zustand";
-import { getProject } from "@/lib/projects";
-import { getLatestSubmissionId } from "@/lib/submissions";
 import { DEFAULT_TENANT_ID } from "@/lib/tenants";
 import type { LiveSpecMeta } from "@/lib/registries";
 import type { Registry, RequirementSpec } from "@/lib/types";
@@ -31,7 +29,7 @@ interface DashboardState {
   ) => void;
   setTenant: (id: string) => void;
   selectProject: (id: string | null) => void;
-  selectSubmission: (id: string) => void;
+  selectSubmission: (id: string | null) => void;
   hoverProject: (id: string | null) => void;
   hoverSlot: (id: string | null) => void;
   selectRequirement: (slotId: string | null) => void;
@@ -71,10 +69,9 @@ export const useDashboard = create<DashboardState>((set) => ({
       portfolioOpen: false,
     }),
   selectProject: (id) => {
-    const project = getProject(id);
     set({
-      selectedProjectId: project ? project.id : null,
-      selectedSubmissionId: project ? getLatestSubmissionId(project) : null,
+      selectedProjectId: id,
+      selectedSubmissionId: null,
       hoveredSlotId: null,
       selectedSlotId: null,
       portfolioOpen: false,

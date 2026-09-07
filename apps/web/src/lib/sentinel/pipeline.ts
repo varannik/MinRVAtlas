@@ -3,6 +3,7 @@ import "server-only";
 import { classifyRequirement, orderedEngines } from "@/lib/requirement-payload";
 import { evaluateRegistryRules } from "@/lib/registries/step3";
 import type { ItemKind } from "@/lib/types";
+import { parseCsvHeaders, previewSchema, schemaForSlot } from "@/lib/slot-schema";
 import { remapCsv } from "./column-map";
 import type { EngineRun, PipelineOrigin, PipelineResult } from "./pipeline-types";
 import {
@@ -35,6 +36,7 @@ export type PipelineInput = {
   files: PipelineFile[];
   periodStart?: string;
   periodEnd?: string;
+  columnBindings?: Record<string, string>;
 };
 
 type RunOut = {
@@ -74,6 +76,7 @@ async function pollRun(runId: string): Promise<RunOut> {
 async function uploadDataset(
   catalogProjectId: string,
   file: PipelineFile,
+  bindings?: Record<string, string>,
 ): Promise<{
   id: string;
   mappedColumns: Record<string, string>;
@@ -87,7 +90,7 @@ async function uploadDataset(
 
   if (name.toLowerCase().endsWith(".csv")) {
     const text = new TextDecoder().decode(file.bytes);
-    const remapped = remapCsv(name, text);
+    const remapped = remapCsv(name, text, bindings);
     if (remapped) {
       bytes = new TextEncoder().encode(remapped.csv);
       mappedColumns = remapped.mapped;
@@ -219,8 +222,44 @@ export async function runOperatorPipeline(
   const dataFiles = input.files.filter((file) => isDataFile(file.name));
   const docFiles = input.files.filter((file) => isDocFile(file.name));
   let csvText: string | null = null;
+  const schema = schemaForSlot(input.slotId, input.kind, input.label);
 
   try {
+    const csvFile = dataFiles.find((file) => file.name.toLowerCase().endsWith(".csv"));
+    if (csvFile && schema.kind !== "document") {
+      const headers = parseCsvHeaders(new TextDecoder().decode(csvFile.bytes));
+      const preview = previewSchema(headers, schema, input.columnBindings);
+      result.mappedColumns = Object.fromEntries(
+        preview.rows
+          .filter((row) => row.header && row.status !== "missing")
+          .map((row) => [row.canonical, row.header ?? row.canonical]),
+      );
+      if (preview.blocked) {
+        result.schemaBlocked = true;
+        result.schemaMissing = preview.missingRequired;
+        result.engines.dqa = {
+          status: "failed",
+          detail: `Schema: missing ${preview.missingRequired.join(", ")}`,
+        };
+        if (engines.includes("anomaly")) {
+          result.engines.anomaly = {
+            status: "skipped",
+            detail: "Blocked until required columns are present",
+          };
+        }
+        if (engines.includes("registry-rules")) {
+          result.engines["registry-rules"] = {
+            status: "skipped",
+            detail: "Blocked until required columns are present",
+          };
+        }
+        result.updatedAt = now();
+        result.readyToSubmit = false;
+        result.blockReason = pipelineBlockReason(result);
+        return result;
+      }
+    }
+
     if (engines.includes("dqa")) {
       if (dataFiles.length === 0) {
         result.engines.dqa = {
@@ -228,7 +267,11 @@ export async function runOperatorPipeline(
           detail: "Upload a CSV or workbook for DQA",
         };
       } else {
-        const uploaded = await uploadDataset(input.catalogProjectId, dataFiles[0]);
+        const uploaded = await uploadDataset(
+          input.catalogProjectId,
+          dataFiles[0],
+          input.columnBindings,
+        );
         result.datasetId = uploaded.id;
         result.mappedColumns = uploaded.mappedColumns;
         csvText = uploaded.csvText;
@@ -314,6 +357,7 @@ export async function runOperatorPipeline(
           csvText,
           periodStart: input.periodStart,
           periodEnd: input.periodEnd,
+          label: input.label,
         });
         result.registryChecks = step3.checks;
         result.engines["registry-rules"] = {

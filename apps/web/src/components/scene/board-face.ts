@@ -40,6 +40,7 @@ const SANS =
 const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
 export const STATE_COLOR: Record<ItemState, string> = {
+  submitted: FILL.submitted,
   complete: FILL.complete,
   pending: FILL.pending,
   rejected: FILL.rejected,
@@ -47,6 +48,7 @@ export const STATE_COLOR: Record<ItemState, string> = {
 };
 
 export const STATE_EMISSIVE: Record<ItemState, number> = {
+  submitted: 0.05,
   complete: 0.04,
   pending: 0.04,
   rejected: 0.04,
@@ -56,7 +58,9 @@ export const STATE_EMISSIVE: Record<ItemState, number> = {
 const ROW_TAG: Partial<Record<ItemState, string>> = {
   missing: "MISSING",
   rejected: "REWORK",
-  pending: "IN REVIEW",
+  pending: "PARTIAL",
+  complete: "READY",
+  submitted: "FILED",
 };
 
 export interface BoardRow {

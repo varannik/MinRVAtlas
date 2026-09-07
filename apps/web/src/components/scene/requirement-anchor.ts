@@ -22,4 +22,6 @@ export const boardSlot = {
   width: 0,
   height: 0,
   visible: false,
+  /** HTML period desk is showing; hide the 3D face so the tabs can be used. */
+  covered: false,
 };

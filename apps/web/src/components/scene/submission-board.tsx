@@ -461,7 +461,7 @@ export function SubmissionBoard({
     if (!root) return;
     const step = Math.min(delta, 0.1);
     const pose =
-      batches && boardSlot.visible
+      batches && boardSlot.visible && !boardSlot.covered
         ? boardSlotPose(
             boardSlot,
             camera,

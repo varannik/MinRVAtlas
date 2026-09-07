@@ -1,5 +1,6 @@
 import "server-only";
 
+import { isCertifyProjectId } from "@/lib/iso-geo";
 import { PROJECTS } from "@/lib/projects";
 import { TENANTS } from "@/lib/tenants";
 
@@ -77,7 +78,7 @@ export function getSentinelConfig(): SentinelConfig {
 }
 
 export function isCatalogProjectId(value: string): boolean {
-  return PROJECTS.some((project) => project.id === value);
+  return PROJECTS.some((project) => project.id === value) || isCertifyProjectId(value);
 }
 
 export function mapCatalogProjectId(
@@ -85,8 +86,12 @@ export function mapCatalogProjectId(
   projectMap: Record<string, string>,
 ): string {
   const mapped = projectMap[localId];
-  if (!mapped) throw new SentinelProjectMapError(localId);
-  return mapped;
+  if (mapped) return mapped;
+  const fujairah = projectMap["fujairah-mineral"];
+  if (fujairah && (localId === "fujairah-mineral" || isCertifyProjectId(localId))) {
+    return fujairah;
+  }
+  throw new SentinelProjectMapError(localId);
 }
 
 export function resolveRequestTenant(request: Request): string | null {

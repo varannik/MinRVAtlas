@@ -26,6 +26,7 @@ export const ACCENT = {
 /** Brighter fills for 3D chips and bars (no type inside the colour). */
 export const FILL = {
   complete: "#B5C36E",
+  submitted: "#8B9C44",
   pending: "#E8923A",
   rejected: "#F0A89A",
   missing: "#DDD4C2",

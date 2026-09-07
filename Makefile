@@ -18,6 +18,8 @@ SINCE      ?= 1h
 	ci docker-build docker-push pipeline pipeline-start pipeline-status \
 	ecs-status logs rollback
 
+# Empty AWS_PROFILE= on the child command line is auto-exported and makes
+# `aws` look up a profile named "". Same for IMAGE_TAG vs the git-SHA default.
 bootstrap deploy diff destroy synth status inventory push-images \
 ci docker-build docker-push pipeline pipeline-start pipeline-status \
 ecs-status logs rollback:
@@ -27,8 +29,8 @@ ecs-status logs rollback:
 		APP=$(APP) \
 		CONFIRM=$(CONFIRM) \
 		ENABLE_CLOUDFRONT=$(ENABLE_CLOUDFRONT) \
-		AWS_PROFILE=$(AWS_PROFILE) \
-		IMAGE_TAG=$(IMAGE_TAG) \
+		$(if $(AWS_PROFILE),AWS_PROFILE=$(AWS_PROFILE)) \
+		$(if $(IMAGE_TAG),IMAGE_TAG=$(IMAGE_TAG)) \
 		SERVICE=$(SERVICE) \
 		TASK_DEFINITION=$(TASK_DEFINITION) \
 		SINCE=$(SINCE)

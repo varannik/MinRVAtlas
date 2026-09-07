@@ -13,7 +13,12 @@ export type Registry =
 
 export type ItemKind = "document" | "dataset" | "sensor-stream" | "attestation";
 
-export type ItemState = "complete" | "pending" | "missing" | "rejected";
+export type ItemState =
+  | "complete"
+  | "submitted"
+  | "pending"
+  | "missing"
+  | "rejected";
 
 export type SubmissionStatus =
   | "assembling"
@@ -92,6 +97,8 @@ export interface RequirementItem extends SpecItem {
   state: ItemState;
   volume: string;
   updatedDaysAgo: number;
+  /** Expected in the open reporting window. */
+  dueThisPeriod: boolean;
 }
 
 export interface BatchGroup {
@@ -121,6 +128,9 @@ export interface SubmissionBatch {
   completion: number;
   blockers: number;
   outstanding: number;
+  origin: "certify" | "draft";
+  ghgStatementId?: string;
+  monitoringCoverage: "valid" | "partial" | "missing";
 }
 
 export interface Project {
@@ -147,4 +157,9 @@ export interface Project {
   bufferPct: number;
   creditingStart: number;
   creditingYears: number;
+  /** Certify project creation day, when the live list includes it. */
+  createdOn?: string;
+  /** Certify `prj_…` when this row was fetched with org credentials. */
+  externalProjectId?: string;
+  origin?: "catalog" | "isometric";
 }

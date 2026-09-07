@@ -53,11 +53,11 @@ export interface RegistryConnection {
   tenantId: string;
   registry: Registry;
   environment: RegistryEnvironment;
-  /** Local projects this connection is allowed to serve. */
+  /** Local catalog ids this connection may answer for. Empty = whole org. */
   projectIds: string[];
   /**
-   * Registry-side project the credentials are scoped to. Access tokens are
-   * issued per organisation, so one binding reads exactly one project.
+   * Preferred Certify project when the caller does not name one. The access
+   * token is organisation-scoped and can list every project it can see.
    */
   externalProjectId: string | null;
   transport: "machine-to-machine";
@@ -72,8 +72,14 @@ export interface RegistryConnection {
 export interface RegistryCredentials {
   accessToken: string;
   clientSecret: string;
+  /** Present when the call is scoped to one Certify project. */
   externalProjectId: string;
 }
+
+export type OrgCredentials = {
+  accessToken: string;
+  clientSecret: string;
+};
 
 export interface LiveSpecRequest {
   project: Project;

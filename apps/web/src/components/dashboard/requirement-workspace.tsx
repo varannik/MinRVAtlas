@@ -28,6 +28,10 @@ import { usePipeline } from "@/store/pipeline-store";
 import { useRegistrySubmit } from "@/store/registry-submit-store";
 import { useDashboard } from "@/store/dashboard-store";
 import { slotSubmitBlockReason } from "@/lib/registries/submit-gate";
+import { draftKey as makeDraftKey } from "@/lib/period-desk";
+import { refineHint } from "@/lib/slot-schema";
+import { PeriodCloseBar } from "./period-close";
+import { SchemaPreviewPanel } from "./schema-preview";
 import type { RequirementItem, SubmissionBatch } from "@/lib/types";
 import Link from "next/link";
 
@@ -40,24 +44,24 @@ function formatBytes(size: number): string {
 }
 
 function FileDrop({
-  slotId,
+  draftKey,
   accept,
   label,
 }: {
-  slotId: string;
+  draftKey: string;
   accept: string;
   label: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const files = useRequirementDrafts(
-    (state) => state.bySlot[slotId]?.files,
+    (state) => state.bySlot[draftKey]?.files,
   ) ?? EMPTY_FILES;
   const addFiles = useRequirementDrafts((state) => state.addFiles);
   const removeFile = useRequirementDrafts((state) => state.removeFile);
 
   function take(list: FileList | File[]) {
-    addFiles(slotId, Array.from(list));
+    addFiles(draftKey, Array.from(list));
   }
 
   return (
@@ -113,7 +117,7 @@ function FileDrop({
                 <button
                   type="button"
                   aria-label={`Remove ${file.name}`}
-                  onClick={() => removeFile(slotId, file.name)}
+                  onClick={() => removeFile(draftKey, file.name)}
                   className="rounded p-0.5 text-mist hover:text-frost"
                 >
                   <X className="size-3" />
@@ -160,10 +164,15 @@ export function RequirementWorkspace({
   const submitByKey = useRegistrySubmit((state) => state.byKey);
   const classification = useMemo(() => classifyRequirement(item), [item]);
   const engines = orderedEngines(classification.engines);
-  const stored = useRequirementDrafts((state) => state.bySlot[item.slotId]);
-  const draft = stored ?? emptyDraft(item.slotId);
+  const draftKey = projectId
+    ? makeDraftKey(projectId, batch.id, item.slotId)
+    : item.slotId;
+  const stored = useRequirementDrafts((state) => state.bySlot[draftKey]);
+  const draft = stored ?? emptyDraft(draftKey);
   const setNotes = useRequirementDrafts((state) => state.setNotes);
   const setStage = useRequirementDrafts((state) => state.setStage);
+  const setBinding = useRequirementDrafts((state) => state.setBinding);
+  const clearBinding = useRequirementDrafts((state) => state.clearBinding);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitWarnings, setSubmitWarnings] = useState<string[]>([]);
   const stateMeta = ITEM_STATE_META[item.state];
@@ -185,7 +194,13 @@ export function RequirementWorkspace({
     item.label,
     draft.files.length,
   );
-  const canSubmit = Boolean(projectId) && !busy && !submitting && !certifyBlock;
+  const liveBoard = specMeta?.origin === "registry-api";
+  const canSubmit =
+    Boolean(projectId) &&
+    !busy &&
+    !submitting &&
+    !certifyBlock &&
+    liveBoard;
 
   const anchorRef = useRef<HTMLDivElement>(null);
 
@@ -216,7 +231,7 @@ export function RequirementWorkspace({
 
   async function queue() {
     if (!canQueue || !projectId || busy) return;
-    const files = getDraftFiles(item.slotId);
+    const files = getDraftFiles(draftKey);
     const form = new FormData();
     form.set("project_id", projectId);
     form.set("slot_id", item.slotId);
@@ -227,10 +242,13 @@ export function RequirementWorkspace({
     form.set("notes", draft.notes);
     if (batch.periodStart) form.set("period_start", batch.periodStart);
     if (batch.periodEnd) form.set("period_end", batch.periodEnd);
+    if (Object.keys(draft.columnBindings).length > 0) {
+      form.set("column_bindings", JSON.stringify(draft.columnBindings));
+    }
     for (const file of files) form.append("file", file);
 
     setSubmitError(null);
-    setStage(item.slotId, "running");
+    setStage(draftKey, "running");
     putPipeline({
       tenantId,
       projectId,
@@ -257,21 +275,22 @@ export function RequirementWorkspace({
       putPipeline(body);
       const blocked =
         Boolean(body.error) ||
+        body.schemaBlocked ||
         body.engines.dqa?.status === "failed" ||
         body.engines.anomaly?.status === "failed" ||
         body.engines.vv?.status === "failed" ||
         body.engines["registry-rules"]?.status === "failed";
-      setStage(item.slotId, blocked ? "failed" : "complete");
+      setStage(draftKey, blocked ? "failed" : "complete");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Pipeline failed";
       setSubmitError(message);
-      setStage(item.slotId, "failed");
+      setStage(draftKey, "failed");
     }
   }
 
   async function submitToCertify() {
     if (!canSubmit || !projectId || !pipeline) return;
-    const files = getDraftFiles(item.slotId);
+    const files = getDraftFiles(draftKey);
     const form = new FormData();
     form.set("target", "slot");
     form.set("project_id", projectId);
@@ -409,6 +428,11 @@ export function RequirementWorkspace({
         {item.cadence ? (
           <p className="mt-1 text-[10px] text-mist">Cadence · {item.cadence}</p>
         ) : null}
+        <p className="mt-1 text-[10px] text-mist">
+          Period · {batch.periodStart} → {batch.periodEnd}
+          {item.dueThisPeriod ? " · due this window" : " · not due this window"}
+          {item.id.startsWith("mnr_") ? ` · ${item.id}` : ""}
+        </p>
 
         <div className="mt-3 flex flex-wrap gap-1">
           {engines.map((engine) => (
@@ -430,11 +454,19 @@ export function RequirementWorkspace({
             {classification.helper}
           </p>
           <FileDrop
-            slotId={item.slotId}
+            draftKey={draftKey}
             accept={classification.accept}
             label={classification.intakeLabel}
           />
         </section>
+
+        <SchemaPreviewPanel
+          item={item}
+          draftKey={draftKey}
+          bindings={draft.columnBindings}
+          onBind={(header, canonical) => setBinding(draftKey, header, canonical)}
+          onClearBind={(header) => clearBinding(draftKey, header)}
+        />
 
         {item.evidence && item.evidence.length > 0 ? (
           <section className="mt-4">
@@ -494,7 +526,7 @@ export function RequirementWorkspace({
           </h3>
           <textarea
             value={draft.notes}
-            onChange={(event) => setNotes(item.slotId, event.target.value)}
+            onChange={(event) => setNotes(draftKey, event.target.value)}
             rows={3}
             placeholder="Context for this period: instrument, lab, or why this file belongs here."
             className="mt-1.5 w-full resize-none rounded-xl bg-ink-800/60 px-3 py-2 text-[12px] text-frost placeholder:text-mist/50 ring-1 ring-line/70 focus:outline-none"
@@ -507,12 +539,27 @@ export function RequirementWorkspace({
           </h3>
           <p className="mt-1 text-[10px] leading-relaxed text-mist">
             {pipeline?.readyToSubmit
-              ? certifyBlock
-                ? `Ready for quality, but Certify write is blocked — ${certifyBlock}`
-                : "Quality and Step-3 passed. Submit to Certify is explicit and never runs from a failed DQA."
+              ? !liveBoard
+                ? "Quality passed on the bundled spec. Certify write stays off until the live requirement list is loaded."
+                : certifyBlock
+                  ? `Ready for quality, but Certify write is blocked — ${certifyBlock}`
+                  : "Quality and Step-3 passed. Submit to Certify is explicit and never runs from a failed DQA."
               : pipeline?.blockReason
                 ? `Not ready to submit — ${pipeline.blockReason}`
                 : "Run quality check first. Nothing is posted to Certify until you click Submit."}
+          {pipeline?.schemaBlocked
+            ? ` ${refineHint("schema")}`
+            : pipeline?.engines.dqa?.status === "failed"
+              ? ` ${refineHint("dqa")}`
+              : pipeline?.engines.anomaly?.status === "failed"
+                ? ` ${refineHint("anomaly")}`
+                : pipeline?.engines.vv?.status === "failed"
+                  ? ` ${refineHint("vv")}`
+                  : pipeline?.engines["registry-rules"]?.status === "failed"
+                    ? ` ${refineHint("registry-rules")}`
+                    : submitRecord?.status === "failed"
+                      ? ` ${refineHint("submit")}`
+                      : ""}
           </p>
           {submitError ? (
             <p className="mt-2 text-[11px] text-signal-rose">{submitError}</p>
@@ -542,10 +589,21 @@ export function RequirementWorkspace({
                 <>
                   {" "}
                   <Link
-                    href="/quality/runs"
+                    href={`/quality/runs?run_id=${encodeURIComponent(pipeline.runId)}`}
                     className="text-carbon-400 hover:underline"
                   >
-                    Open in Quality
+                    Open this run
+                  </Link>
+                </>
+              ) : null}
+              {pipeline.vvProjectId ? (
+                <>
+                  {" "}
+                  <Link
+                    href={`/quality/vv/${encodeURIComponent(pipeline.vvProjectId)}`}
+                    className="text-carbon-400 hover:underline"
+                  >
+                    Open V&V
                   </Link>
                 </>
               ) : null}
@@ -583,6 +641,14 @@ export function RequirementWorkspace({
               );
             })}
           </ul>
+          {pipeline?.mappedColumns && Object.keys(pipeline.mappedColumns).length > 0 ? (
+            <p className="mt-2 text-[10px] text-mist">
+              Mapped:{" "}
+              {Object.entries(pipeline.mappedColumns)
+                .map(([canonical, original]) => `${original} → ${canonical}`)
+                .join(" · ")}
+            </p>
+          ) : null}
           {pipeline?.registryChecks && pipeline.registryChecks.length > 0 ? (
             <ul className="mt-2 space-y-1">
               {pipeline.registryChecks.map((entry) => (
@@ -604,6 +670,7 @@ export function RequirementWorkspace({
             </ul>
           ) : null}
         </section>
+        <PeriodCloseBar batch={batch} />
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-line/70 px-4 py-3">

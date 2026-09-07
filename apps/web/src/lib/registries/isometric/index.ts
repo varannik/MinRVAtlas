@@ -15,6 +15,20 @@ export const isometricAdapter: RegistryAdapter = {
   supportsLiveRequirements: true,
   sources: RULEBOOK.sources,
   buildSpec(project: Project) {
-    return assembleSpec(project, RULEBOOK, ISOMETRIC_METHODOLOGIES);
+    const methodology = ISOMETRIC_METHODOLOGIES[project.methodologyKey];
+    if (!methodology) {
+      return {
+        registry: "Isometric" as const,
+        methodology: project.methodology,
+        specVersion: RULEBOOK.version,
+        sources: RULEBOOK.sources,
+        groups: [],
+      };
+    }
+    const assembled = assembleSpec(project, RULEBOOK, ISOMETRIC_METHODOLOGIES);
+    return {
+      ...assembled,
+      groups: [methodology.group],
+    };
   },
 };

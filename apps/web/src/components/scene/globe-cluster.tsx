@@ -394,7 +394,7 @@ export function GlobeCluster() {
           <primitive object={globe} />
           {pins.map(({ project, position, quaternion }) => (
             <Pin
-              key={project.id}
+              key={project.externalProjectId ?? project.id}
               project={project}
               position={position}
               quaternion={quaternion}

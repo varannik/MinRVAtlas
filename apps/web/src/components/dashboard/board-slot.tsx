@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { boardSlot } from "../scene/requirement-anchor";
 
-/** Invisible frame the 3D requirement board is scaled and parked into. */
-export function BoardSlot() {
+/** Frame the 3D requirement board is scaled into, or the HTML period desk. */
+export function BoardSlot({ children }: { children?: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -18,7 +18,8 @@ export function BoardSlot() {
       boardSlot.top = box.top;
       boardSlot.width = box.width;
       boardSlot.height = box.height;
-      boardSlot.visible = box.width > 8 && box.height > 8;
+      boardSlot.visible =
+        !boardSlot.covered && box.width > 8 && box.height > 8;
       frame = window.requestAnimationFrame(tick);
     };
     frame = window.requestAnimationFrame(tick);
@@ -29,5 +30,13 @@ export function BoardSlot() {
     };
   }, []);
 
-  return <div ref={ref} data-board-slot className="h-full min-h-0 w-full" />;
+  return (
+    <div
+      ref={ref}
+      data-board-slot
+      className="flex h-full min-h-0 w-full items-stretch justify-center"
+    >
+      <div className="h-full w-full max-w-[56rem]">{children}</div>
+    </div>
+  );
 }

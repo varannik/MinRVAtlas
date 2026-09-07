@@ -4,16 +4,21 @@ import { useEffect, useMemo, useRef } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BoardSlot } from "./dashboard/board-slot";
+import { ProjectCharter } from "./dashboard/project-charter";
 import { ProjectRail } from "./dashboard/project-rail";
 import { RequirementWorkspace } from "./dashboard/requirement-workspace";
+import { PeriodDesk } from "./dashboard/period-desk";
 import { SpatialConnector } from "./dashboard/spatial-connector";
 import { TopBar } from "./dashboard/top-bar";
 import { getSubmissions } from "@/lib/submissions";
 import { overlayBatches } from "@/lib/sentinel/overlay";
+import { useIsometricProjects } from "@/hooks/use-isometric-projects";
+import { useReportingPeriods } from "@/hooks/use-reporting-periods";
 import { useRequirementSpec } from "@/hooks/use-requirement-spec";
 import { useResolvedProject } from "@/hooks/use-visible-projects";
 import { useDashboard } from "@/store/dashboard-store";
 import { hydratePipelineStore, usePipeline } from "@/store/pipeline-store";
+import { useRegistrySubmit } from "@/store/registry-submit-store";
 import { useLocationStore } from "@/store/location-store";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -48,7 +53,9 @@ export function Dashboard() {
   const setRequirementSpec = useDashboard((state) => state.setRequirementSpec);
   const loadLocations = useLocationStore((state) => state.load);
   const pipelineByKey = usePipeline((state) => state.byKey);
+  const submitByKey = useRegistrySubmit((state) => state.byKey);
   const reduceMotion = useReducedMotion();
+  useIsometricProjects();
 
   useEffect(() => {
     hydratePipelineStore();
@@ -60,6 +67,7 @@ export function Dashboard() {
 
   const project = useResolvedProject(selectedProjectId);
   const { spec, meta } = useRequirementSpec(project);
+  const { periods, latestId } = useReportingPeriods(project);
 
   // The 3D board reads the resolved spec from the store, so the panel and the
   // scene always render the same requirement set.
@@ -68,12 +76,15 @@ export function Dashboard() {
   }, [meta, project?.id, setRequirementSpec, spec]);
 
   const rawBatches = useMemo(
-    () => (project && spec ? getSubmissions(project, spec) : null),
-    [project, spec],
+    () => (project && spec ? getSubmissions(project, spec, periods) : null),
+    [periods, project, spec],
   );
   const batches = useMemo(
-    () => (rawBatches ? overlayBatches(rawBatches, pipelineByKey) : null),
-    [pipelineByKey, rawBatches],
+    () =>
+      rawBatches
+        ? overlayBatches(rawBatches, pipelineByKey, submitByKey)
+        : null,
+    [pipelineByKey, rawBatches, submitByKey],
   );
   const batch =
     batches?.find((entry) => entry.id === selectedSubmissionId) ??
@@ -84,6 +95,16 @@ export function Dashboard() {
   const workspaceOpen = Boolean(selectedItem);
   const selectedSlotIdRef = useRef(selectedSlotId);
   selectedSlotIdRef.current = selectedSlotId;
+
+  useEffect(() => {
+    if (!batches?.length) {
+      if (selectedSubmissionId) selectSubmission(null);
+      return;
+    }
+    if (!batches.some((entry) => entry.id === selectedSubmissionId) && latestId) {
+      selectSubmission(latestId);
+    }
+  }, [batches, latestId, selectSubmission, selectedSubmissionId]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -135,17 +156,26 @@ export function Dashboard() {
             className={`relative z-25 min-h-0 flex-1 px-5 pt-1 pb-1 ${
               workspaceOpen
                 ? "grid grid-cols-5 gap-4"
-                : "flex justify-center"
+                : "flex justify-center gap-4"
             }`}
           >
+            {!workspaceOpen ? (
+              <div className="pointer-events-none flex min-h-0 w-88 max-w-[42vw] shrink-0">
+                <ProjectCharter project={project} />
+              </div>
+            ) : null}
             <div
               className={
                 workspaceOpen
                   ? "col-span-2 min-h-0 min-w-0"
-                  : "h-full w-full max-w-5xl"
+                  : "h-full min-w-0 flex-1"
               }
             >
-              <BoardSlot />
+              <BoardSlot>
+                {project && batch ? (
+                  <PeriodDesk project={project} batch={batch} />
+                ) : null}
+              </BoardSlot>
             </div>
 
             <AnimatePresence>

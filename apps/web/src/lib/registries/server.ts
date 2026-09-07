@@ -1,10 +1,15 @@
 import "server-only";
 
+import { isCertifyProjectId, scopedCertifyId } from "@/lib/iso-geo";
+import { PROJECTS } from "@/lib/projects";
+import { findConnection } from "./connections";
+import { mapCertifyProject } from "@/lib/registries/isometric/project-map";
 import type { Project, Registry } from "../types";
 import { getAdapter } from "./index";
 import { isometricLiveAdapter, classifyRegistryFailure } from "./isometric/server";
 import type {
   LiveSpecResult,
+  OrgCredentials,
   RegistryConnection,
   RegistryCredentials,
   RegistryLiveAdapter,
@@ -19,21 +24,79 @@ const LIVE_ADAPTERS: Partial<Record<Registry, RegistryLiveAdapter>> = {
   Isometric: isometricLiveAdapter,
 };
 
-/** Resolve the named secrets for a connection. Returns null if any is unset. */
-export function resolveCredentials(
+export function resolveOrgCredentials(
   connection: RegistryConnection,
-): RegistryCredentials | null {
+): OrgCredentials | null {
   const accessToken = process.env[connection.credentials.accessTokenEnv];
   const clientSecret = process.env[connection.credentials.clientSecretEnv];
+  if (!accessToken || !clientSecret) return null;
+  return { accessToken, clientSecret };
+}
+
+/** Resolve org token plus the Certify project the call should hit. */
+export function resolveCredentials(
+  connection: RegistryConnection,
+  options?: { externalProjectId?: string | null },
+): RegistryCredentials | null {
+  const org = resolveOrgCredentials(connection);
   const externalProjectId =
-    connection.externalProjectId ??
+    options?.externalProjectId ||
+    connection.externalProjectId ||
     (connection.credentials.projectIdEnv
       ? process.env[connection.credentials.projectIdEnv]
       : undefined);
 
-  if (!accessToken || !clientSecret || !externalProjectId) return null;
+  if (!org || !externalProjectId) return null;
 
-  return { accessToken, clientSecret, externalProjectId };
+  return { ...org, externalProjectId };
+}
+
+export function preferredCertifyProjectId(
+  connection: RegistryConnection,
+): string | undefined {
+  return (
+    connection.externalProjectId ??
+    (connection.credentials.projectIdEnv
+      ? process.env[connection.credentials.projectIdEnv]
+      : undefined)
+  );
+}
+
+function withPreferredExternal(project: Project): Project {
+  if (project.registry !== "Isometric" || project.externalProjectId) {
+    return project;
+  }
+  const connection = findConnection(project.tenantId, "Isometric", project.id);
+  const preferred = connection ? preferredCertifyProjectId(connection) : undefined;
+  if (!preferred) return project;
+  return { ...project, externalProjectId: preferred };
+}
+
+/**
+ * Tenant-owned catalog row, or a Certify `prj_…` this tenant's Isometric
+ * connection is allowed to read.
+ */
+export function resolveOwnedProject(
+  tenantId: string,
+  projectId: string,
+): Project | null {
+  const catalog = PROJECTS.find((candidate) => candidate.id === projectId);
+  if (catalog) {
+    if (catalog.tenantId !== tenantId) return null;
+    return withPreferredExternal(catalog);
+  }
+
+  if (!isCertifyProjectId(projectId)) return null;
+  const connection = findConnection(tenantId, "Isometric", projectId);
+  if (!connection) return null;
+
+  return mapCertifyProject(tenantId, {
+    id: projectId,
+    name: projectId,
+    country_code: "ARE",
+    description: null,
+    short_description: null,
+  });
 }
 
 export function bundledResult(
@@ -66,12 +129,14 @@ export async function fetchRequirementSpec(
     });
   }
 
-  const credentials = resolveCredentials(connection);
+  const credentials = resolveCredentials(connection, {
+    externalProjectId: scopedCertifyId(project),
+  });
   if (!credentials) {
     return bundledResult(project, {
       environment: connection.environment,
       fallbackReason: "credentials-missing",
-      message: `Set ${connection.credentials.accessTokenEnv}, ${connection.credentials.clientSecretEnv} and ${connection.credentials.projectIdEnv ?? "the project id"} to read live requirements.`,
+      message: `Set ${connection.credentials.accessTokenEnv} and ${connection.credentials.clientSecretEnv} to read live requirements.`,
     });
   }
 

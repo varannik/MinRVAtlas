@@ -177,7 +177,11 @@ function numeric(value: string): number | null {
  * Rewrite a CSV so DQA `CO2_RULES` and compatible anomaly thresholds fire.
  * Non-CSV files are left untouched (returns null).
  */
-export function remapCsv(filename: string, text: string): ColumnMapResult | null {
+export function remapCsv(
+  filename: string,
+  text: string,
+  bindings?: Record<string, string>,
+): ColumnMapResult | null {
   if (!isCsvName(filename)) return null;
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
   if (lines.length === 0 || !lines[0]?.trim()) {
@@ -190,7 +194,8 @@ export function remapCsv(filename: string, text: string): ColumnMapResult | null
   const claimed = new Set<string>();
 
   for (let i = 0; i < original.length; i += 1) {
-    const canonical = canonicalFromHeader(original[i]);
+    const bound = bindings?.[original[i]];
+    const canonical = bound ?? canonicalFromHeader(original[i]);
     if (!canonical) continue;
     if (original[i] === canonical) {
       claimed.add(canonical);

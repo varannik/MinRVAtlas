@@ -20,6 +20,7 @@ export function pipelineOutcomeLabel(
   if (submit?.status === "failed") return "SUBMIT FAIL";
   if (stage === "running") return "RUNNING";
   if (!result) return draftStageLabel(stage);
+  if (result.schemaBlocked) return "SCHEMA FAIL";
   if (result.engines.dqa?.status === "failed") return "DQA FAIL";
   if (result.engines.anomaly?.status === "failed") return "ANOMALY FAIL";
   if (result.engines.vv?.status === "failed") return "V&V FAIL";

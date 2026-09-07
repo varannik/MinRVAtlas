@@ -1,4 +1,4 @@
-import { PROJECTS } from "@/lib/projects";
+import { resolveOwnedProject } from "@/lib/registries/server";
 import { TENANTS } from "@/lib/tenants";
 import type { ItemKind } from "@/lib/types";
 import { getSentinelConfig } from "@/lib/sentinel/config";
@@ -44,16 +44,23 @@ export async function POST(request: Request) {
   const notes = String(form.get("notes") ?? "");
   const periodStart = String(form.get("period_start") ?? "").trim();
   const periodEnd = String(form.get("period_end") ?? "").trim();
+  let columnBindings: Record<string, string> | undefined;
+  const rawBindings = String(form.get("column_bindings") ?? "").trim();
+  if (rawBindings) {
+    try {
+      const parsed = JSON.parse(rawBindings) as Record<string, string>;
+      if (parsed && typeof parsed === "object") columnBindings = parsed;
+    } catch {
+      columnBindings = undefined;
+    }
+  }
 
   if (!catalogProjectId || !slotId || !batchId || !KINDS.has(kind)) {
     return jsonError("project_id, slot_id, batch_id and kind are required", 400);
   }
 
-  const project = PROJECTS.find((entry) => entry.id === catalogProjectId);
+  const project = resolveOwnedProject(tenantId, catalogProjectId);
   if (!project) return jsonError("Unknown project", 404);
-  if (project.tenantId !== tenantId) {
-    return jsonError("Project belongs to another tenant", 403);
-  }
 
   const files: { name: string; type: string; bytes: Uint8Array }[] = [];
   for (const value of form.getAll("file")) {
@@ -78,6 +85,7 @@ export async function POST(request: Request) {
       files,
       periodStart: periodStart || undefined,
       periodEnd: periodEnd || undefined,
+      columnBindings,
     });
     return Response.json(result, {
       headers: { "cache-control": "private, no-store" },

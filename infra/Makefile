@@ -20,7 +20,11 @@ export CDK_DEFAULT_REGION  := $(REGION)
 export AWS_REGION          := $(REGION)
 export AWS_DEFAULT_REGION  := $(REGION)
 
-ifneq ($(AWS_PROFILE),)
+# Command-line AWS_PROFILE= is auto-exported. An empty value makes the AWS CLI
+# look up a profile named "" ("The config profile () could not be found").
+ifeq ($(AWS_PROFILE),)
+unexport AWS_PROFILE
+else
 export AWS_PROFILE
 endif
 

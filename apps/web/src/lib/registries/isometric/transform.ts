@@ -14,14 +14,11 @@ import {
   type Datapoint,
   type Frequency,
   type MonitoringSubmission,
-  type ProjectDocument,
   type ProjectMonitoringRequirement,
   type Source,
 } from "./api";
 import {
   attachDatapoints,
-  leftoverDatapointGroup,
-  publishedDocumentsGroup,
   sourceFetchability,
   sourceLabel,
 } from "./enrich";
@@ -34,7 +31,6 @@ export interface LiveRequirement {
 export type LiveEnrichment = {
   sources?: Map<string, Source>;
   datapoints?: Datapoint[];
-  documents?: ProjectDocument[];
 };
 
 const UNKNOWN_PHASE = {
@@ -137,9 +133,9 @@ function reference(requirement: ProjectMonitoringRequirement): string {
 }
 
 /**
- * Fold the registry's own monitoring requirements into the shape the board
- * renders. Grouping follows the registry's monitoring phases so the board
- * mirrors how Certify itself organises the project.
+ * Fold the registry's operational monitoring requirements into the shape the
+ * board renders. Pre-operational characterisation, published PDD/LCA files and
+ * leftover datapoints stay off this board — they belong on the project charter.
  */
 export function toRequirementSpec(
   project: Project,
@@ -148,11 +144,11 @@ export function toRequirementSpec(
 ): RequirementSpec {
   const sources = extras.sources ?? new Map<string, Source>();
   const datapoints = extras.datapoints ?? [];
-  const documents = extras.documents ?? [];
 
   const byPhase = new Map<string, LiveRequirement[]>();
   for (const entry of live) {
     const phase = entry.requirement.monitoring_phase;
+    if (phase === "pre_op") continue;
     const bucket = byPhase.get(phase);
     if (bucket) bucket.push(entry);
     else byPhase.set(phase, [entry]);
@@ -180,12 +176,6 @@ export function toRequirementSpec(
     group.items = group.items.map((item) => byId.get(item.id) ?? item);
   }
 
-  const leftover = leftoverDatapointGroup(attached.leftover);
-  if (leftover) groups.push(leftover);
-
-  const published = publishedDocumentsGroup(documents);
-  if (published) groups.push(published);
-
   return {
     registry: "Isometric",
     methodology: project.methodology,
@@ -194,7 +184,6 @@ export function toRequirementSpec(
       "Isometric Certify API v0 — GET /projects/{id}/monitoring_requirements",
       "Isometric Certify API v0 — GET /projects/{id}/monitoring_requirements/{id}/submissions",
       "Isometric Certify API v0 — GET /sources and GET /datapoints",
-      "Isometric Registry API v0 — GET /projects/{id}/documents",
     ],
     groups,
   };
@@ -205,5 +194,5 @@ export function evidenceCount(
   extras: LiveEnrichment = {},
 ): number {
   const submissions = live.reduce((sum, entry) => sum + entry.submissions.length, 0);
-  return submissions + (extras.datapoints?.length ?? 0) + (extras.documents?.length ?? 0);
+  return submissions + (extras.datapoints?.length ?? 0);
 }

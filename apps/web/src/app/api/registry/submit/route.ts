@@ -1,6 +1,6 @@
-import { PROJECTS } from "@/lib/projects";
+import { scopedCertifyId } from "@/lib/iso-geo";
 import { findConnection } from "@/lib/registries";
-import { resolveCredentials } from "@/lib/registries/server";
+import { resolveCredentials, resolveOwnedProject } from "@/lib/registries/server";
 import { slotSubmitBlockReason } from "@/lib/registries/submit-gate";
 import {
   SubmitBlockedError,
@@ -94,11 +94,8 @@ export async function POST(request: Request) {
     return jsonError("project_id and batch_id are required", 400);
   }
 
-  const project = PROJECTS.find((entry) => entry.id === catalogProjectId);
+  const project = resolveOwnedProject(tenantId, catalogProjectId);
   if (!project) return jsonError("Unknown project", 404);
-  if (project.tenantId !== tenantId) {
-    return jsonError("Project belongs to another tenant", 403);
-  }
   if (project.registry !== "Isometric") {
     return jsonError("Certify write is only wired for Isometric", 409);
   }
@@ -110,7 +107,9 @@ export async function POST(request: Request) {
 
   try {
     if (target === "ghg") {
-      const credentials = resolveCredentials(connection);
+      const credentials = resolveCredentials(connection, {
+        externalProjectId: scopedCertifyId(project),
+      });
       if (!credentials) {
         return jsonError(
           "Set ISOMETRIC_ACCESS_TOKEN, ISOMETRIC_CLIENT_SECRET and ISOMETRIC_PROJECT_ID to write to Certify",
@@ -130,6 +129,7 @@ export async function POST(request: Request) {
           .split(",")
           .map((id) => id.trim())
           .filter(Boolean),
+        statementId: String(form.get("ghg_statement_id") ?? "").trim() || undefined,
         environment: connection.environment,
         credentials,
       });
@@ -168,7 +168,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const credentials = resolveCredentials(connection);
+    const credentials = resolveCredentials(connection, {
+      externalProjectId: scopedCertifyId(project),
+    });
     if (!credentials) {
       return jsonError(
         "Set ISOMETRIC_ACCESS_TOKEN, ISOMETRIC_CLIENT_SECRET and ISOMETRIC_PROJECT_ID to write to Certify",

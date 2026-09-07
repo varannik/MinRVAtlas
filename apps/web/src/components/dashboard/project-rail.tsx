@@ -7,12 +7,14 @@ import { hasConnection } from "@/lib/registries";
 import { getSubmissions } from "@/lib/submissions";
 import { useVisibleProjects } from "@/hooks/use-visible-projects";
 import { useDashboard } from "@/store/dashboard-store";
+import { periodsFor, usePeriodStore } from "@/store/period-store";
 
 export function ProjectRail() {
   const projects = useVisibleProjects();
   const hoveredProjectId = useDashboard((state) => state.hoveredProjectId);
   const hoverProject = useDashboard((state) => state.hoverProject);
   const selectProject = useDashboard((state) => state.selectProject);
+  const periodMap = usePeriodStore((state) => state.byProject);
 
   return (
     <aside className="glass pointer-events-auto flex h-full w-80 max-w-[86vw] flex-col overflow-hidden rounded-2xl">
@@ -34,13 +36,17 @@ export function ProjectRail() {
 
         {projects.map((project) => {
           const status = STATUS_META[project.status];
-          const batches = getSubmissions(project);
+          const batches = getSubmissions(
+            project,
+            undefined,
+            periodMap[project.id] ?? periodsFor(project.id),
+          );
           const open = batches[batches.length - 1];
           const hovered = hoveredProjectId === project.id;
 
           return (
             <button
-              key={project.id}
+              key={project.externalProjectId ?? project.id}
               type="button"
               onMouseEnter={() => hoverProject(project.id)}
               onMouseLeave={() => hoverProject(null)}
@@ -64,13 +70,21 @@ export function ProjectRail() {
                 {project.country}
                 <span className="text-line">·</span>
                 {project.registry}
-                {hasConnection(project.tenantId, project.id) ? (
+                {hasConnection(project.tenantId, project.id, project.registry) ? (
                   <span
                     title={`Requirements read from ${project.registry} over the registry API`}
                     className="flex items-center gap-0.5 rounded bg-carbon-400/15 px-1 py-px text-[9px] font-bold text-carbon-400"
                   >
                     <Plug className="size-2.5" />
                     API
+                  </span>
+                ) : null}
+                {project.origin === "isometric" ? (
+                  <span
+                    title="Listed from Isometric Certify with organisation credentials"
+                    className="rounded bg-ink-700 px-1 py-px text-[9px] font-bold text-mist"
+                  >
+                    CERTIFY
                   </span>
                 ) : null}
               </div>
@@ -80,20 +94,20 @@ export function ProjectRail() {
                   <div
                     className="h-full rounded-full"
                     style={{
-                      width: `${open.completion}%`,
+                      width: `${open?.completion ?? 0}%`,
                       background: status.color,
                     }}
                   />
                 </div>
                 <span className="tabular text-[11px] text-mist">
-                  {open.completion}%
+                  {open?.completion ?? 0}%
                 </span>
               </div>
 
               <div className="mt-1.5 flex items-center justify-between text-[11px] text-mist">
                 <span className="flex items-center gap-1">
                   <Boxes className="size-3" />
-                  {batches.length} batch{batches.length === 1 ? "" : "es"}
+                  {batches.length} period{batches.length === 1 ? "" : "s"}
                 </span>
                 <span className="tabular">
                   {formatCompact(project.creditsIssued)} issued

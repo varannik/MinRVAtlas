@@ -16,6 +16,7 @@ export interface RequirementDraft {
   files: DraftFileMeta[];
   stage: DraftStage;
   reviewedAt: string | null;
+  columnBindings: Record<string, string>;
 }
 
 interface DraftState {
@@ -25,6 +26,8 @@ interface DraftState {
   addFiles: (slotId: string, files: File[]) => void;
   removeFile: (slotId: string, name: string) => void;
   setStage: (slotId: string, stage: DraftStage) => void;
+  setBinding: (slotId: string, header: string, canonical: string) => void;
+  clearBinding: (slotId: string, header: string) => void;
   clear: () => void;
 }
 
@@ -37,6 +40,7 @@ export function emptyDraft(slotId: string): RequirementDraft {
     files: [],
     stage: "intake",
     reviewedAt: null,
+    columnBindings: {},
   };
 }
 
@@ -83,8 +87,8 @@ export const useRequirementDrafts = create<DraftState>((set, get) => ({
           ...state.bySlot[slotId],
           files: metaFor(merged),
           stage: isTerminalStage(state.bySlot[slotId]?.stage)
-              ? "review"
-              : (state.bySlot[slotId]?.stage ?? "intake"),
+            ? "review"
+            : (state.bySlot[slotId]?.stage ?? "intake"),
         },
       },
     }));
@@ -118,6 +122,31 @@ export const useRequirementDrafts = create<DraftState>((set, get) => ({
         },
       },
     })),
+  setBinding: (slotId, header, canonical) =>
+    set((state) => {
+      const current = state.bySlot[slotId] ?? emptyDraft(slotId);
+      return {
+        bySlot: {
+          ...state.bySlot,
+          [slotId]: {
+            ...current,
+            columnBindings: { ...current.columnBindings, [header]: canonical },
+          },
+        },
+      };
+    }),
+  clearBinding: (slotId, header) =>
+    set((state) => {
+      const current = state.bySlot[slotId] ?? emptyDraft(slotId);
+      const columnBindings = { ...current.columnBindings };
+      delete columnBindings[header];
+      return {
+        bySlot: {
+          ...state.bySlot,
+          [slotId]: { ...current, columnBindings },
+        },
+      };
+    }),
   clear: () => {
     fileBags.clear();
     set({ bySlot: {} });

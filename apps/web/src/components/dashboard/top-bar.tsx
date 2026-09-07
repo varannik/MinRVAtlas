@@ -1,13 +1,63 @@
 "use client";
 
 import Link from "next/link";
-import { Boxes, Building2, ChevronDown, MapPin, Search, ShieldCheck } from "lucide-react";
+import { Boxes, Building2, ChevronDown, MapPin, ScrollText, Search, ShieldCheck } from "lucide-react";
 import { Globe3DMark } from "./globe-back-button";
 import { RegistrySelect } from "./registry-select";
 import { SubmissionChain } from "./submission-chain";
+import { useProjectDefinition } from "@/hooks/use-project-definition";
+import { earliestAllowedPeriodStart } from "@/lib/period-desk";
+import { latestDesignDate } from "@/lib/project-definition";
 import { getTenant } from "@/lib/tenants";
 import { useDashboard } from "@/store/dashboard-store";
 import type { Project, SubmissionBatch } from "@/lib/types";
+
+function CharterBadge({ project }: { project: Project }) {
+  const { definition, loading } = useProjectDefinition(project);
+  if (project.registry !== "Isometric") return null;
+  const sealed = Boolean(definition?.complete);
+  const label = loading
+    ? "Charter"
+    : sealed
+      ? "Defined"
+      : definition?.flags.hasPdd || definition?.flags.hasLca
+        ? "Charter"
+        : "No charter";
+  return (
+    <span
+      title={
+        sealed
+          ? "Project design is on file in Certify and cannot be edited here"
+          : "Project-design files from Certify, read only"
+      }
+      className={`glass flex h-12 items-center gap-1.5 rounded-2xl px-3 text-[10px] font-semibold tracking-wide ${
+        sealed ? "text-carbon-400" : "text-mist"
+      }`}
+    >
+      <ScrollText className="size-3.5" />
+      {label}
+    </span>
+  );
+}
+function SpecOriginBadge() {
+  const meta = useDashboard((state) => state.specMeta);
+  if (!meta) return null;
+  const live = meta.origin === "registry-api";
+  return (
+    <span
+      title={
+        live
+          ? "Monitoring requirements from Isometric Certify"
+          : meta.message || meta.fallbackReason || "Bundled rulebook"
+      }
+      className={`rounded px-1 py-px text-[8px] font-bold tracking-wide ${
+        live ? "bg-carbon-400/15 text-carbon-400" : "bg-ink-700 text-mist"
+      }`}
+    >
+      {live ? "LIVE" : "BUNDLED"}
+    </span>
+  );
+}
 
 /* ── Atlas box (left) ───────────────────────────────────────────── */
 
@@ -43,6 +93,7 @@ function TenantMark({ project }: { project?: Project | null }) {
             </span>
             <span className="text-[9px] text-mist">·</span>
             <span className="text-[10px] text-mist">{project.registry}</span>
+            <SpecOriginBadge />
           </div>
         </div>
       </button>
@@ -92,6 +143,35 @@ function TenantMark({ project }: { project?: Project | null }) {
   );
 }
 
+function PeriodRibbon({
+  project,
+  batches,
+  activeBatchId,
+}: {
+  project: Project;
+  batches: SubmissionBatch[];
+  activeBatchId: string | null;
+}) {
+  const { definition } = useProjectDefinition(project);
+  const notBefore = earliestAllowedPeriodStart(
+    {
+      ...project,
+      createdOn: project.createdOn ?? definition?.createdOn ?? undefined,
+    },
+    latestDesignDate(definition?.artifacts ?? []),
+  );
+  return (
+    <div className="pointer-events-none absolute inset-x-5 inset-y-0 z-0 flex items-center justify-center">
+      <SubmissionChain
+        batches={batches}
+        activeId={activeBatchId}
+        notBefore={notBefore}
+        tenantId={project.tenantId}
+      />
+    </div>
+  );
+}
+
 /* ── Top Bar ────────────────────────────────────────────────────── */
 
 export function TopBar({
@@ -112,6 +192,7 @@ export function TopBar({
       {/* Left cluster */}
       <div className="relative z-10 flex h-12 items-center gap-3">
         <TenantMark project={project} />
+        {project ? <CharterBadge project={project} /> : null}
         {onMap ? <RegistrySelect /> : null}
       </div>
 
@@ -128,10 +209,12 @@ export function TopBar({
             />
           </label>
         </div>
-      ) : batches && activeBatchId ? (
-        <div className="pointer-events-none absolute inset-x-5 inset-y-0 z-0 flex items-center justify-center">
-          <SubmissionChain batches={batches} activeId={activeBatchId} />
-        </div>
+      ) : project ? (
+        <PeriodRibbon
+          project={project}
+          batches={batches ?? []}
+          activeBatchId={activeBatchId ?? null}
+        />
       ) : null}
 
       {/* Right cluster */}

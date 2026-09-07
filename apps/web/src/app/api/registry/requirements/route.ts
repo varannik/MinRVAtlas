@@ -1,8 +1,7 @@
 import type { NextRequest } from "next/server";
 
-import { PROJECTS } from "@/lib/projects";
 import { findConnection } from "@/lib/registries";
-import { bundledResult, fetchRequirementSpec } from "@/lib/registries/server";
+import { bundledResult, fetchRequirementSpec, resolveOwnedProject } from "@/lib/registries/server";
 import { TENANTS } from "@/lib/tenants";
 
 /**
@@ -35,12 +34,9 @@ export async function GET(request: NextRequest) {
     return unauthorized("Unknown tenant");
   }
 
-  const project = PROJECTS.find((candidate) => candidate.id === projectId);
+  const project = resolveOwnedProject(tenantId, projectId);
   if (!project) {
     return Response.json({ error: "Unknown project" }, { status: 404 });
-  }
-  if (project.tenantId !== tenantId) {
-    return unauthorized("Project belongs to another tenant");
   }
 
   const connection = findConnection(tenantId, project.registry, project.id);

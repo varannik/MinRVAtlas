@@ -1,6 +1,8 @@
 import type { NextRequest } from "next/server";
 
+import { isCertifyProjectId } from "@/lib/iso-geo";
 import { PROJECTS } from "@/lib/projects";
+import { findConnection } from "@/lib/registries";
 import {
   parseLatitude,
   parseLongitude,
@@ -25,20 +27,31 @@ function resolveTenant(request: NextRequest) {
   return tenantId;
 }
 
-function ownedProjectIds(tenantId: string): Set<string> {
-  return new Set(
-    PROJECTS.filter((project) => project.tenantId === tenantId).map(
-      (project) => project.id,
-    ),
+function ownsProject(tenantId: string, projectId: string): boolean {
+  const catalog = PROJECTS.find((candidate) => candidate.id === projectId);
+  if (catalog) return catalog.tenantId === tenantId;
+  return (
+    isCertifyProjectId(projectId) &&
+    Boolean(findConnection(tenantId, "Isometric", projectId))
   );
+}
+
+function ownedProjectIds(tenantId: string, overlayKeys: string[]): Set<string> {
+  const ids = PROJECTS.filter((project) => project.tenantId === tenantId).map(
+    (project) => project.id,
+  );
+  for (const key of overlayKeys) {
+    if (ownsProject(tenantId, key)) ids.push(key);
+  }
+  return new Set(ids);
 }
 
 export async function GET(request: NextRequest) {
   const tenantId = resolveTenant(request);
   if (!tenantId) return unauthorized("Unknown tenant");
 
-  const allowed = ownedProjectIds(tenantId);
   const overlay = await readLocationOverlay();
+  const allowed = ownedProjectIds(tenantId, Object.keys(overlay));
   const locations = Object.fromEntries(
     Object.entries(overlay).filter(([projectId]) => allowed.has(projectId)),
   );
@@ -67,12 +80,8 @@ export async function PUT(request: NextRequest) {
   const record = body as Record<string, unknown>;
   const projectId =
     typeof record.projectId === "string" ? record.projectId : "";
-  const project = PROJECTS.find((candidate) => candidate.id === projectId);
-  if (!project) {
+  if (!ownsProject(tenantId, projectId)) {
     return Response.json({ error: "Unknown project" }, { status: 404 });
-  }
-  if (project.tenantId !== tenantId) {
-    return unauthorized("Project belongs to another tenant");
   }
 
   const lat = parseLatitude(record.lat);
@@ -89,8 +98,8 @@ export async function PUT(request: NextRequest) {
     lng,
     updatedAt: new Date().toISOString(),
   };
-  const overlay = await upsertProjectLocation(project.id, location);
-  const allowed = ownedProjectIds(tenantId);
+  const overlay = await upsertProjectLocation(projectId, location);
+  const allowed = ownedProjectIds(tenantId, Object.keys(overlay));
   const locations = Object.fromEntries(
     Object.entries(overlay).filter(([id]) => allowed.has(id)),
   );
