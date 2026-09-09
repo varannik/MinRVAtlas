@@ -188,7 +188,7 @@ export function ComponentCard({
   batchId: string;
   component: AccountingComponent;
   kg: number | null;
-  missing: string[];
+  missing?: string | null;
   expanded: boolean;
   selected: boolean;
   onToggle: () => void;
@@ -209,7 +209,7 @@ export function ComponentCard({
       >
         <div className="calc-card__row">
           <span className="calc-card__title">{component.name}</span>
-          <ValuePill kg={kg} missing={missing[0]} />
+          <ValuePill kg={kg} missing={missing} />
         </div>
         <p className="calc-card__formula">{formula}</p>
         <span className="calc-card__chevron" aria-hidden>
@@ -219,7 +219,11 @@ export function ComponentCard({
 
       {expanded ? (
         <div className="calc-zone calc-zone--inputs">
-          <p className="calc-zone__label">Manual inputs</p>
+          <p className="calc-zone__label">
+            {steps.some((step) => !isMonitoredInput(step.input))
+              ? "Formula inputs (period + LCA fixed)"
+              : "Manual inputs"}
+          </p>
           <ul className="calc-input-list">
             {steps.map((step) => (
               <InputRow

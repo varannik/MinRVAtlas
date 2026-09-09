@@ -121,3 +121,20 @@ export function kindLabel(kind: ItemKind): string {
 export function orderedEngines(engines: QualityEngine[]): QualityEngine[] {
   return ENGINE_ORDER.filter((engine) => engines.includes(engine));
 }
+
+/** GHG entry CSVs are time series: DQA → anomaly → registry (V&V only if docs). */
+export function enginesForPipeline(
+  slotId: string,
+  kind: ItemKind,
+  label: string,
+  hasDocs = false,
+): QualityEngine[] {
+  if (slotId.startsWith("ghg-entry")) {
+    return orderedEngines(
+      hasDocs
+        ? ["dqa", "anomaly", "vv", "registry-rules"]
+        : ["dqa", "anomaly", "registry-rules"],
+    );
+  }
+  return orderedEngines(classifyRequirement({ kind, label }).engines);
+}

@@ -215,30 +215,38 @@ function findInput(
 export function evaluateComponent(
   component: AccountingComponent,
   read: (input: AccountingInput) => MeasuredValue | null,
-): { kg: number | null; missing: string[] } {
+): { kg: number | null; missing: string[]; fixedMissing: string[] } {
   const steps = formulaSteps(component);
   const missing: string[] = [];
+  const fixedMissing: string[] = [];
   const numbers: number[] = [];
   const ops: (FormulaOp | "=")[] = [];
 
   for (const step of steps) {
     const value = read(step.input);
     if (!value || !Number.isFinite(value.magnitude)) {
-      missing.push(step.input.name);
+      if (isMonitoredInput(step.input)) missing.push(step.input.name);
+      else fixedMissing.push(step.input.name);
       continue;
     }
     ops.push(step.op);
     numbers.push(toTermNumber(value.magnitude, value.unit));
   }
 
-  if (missing.length > 0 || numbers.length === 0) return { kg: null, missing };
-  if (steps.length === 0) return { kg: null, missing: ["input"] };
+  if (missing.length > 0 || fixedMissing.length > 0 || numbers.length === 0) {
+    return { kg: null, missing, fixedMissing };
+  }
+  if (steps.length === 0) return { kg: null, missing: ["input"], fixedMissing: [] };
 
   const identity = steps.length === 1;
   if (identity) {
     const value = read(steps[0].input);
-    if (!value) return { kg: null, missing: [steps[0].input.name] };
-    return { kg: identityToKg(value.magnitude, value.unit), missing: [] };
+    if (!value) {
+      const input = steps[0].input;
+      if (isMonitoredInput(input)) return { kg: null, missing: [input.name], fixedMissing: [] };
+      return { kg: null, missing: [], fixedMissing: [input.name] };
+    }
+    return { kg: identityToKg(value.magnitude, value.unit), missing: [], fixedMissing: [] };
   }
 
   let acc = numbers[0];
@@ -246,6 +254,6 @@ export function evaluateComponent(
     if (ops[i] === "÷") acc = numbers[i] === 0 ? Number.NaN : acc / numbers[i];
     else acc *= numbers[i];
   }
-  if (!Number.isFinite(acc)) return { kg: null, missing: ["undefined"] };
-  return { kg: acc, missing: [] };
+  if (!Number.isFinite(acc)) return { kg: null, missing: ["undefined"], fixedMissing: [] };
+  return { kg: acc, missing: [], fixedMissing: [] };
 }

@@ -2,53 +2,112 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Boxes, Globe2 } from "lucide-react";
 
-import { sentinelJson, unwrapItems } from "@/lib/sentinel/browser";
 import {
-  readStoredQualityProjectId,
+  bindQualityProject,
+  fetchQualityProjects,
+  type QualityProjectOption,
+} from "@/lib/sentinel/quality-client";
+import {
+  readStoredQualityCatalogId,
   useQuality,
 } from "@/store/quality-store";
 import { isQualityNavActive, QUALITY_NAV } from "./nav";
-import type { SentinelProject } from "./types";
+import { Banner } from "./ui";
 
 export function QualityShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const catalogProjectId = useQuality((state) => state.catalogProjectId);
   const projectId = useQuality((state) => state.projectId);
-  const setProjectId = useQuality((state) => state.setProjectId);
-  const [projects, setProjects] = useState<SentinelProject[]>([]);
+  const setBoundProject = useQuality((state) => state.setBoundProject);
+  const clearProject = useQuality((state) => state.clearProject);
+  const [projects, setProjects] = useState<QualityProjectOption[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [bindError, setBindError] = useState<string | null>(null);
+  const [binding, setBinding] = useState(false);
 
-  useEffect(() => {
-    const stored = readStoredQualityProjectId();
-    if (stored) setProjectId(stored);
-    let cancelled = false;
-    void sentinelJson<unknown>("v1/projects")
-      .then((data) => {
-        if (cancelled) return;
-        const list = unwrapItems<SentinelProject>(data);
-        setProjects(list);
-        const current = stored ?? useQuality.getState().projectId;
-        if (!current && list.length > 0) {
-          const fujairah = list.find((project) =>
-            project.name.toLowerCase().includes("fujairah"),
-          );
-          setProjectId((fujairah ?? list[0]).id);
-        }
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        setLoadError(
+  const applyBind = useCallback(
+    async (catalogId: string, name?: string) => {
+      setBindError(null);
+      setBinding(true);
+      try {
+        const bound = await bindQualityProject(catalogId, name);
+        setBoundProject(bound.catalogProjectId, bound.sentinelProjectId, bound.name);
+      } catch (error) {
+        clearProject();
+        setBindError(
           error instanceof Error
             ? error.message
-            : "Could not load Sentinel projects",
+            : "Could not connect this project to the quality engine",
         );
-      });
+      } finally {
+        setBinding(false);
+      }
+    },
+    [clearProject, setBoundProject],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const list = await fetchQualityProjects();
+        if (cancelled) return;
+        setProjects(list);
+        setLoaded(true);
+        const stored = readStoredQualityCatalogId();
+        const match = stored
+          ? list.find((project) => project.id === stored)
+          : undefined;
+        if (!match) return;
+        setBindError(null);
+        setBinding(true);
+        try {
+          const bound = await bindQualityProject(match.id, match.name);
+          if (cancelled) return;
+          setBoundProject(
+            bound.catalogProjectId,
+            bound.sentinelProjectId,
+            bound.name,
+          );
+        } catch (error) {
+          if (cancelled) return;
+          clearProject();
+          setBindError(
+            error instanceof Error
+              ? error.message
+              : "Could not connect this project to the quality engine",
+          );
+        } finally {
+          if (!cancelled) setBinding(false);
+        }
+      } catch (error: unknown) {
+        if (cancelled) return;
+        setLoadError(
+          error instanceof Error ? error.message : "Could not load projects",
+        );
+        setLoaded(true);
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [setProjectId]);
+  }, [clearProject, setBoundProject]);
+
+  async function onSelectChange(catalogId: string | null) {
+    if (!catalogId) {
+      clearProject();
+      setBindError(null);
+      return;
+    }
+    const option = projects.find((project) => project.id === catalogId);
+    await applyBind(catalogId, option?.name);
+  }
+
+  const ready = Boolean(catalogProjectId && projectId);
 
   return (
     <div className="fixed inset-0 z-50 flex bg-ink-950 text-frost">
@@ -101,15 +160,22 @@ export function QualityShell({ children }: { children: ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-3 border-b border-line bg-ink-900 px-5 py-3">
           <label className="flex min-w-0 items-center gap-2 text-xs text-mist">
-            Sentinel project
+            Project
             <select
-              value={projectId ?? ""}
-              onChange={(event) => setProjectId(event.target.value || null)}
-              className="max-w-xs rounded-xl border border-line bg-ink-800 px-2.5 py-1.5 text-sm text-frost"
+              value={catalogProjectId ?? ""}
+              onChange={(event) => {
+                void onSelectChange(event.target.value || null);
+              }}
+              disabled={!loaded || projects.length === 0 || binding}
+              className="max-w-xs rounded-xl border border-line bg-ink-800 px-2.5 py-1.5 text-sm text-frost disabled:opacity-50"
             >
-              {projects.length === 0 ? (
-                <option value="">No projects</option>
-              ) : null}
+              <option value="">
+                {!loaded
+                  ? "Loading…"
+                  : projects.length === 0
+                    ? "No projects"
+                    : "Select a project"}
+              </option>
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
@@ -119,14 +185,29 @@ export function QualityShell({ children }: { children: ReactNode }) {
           </label>
           {loadError ? (
             <span className="text-xs text-signal-rose">{loadError}</span>
+          ) : binding ? (
+            <span className="text-[11px] text-mist">Connecting quality engine…</span>
           ) : (
             <span className="text-[11px] text-mist">
-              Tenant fourfourone · BFF /api/sentinel · Vite UI retired
+              Tenant fourfourone · BFF /api/sentinel
             </span>
           )}
         </header>
         <main className="scroll-slim min-h-0 flex-1 overflow-auto p-6">
-          {children}
+          {bindError ? <Banner kind="error">{bindError}</Banner> : null}
+          {projects.length === 0 && loaded && !loadError ? (
+            <Banner kind="info">
+              No projects in this workspace. Open the control room and load a
+              project before configuring quality checks.
+            </Banner>
+          ) : null}
+          {projects.length > 0 && !ready && !binding && !bindError ? (
+            <Banner kind="info">
+              Select an existing project to configure rules, models, and document
+              checks. Those stay empty until you seed defaults or define them.
+            </Banner>
+          ) : null}
+          {ready ? children : null}
         </main>
       </div>
     </div>

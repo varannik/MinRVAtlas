@@ -16,7 +16,8 @@ export class SentinelProjectMapError extends Error {
 
   constructor(localId: string) {
     super(
-      `No Sentinel UUID mapped for catalog project "${localId}". Set SENTINEL_PROJECT_ID (Fujairah) or SENTINEL_PROJECT_MAP.`,
+      `No Sentinel project for catalog id "${localId}". ` +
+        `Select an existing control-room project in Quality Console.`,
     );
     this.name = "SentinelProjectMapError";
     this.localId = localId;
@@ -32,11 +33,6 @@ export type SentinelConfig = {
 
 function parseProjectMap(): Record<string, string> {
   const map: Record<string, string> = {};
-  const fujairah = process.env.SENTINEL_PROJECT_ID?.trim();
-  if (fujairah && isUuid(fujairah)) {
-    map["fujairah-mineral"] = fujairah;
-  }
-
   const raw = process.env.SENTINEL_PROJECT_MAP?.trim();
   if (!raw) return map;
   try {
@@ -47,7 +43,7 @@ function parseProjectMap(): Record<string, string> {
       }
     }
   } catch {
-    // Keep the single-id mapping if JSON is malformed.
+    // Ignore malformed optional override.
   }
   return map;
 }
@@ -61,7 +57,7 @@ function isLocalSentinelHost(baseUrl: string): boolean {
   }
 }
 
-export function getSentinelConfig(): SentinelConfig {
+function baseSentinelConfig(): Omit<SentinelConfig, "projectMap"> {
   const baseUrl = (process.env.SENTINEL_BASE_URL ?? "http://localhost:8000").replace(
     /\/$/,
     "",
@@ -73,25 +69,26 @@ export function getSentinelConfig(): SentinelConfig {
     baseUrl,
     serviceToken,
     tenantId: process.env.SENTINEL_TENANT_ID?.trim() || "fourfourone",
+  };
+}
+
+export function getSentinelConfig(): SentinelConfig {
+  return {
+    ...baseSentinelConfig(),
     projectMap: parseProjectMap(),
   };
+}
+
+export async function getSentinelConfigAsync(): Promise<SentinelConfig> {
+  return getSentinelConfig();
 }
 
 export function isCatalogProjectId(value: string): boolean {
   return PROJECTS.some((project) => project.id === value) || isCertifyProjectId(value);
 }
 
-export function mapCatalogProjectId(
-  localId: string,
-  projectMap: Record<string, string>,
-): string {
-  const mapped = projectMap[localId];
-  if (mapped) return mapped;
-  const fujairah = projectMap["fujairah-mineral"];
-  if (fujairah && (localId === "fujairah-mineral" || isCertifyProjectId(localId))) {
-    return fujairah;
-  }
-  throw new SentinelProjectMapError(localId);
+export function catalogProjectName(localId: string): string {
+  return PROJECTS.find((project) => project.id === localId)?.name ?? localId;
 }
 
 export function resolveRequestTenant(request: Request): string | null {

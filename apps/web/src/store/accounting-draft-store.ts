@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { defaultUnit } from "@/lib/accounting";
 
 export type InputDraft = {
   magnitude: string;
@@ -15,6 +16,16 @@ type AccountingDraftState = {
   selectedEntryId: string | null;
   selectedComponentId: string | null;
   setInput: (key: string, patch: Partial<InputDraft>) => void;
+  setInputs: (
+    rows: {
+      batchId: string;
+      componentId: string;
+      inputKey: string;
+      magnitude: number;
+      unit: string;
+      quantityKind?: string;
+    }[],
+  ) => void;
   clearInput: (key: string) => void;
   selectEntry: (id: string | null) => void;
   selectComponent: (id: string | null) => void;
@@ -43,6 +54,20 @@ export const useAccountingDrafts = create<AccountingDraftState>((set) => ({
         [key]: { ...(state.byKey[key] ?? emptyInputDraft("kg")), ...patch },
       },
     })),
+  setInputs: (rows) =>
+    set((state) => {
+      const byKey = { ...state.byKey };
+      for (const row of rows) {
+        const key = inputDraftKey(row.batchId, row.componentId, row.inputKey);
+        const unit = row.unit || defaultUnit(row.quantityKind);
+        byKey[key] = {
+          ...(byKey[key] ?? emptyInputDraft(unit)),
+          magnitude: String(row.magnitude),
+          unit,
+        };
+      }
+      return { byKey };
+    }),
   clearInput: (key) =>
     set((state) => {
       const next = { ...state.byKey };

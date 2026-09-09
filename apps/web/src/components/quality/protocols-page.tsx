@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { sentinelJson, unwrapItems } from "@/lib/sentinel/browser";
+import { useQuality } from "@/store/quality-store";
 import type { ProtocolCheckpoint, ProtocolRecord } from "./types";
 import {
   Banner,
@@ -27,7 +28,6 @@ export function ProtocolsPage() {
     const data = await sentinelJson<unknown>("v2/protocols/protocols");
     const list = unwrapItems<ProtocolRecord>(data);
     setProtocols(list);
-    setSelectedId((current) => current ?? list[0]?.id ?? null);
   }, []);
 
   const loadCheckpoints = useCallback(async (protocolId: string) => {
@@ -44,7 +44,10 @@ export function ProtocolsPage() {
   }, [loadProtocols]);
 
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId) {
+      setCheckpoints([]);
+      return;
+    }
     void loadCheckpoints(selectedId).catch((err: unknown) => {
       setError(err instanceof Error ? err.message : "Failed to load checkpoints");
     });
@@ -54,7 +57,7 @@ export function ProtocolsPage() {
     <div>
       <PageHeader
         title="Protocol Manager"
-        description="Living protocol registry. Edit checkpoint definitions used by V&V packs."
+        description="Protocol checkpoints used by document checks. Choose a protocol to inspect; nothing is selected until you pick one."
         actions={<Button onClick={() => void loadProtocols()}>Refresh</Button>}
       />
       {error ? <Banner kind="error">{error}</Banner> : null}
@@ -65,6 +68,7 @@ export function ProtocolsPage() {
           value={selectedId ?? ""}
           onChange={(event) => setSelectedId(event.target.value || null)}
         >
+          <option value="">Select a protocol</option>
           {protocols.map((protocol) => (
             <option key={protocol.id} value={protocol.id}>
               {protocol.code ?? protocol.name} · {protocol.version ?? ""}
@@ -75,7 +79,7 @@ export function ProtocolsPage() {
       <div className="mt-4">
         <DataTable
           columns={["ID", "Category", "Name", "Critical", ""]}
-          empty="No checkpoints on this protocol."
+          empty="Select a protocol to see checkpoints, or none defined yet."
           rows={checkpoints.map((cp) => [
             <span key="id" className="font-mono text-xs">
               {cp.checkpoint_id}

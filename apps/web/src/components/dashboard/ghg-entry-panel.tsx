@@ -21,8 +21,10 @@ import {
 } from "@/store/accounting-draft-store";
 import { useDashboard } from "@/store/dashboard-store";
 import { usePipeline } from "@/store/pipeline-store";
+import { useGhgQualityReview } from "@/store/ghg-quality-review-store";
 import type { Project, SubmissionBatch } from "@/lib/types";
 import { CalculationTree } from "./calculation-tree";
+import { GhgQualityOverlay } from "./ghg-quality/quality-overlay";
 
 function findComponent(
   template: AccountingTemplate,
@@ -54,14 +56,16 @@ export function GhgEntryPanel({
   const selectEntry = useAccountingDrafts((state) => state.selectEntry);
   const selectComponent = useAccountingDrafts((state) => state.selectComponent);
   const byKey = useAccountingDrafts((state) => state.byKey);
-  const putPipeline = usePipeline((state) => state.put);
   const pipelineByKey = usePipeline((state) => state.byKey);
   const addFiles = useRequirementDrafts((state) => state.addFiles);
   const removeFile = useRequirementDrafts((state) => state.removeFile);
-  const setStage = useRequirementDrafts((state) => state.setStage);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"quality" | "create" | null>(null);
+  const [feedNotice, setFeedNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState<"create" | null>(null);
+  const overlayOpen = useGhgQualityReview((state) => state.overlayOpen);
+  const qualityRunning = useGhgQualityReview((state) => state.running);
+  const openReview = useGhgQualityReview((state) => state.open);
 
   const qualitySlot = `ghg-entry:${batch.id}`;
   const draftKey = `${project.id}:${batch.id}:${qualitySlot}`;
@@ -116,64 +120,24 @@ export function GhgEntryPanel({
     files.length > 0 &&
     qualityOk &&
     monitoredMissing.length === 0 &&
-    !busy;
+    !busy &&
+    !qualityRunning;
 
   const exSitu = template?.groups.some((group) =>
     group.components.some((row) => isExSituMineralizationBlueprint(row.blueprintKey)),
   );
 
-  async function runQuality() {
-    if (!template || files.length === 0 || busy) return;
+  async function startQuality() {
+    if (!template || files.length === 0 || qualityRunning) return;
     const uploaded = getDraftFiles(draftKey);
-    const form = new FormData();
-    form.set("project_id", project.id);
-    form.set("slot_id", qualitySlot);
-    form.set("batch_id", batch.id);
-    form.set("kind", "dataset");
-    form.set("label", "GHG entry datapoints");
-    form.set("origin", "operator-upload");
-    form.set("notes", "GHG entry sources for this reporting period");
-    form.set("period_start", batch.periodStart);
-    form.set("period_end", batch.periodEnd);
-    for (const file of uploaded) form.append("file", file);
-
-    setError(null);
-    setBusy("quality");
-    setStage(draftKey, "running");
-    putPipeline({
-      tenantId,
-      projectId: project.id,
-      batchId: batch.id,
-      slotId: qualitySlot,
-      kind: "dataset",
-      origin: "operator-upload",
-      engines: {
-        dqa: { status: "running" },
-        anomaly: { status: "running" },
-        "registry-rules": { status: "running" },
-      },
-      updatedAt: new Date().toISOString(),
-    });
-    try {
-      const response = await fetch("/api/sentinel/pipeline", {
-        method: "POST",
-        headers: { "x-tenant-id": tenantId },
-        body: form,
-      });
-      const body = (await response.json()) as PipelineResult & { error?: string };
-      if (!response.ok) throw new Error(body.error || response.statusText);
-      putPipeline(body);
-      const blocked =
-        Boolean(body.error) ||
-        body.schemaBlocked ||
-        body.engines.dqa?.status === "failed";
-      setStage(draftKey, blocked ? "failed" : "complete");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Quality check failed");
-      setStage(draftKey, "failed");
-    } finally {
-      setBusy(null);
+    const csv = uploaded.find((file) => file.name.toLowerCase().endsWith(".csv"));
+    if (!csv) {
+      setError("Upload a CSV to run quality check");
+      return;
     }
+    setError(null);
+    const text = await csv.text();
+    openReview(text, csv.name);
   }
 
   async function createEntry() {
@@ -288,23 +252,14 @@ export function GhgEntryPanel({
         </p>
       ) : null}
 
-      <CalculationTree
-        template={template}
-        batchId={batch.id}
-        netKg={selectedEntry?.netKg}
-        selectedComponentId={component?.id ?? null}
-        onSelectComponent={selectComponent}
-      />
-
       <section>
         <h3 className="text-[10px] tracking-[0.14em] text-mist uppercase">
           Sources and quality
         </h3>
         <p className="mt-1 mb-2 text-[10px] leading-relaxed text-mist">
-          Upload bills, meter exports or lab certificates for this period’s
-          monitored values. Data quality must pass before the GHG entry is written
-          to Certify. Entries whose end date falls in a statement period are
-          assigned to that statement automatically.
+          Upload operator telemetry plus period accounting columns. Run quality
+          check to review DQA, anomaly, and registry rules. The calculation tree
+          fills only after that review is finished.
         </p>
         <button
           type="button"
@@ -313,7 +268,7 @@ export function GhgEntryPanel({
         >
           <FileUp className="size-4 text-mist" />
           <span className="text-[12px] font-medium text-frost">
-            Drop source files for this GHG entry
+            Upload CSV for this GHG entry
           </span>
         </button>
         <input
@@ -325,6 +280,8 @@ export function GhgEntryPanel({
           onChange={(event) => {
             if (event.target.files?.length) {
               addFiles(draftKey, Array.from(event.target.files));
+              setFeedNotice(null);
+              setError(null);
             }
             event.target.value = "";
           }}
@@ -349,6 +306,17 @@ export function GhgEntryPanel({
             ))}
           </ul>
         ) : null}
+        <button
+          type="button"
+          disabled={files.length === 0 || qualityRunning}
+          onClick={() => void startQuality()}
+          className="mt-3 w-full rounded-2xl bg-carbon-400 px-4 py-4 text-[15px] font-semibold text-off-white disabled:bg-ink-700 disabled:text-mist"
+        >
+          {qualityRunning ? "Running quality checks…" : "Run quality check"}
+        </button>
+        {feedNotice ? (
+          <p className="mt-2 text-[11px] text-frost">{feedNotice}</p>
+        ) : null}
         {pipeline?.engines.dqa?.detail ? (
           <p className="mt-2 text-[11px] text-frost">{pipeline.engines.dqa.detail}</p>
         ) : null}
@@ -359,25 +327,36 @@ export function GhgEntryPanel({
           </p>
         ) : null}
         {error ? <p className="mt-2 text-[11px] text-signal-rose">{error}</p> : null}
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={files.length === 0 || busy !== null}
-            onClick={() => void runQuality()}
-            className="rounded-xl bg-carbon-400 px-3 py-2 text-[12px] font-semibold text-off-white disabled:bg-ink-700 disabled:text-mist"
-          >
-            {busy === "quality" ? "Running Sentinel…" : "Run quality check"}
-          </button>
-          <button
-            type="button"
-            disabled={!canCreate}
-            onClick={() => void createEntry()}
-            className="rounded-xl bg-serpentine px-3 py-2 text-[12px] font-semibold text-off-white disabled:bg-ink-700 disabled:text-mist"
-          >
-            {busy === "create" ? "Creating…" : "Create GHG entry on Certify"}
-          </button>
-        </div>
       </section>
+
+      <CalculationTree
+        template={template}
+        batchId={batch.id}
+        netKg={selectedEntry?.netKg}
+        selectedComponentId={component?.id ?? null}
+        onSelectComponent={selectComponent}
+      />
+
+      <button
+        type="button"
+        disabled={!canCreate}
+        onClick={() => void createEntry()}
+        className="rounded-xl bg-serpentine px-3 py-2 text-[12px] font-semibold text-off-white disabled:bg-ink-700 disabled:text-mist"
+      >
+        {busy === "create" ? "Creating…" : "Create GHG entry on Certify"}
+      </button>
+
+      {overlayOpen ? (
+        <GhgQualityOverlay
+          project={project}
+          batch={batch}
+          template={template}
+          draftKey={draftKey}
+          qualitySlot={qualitySlot}
+          tenantId={tenantId}
+          onFed={setFeedNotice}
+        />
+      ) : null}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
 import {
   rewriteFormData,
   rewriteJsonValue,
+  rewritePath,
   rewriteSearchParams,
 } from "./rewrite";
 
@@ -36,7 +37,6 @@ function restPathFromRequest(request: NextRequest): string {
 
 async function buildUpstreamBody(
   request: NextRequest,
-  projectMap: Record<string, string>,
 ): Promise<{ body?: BodyInit; contentType?: string }> {
   if (!METHODS_WITH_BODY.has(request.method)) return {};
   const contentType = request.headers.get("content-type") ?? "";
@@ -46,7 +46,7 @@ async function buildUpstreamBody(
 
   if (contentType.includes("multipart/form-data")) {
     const form = await request.formData();
-    return { body: rewriteFormData(form, projectMap) };
+    return { body: await rewriteFormData(form) };
   }
 
   if (contentType.includes("application/json")) {
@@ -55,7 +55,7 @@ async function buildUpstreamBody(
     try {
       const parsed: unknown = JSON.parse(text);
       return {
-        body: JSON.stringify(rewriteJsonValue(parsed, projectMap)),
+        body: JSON.stringify(await rewriteJsonValue(parsed)),
         contentType: "application/json",
       };
     } catch {
@@ -101,12 +101,11 @@ export async function proxySentinel(request: NextRequest): Promise<Response> {
     return jsonError("SENTINEL_SERVICE_TOKEN is not configured", 503);
   }
 
+  let rewrittenPath: string;
   let search: URLSearchParams;
   try {
-    search = rewriteSearchParams(
-      request.nextUrl.searchParams,
-      config.projectMap,
-    );
+    rewrittenPath = await rewritePath(path);
+    search = await rewriteSearchParams(request.nextUrl.searchParams);
   } catch (error) {
     if (error instanceof SentinelProjectMapError) {
       return jsonError(error.message, 400);
@@ -114,7 +113,10 @@ export async function proxySentinel(request: NextRequest): Promise<Response> {
     throw error;
   }
 
-  const upstreamUrl = new URL(toUpstreamSentinelPath(path), `${config.baseUrl}/`);
+  const upstreamUrl = new URL(
+    toUpstreamSentinelPath(rewrittenPath),
+    `${config.baseUrl}/`,
+  );
   for (const [key, value] of search.entries()) {
     upstreamUrl.searchParams.set(key, value);
   }
@@ -128,7 +130,7 @@ export async function proxySentinel(request: NextRequest): Promise<Response> {
 
   let body: BodyInit | undefined;
   try {
-    const built = await buildUpstreamBody(request, config.projectMap);
+    const built = await buildUpstreamBody(request);
     body = built.body;
     if (built.contentType) headers.set("content-type", built.contentType);
   } catch (error) {

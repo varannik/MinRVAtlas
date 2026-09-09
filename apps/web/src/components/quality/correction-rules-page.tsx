@@ -60,7 +60,7 @@ export function CorrectionRulesPage() {
         }
       />
       {!projectId ? (
-        <Banner kind="info">Select a Sentinel project in the header.</Banner>
+        <Banner kind="info">Select a project in the header.</Banner>
       ) : null}
       {error ? <Banner kind="error">{error}</Banner> : null}
       <DataTable

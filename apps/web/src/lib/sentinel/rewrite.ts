@@ -1,33 +1,38 @@
-import {
-  isCatalogProjectId,
-  mapCatalogProjectId,
-} from "./config";
+import { isCatalogProjectId } from "./config";
+import { ensureSentinelUuid } from "./bind";
 
 const PROJECT_ID_KEYS = new Set(["project_id", "projectId"]);
 
-function rewriteId(value: string, projectMap: Record<string, string>): string {
+async function rewriteId(value: string): Promise<string> {
   if (!isCatalogProjectId(value)) return value;
-  return mapCatalogProjectId(value, projectMap);
+  return ensureSentinelUuid(value);
 }
 
-export function rewriteSearchParams(
+export async function rewritePath(path: string): Promise<string> {
+  const parts = path.split("/");
+  const next = await Promise.all(
+    parts.map(async (part) => {
+      if (!part || !isCatalogProjectId(part)) return part;
+      return ensureSentinelUuid(part);
+    }),
+  );
+  return next.join("/");
+}
+
+export async function rewriteSearchParams(
   search: URLSearchParams,
-  projectMap: Record<string, string>,
-): URLSearchParams {
+): Promise<URLSearchParams> {
   const next = new URLSearchParams(search);
   for (const key of PROJECT_ID_KEYS) {
     const value = next.get(key);
-    if (value) next.set(key, rewriteId(value, projectMap));
+    if (value) next.set(key, await rewriteId(value));
   }
   return next;
 }
 
-export function rewriteJsonValue(
-  value: unknown,
-  projectMap: Record<string, string>,
-): unknown {
+export async function rewriteJsonValue(value: unknown): Promise<unknown> {
   if (Array.isArray(value)) {
-    return value.map((item) => rewriteJsonValue(item, projectMap));
+    return Promise.all(value.map((item) => rewriteJsonValue(item)));
   }
   if (!value || typeof value !== "object") return value;
 
@@ -35,29 +40,30 @@ export function rewriteJsonValue(
   const out: Record<string, unknown> = {};
   for (const [key, child] of Object.entries(record)) {
     if (PROJECT_ID_KEYS.has(key) && typeof child === "string") {
-      out[key] = rewriteId(child, projectMap);
+      out[key] = await rewriteId(child);
     } else {
-      out[key] = rewriteJsonValue(child, projectMap);
+      out[key] = await rewriteJsonValue(child);
     }
   }
   return out;
 }
 
-export function rewriteFormData(
-  form: FormData,
-  projectMap: Record<string, string>,
-): FormData {
+export async function rewriteFormData(form: FormData): Promise<FormData> {
   const next = new FormData();
+  const entries: [string, FormDataEntryValue][] = [];
   form.forEach((value, key) => {
+    entries.push([key, value]);
+  });
+  for (const [key, value] of entries) {
     if (
       PROJECT_ID_KEYS.has(key) &&
       typeof value === "string" &&
       isCatalogProjectId(value)
     ) {
-      next.append(key, mapCatalogProjectId(value, projectMap));
-      return;
+      next.append(key, await ensureSentinelUuid(value));
+      continue;
     }
     next.append(key, value);
-  });
+  }
   return next;
 }

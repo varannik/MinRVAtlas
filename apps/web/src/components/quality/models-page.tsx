@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { sentinelJson } from "@/lib/sentinel/browser";
+import { useQuality } from "@/store/quality-store";
 import { Banner, Button, DataTable, PageHeader, Pill } from "./ui";
 
 type ModelRow = {
@@ -17,6 +18,7 @@ type ModelRow = {
 };
 
 export function ModelsPage() {
+  const projectId = useQuality((state) => state.projectId);
   const [models, setModels] = useState<ModelRow[]>([]);
   const [thresholds, setThresholds] = useState<Record<string, unknown>>({});
   const [error, setError] = useState<string | null>(null);
@@ -24,6 +26,11 @@ export function ModelsPage() {
   const [busy, setBusy] = useState(false);
 
   async function load() {
+    if (!projectId) {
+      setModels([]);
+      setThresholds({});
+      return;
+    }
     const [ml, th] = await Promise.all([
       sentinelJson<{ models?: ModelRow[] } | ModelRow[]>("v1/ml/status"),
       sentinelJson<{ thresholds?: Record<string, unknown> }>(
@@ -40,10 +47,11 @@ export function ModelsPage() {
   }
 
   useEffect(() => {
+    if (!projectId) return;
     void load().catch((err: unknown) => {
       setError(err instanceof Error ? err.message : "Failed to load models");
     });
-  }, []);
+  }, [projectId]);
 
   async function retrain(kind: "dqa" | "anomaly") {
     setBusy(true);
@@ -80,16 +88,18 @@ export function ModelsPage() {
     <div>
       <PageHeader
         title="Models"
-        description="ML registry status and default anomaly thresholds. Retrain is queued on the Sentinel worker."
+        description="ML registry and anomaly thresholds for the selected project. Empty until you train or set them."
         actions={
           <>
-            <Button onClick={() => void load()}>Refresh</Button>
-            <Button disabled={busy} onClick={() => void retrain("dqa")}>
+            <Button onClick={() => void load()} disabled={!projectId}>
+              Refresh
+            </Button>
+            <Button disabled={!projectId || busy} onClick={() => void retrain("dqa")}>
               Retrain DQA
             </Button>
             <Button
               tone="primary"
-              disabled={busy}
+              disabled={!projectId || busy}
               onClick={() => void retrain("anomaly")}
             >
               Retrain anomaly
@@ -104,7 +114,7 @@ export function ModelsPage() {
       </h2>
       <DataTable
         columns={["Model", "Samples", "Status", "Trained"]}
-        empty="No model registry rows yet."
+        empty="No models for this project yet."
         rows={models.map((model) => [
           <span key="n">
             {model.model_key ?? model.name ?? model.model ?? "—"}
@@ -123,7 +133,7 @@ export function ModelsPage() {
       </h2>
       <DataTable
         columns={["Parameter", "Value"]}
-        empty="No thresholds returned."
+        empty="No anomaly thresholds yet."
         rows={thresholdRows}
       />
     </div>

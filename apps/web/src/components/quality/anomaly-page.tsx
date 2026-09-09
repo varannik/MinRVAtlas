@@ -92,7 +92,7 @@ export function AnomalyPage() {
         }
       />
       {!projectId ? (
-        <Banner kind="info">Select a Sentinel project in the header.</Banner>
+        <Banner kind="info">Select a project in the header.</Banner>
       ) : null}
       {error ? <Banner kind="error">{error}</Banner> : null}
       <label className="mb-4 block max-w-xl text-xs text-mist">

@@ -47,6 +47,12 @@ function flatten(groups: AccountingGroup[]): AccountingComponent[] {
   return groups.flatMap((group) => group.components);
 }
 
+function missingLabel(missing: string[], fixedMissing: string[]): string | null {
+  if (missing.length > 0) return missing[0];
+  if (fixedMissing.length > 0) return `LCA · ${fixedMissing[0]}`;
+  return null;
+}
+
 export function CalculationTree({
   template,
   batchId,
@@ -106,7 +112,7 @@ export function CalculationTree({
   const scored = useMemo(() => {
     const map = new Map<
       string,
-      { kg: number | null; missing: string[]; formula: string }
+      { kg: number | null; missing: string[]; fixedMissing: string[]; formula: string }
     >();
     for (const group of template.groups) {
       for (const component of group.components) {
@@ -228,7 +234,10 @@ export function CalculationTree({
                                 batchId={batchId}
                                 component={component}
                                 kg={score?.kg ?? null}
-                                missing={score?.missing ?? []}
+                                missing={missingLabel(
+                                  score?.missing ?? [],
+                                  score?.fixedMissing ?? [],
+                                )}
                                 expanded={expanded}
                                 selected={selectedComponentId === component.id}
                                 onToggle={() => toggleOpen(component.id)}

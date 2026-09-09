@@ -36,7 +36,7 @@ export function ViolationsPage() {
     <div>
       <PageHeader
         title="Violations"
-        description="From the latest DQA run on the selected Sentinel project."
+        description="From the latest DQA run on the selected project."
       />
       {error ? <Banner kind="error">{error}</Banner> : null}
       <DataTable

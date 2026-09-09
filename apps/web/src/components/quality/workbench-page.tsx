@@ -139,7 +139,7 @@ export function WorkbenchPage() {
         }
       />
       {!projectId ? (
-        <Banner kind="info">Select a Sentinel project in the header.</Banner>
+        <Banner kind="info">Select a project in the header.</Banner>
       ) : null}
       {datasets.length === 0 && projectId ? (
         <Banner kind="info">Upload a dataset first.</Banner>

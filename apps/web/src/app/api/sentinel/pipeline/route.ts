@@ -1,7 +1,7 @@
 import { resolveOwnedProject } from "@/lib/registries/server";
 import { TENANTS } from "@/lib/tenants";
 import type { ItemKind } from "@/lib/types";
-import { getSentinelConfig } from "@/lib/sentinel/config";
+import { getSentinelConfig, SentinelProjectMapError } from "@/lib/sentinel/config";
 import { runOperatorPipeline } from "@/lib/sentinel/pipeline";
 
 /**
@@ -76,6 +76,9 @@ export async function POST(request: Request) {
     const result = await runOperatorPipeline({
       tenantId,
       catalogProjectId,
+      projectName: project.name,
+      projectDeveloper: project.developer,
+      vintage: project.vintage,
       slotId,
       batchId,
       kind,
@@ -91,6 +94,9 @@ export async function POST(request: Request) {
       headers: { "cache-control": "private, no-store" },
     });
   } catch (error) {
+    if (error instanceof SentinelProjectMapError) {
+      return jsonError(error.message, 400);
+    }
     const message = error instanceof Error ? error.message : "Pipeline failed";
     return jsonError(message, 502);
   }

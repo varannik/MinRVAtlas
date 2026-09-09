@@ -371,6 +371,7 @@ def run_violations(run_id: UUID, limit: int = 1000,
     return [{"id": str(v.id), "rule_id": v.rule_id, "rule_name": v.rule_name,
              "dimension": v.dimension, "severity": v.severity,
              "affected_field": v.affected_field, "record_count": v.record_count,
+             "affected_rows": (v.affected_rows or [])[:100],
              "violation_detail": v.violation_detail, "status": v.status,
              "created_at": v.created_at.isoformat()} for v in viols]
 

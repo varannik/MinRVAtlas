@@ -29,9 +29,6 @@ const CSV_PATH =
     "apps/sentinel/data/sample_data/STR1_FAIL_2024-03-15.csv",
   );
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
 function headers(extra = {}) {
   return { "x-tenant-id": TENANT, ...extra };
 }
@@ -58,53 +55,40 @@ function fail(message, extra) {
 }
 
 async function ensureProject() {
-  const configured = process.env.SENTINEL_PROJECT_ID?.trim();
-  if (configured && UUID_RE.test(configured)) {
-    return { id: configured, mapped: true };
-  }
-
-  const list = await api("/api/sentinel/v1/projects");
-  if (!list.response.ok) {
+  const listed = await api("/api/quality/projects");
+  if (!listed.response.ok) {
     fail(
-      `GET /api/sentinel/v1/projects → ${list.response.status}`,
-      list.json,
+      `GET /api/quality/projects → ${listed.response.status}`,
+      listed.json,
     );
   }
-
-  const projects = Array.isArray(list.json) ? list.json : [];
-  const existing = projects.find(
-    (project) =>
-      typeof project?.name === "string" &&
-      project.name.toLowerCase().includes("fujairah"),
-  );
-  if (existing?.id) {
-    console.log(`Using existing Sentinel project ${existing.id} (${existing.name})`);
-    console.log(
-      `Add to .env: SENTINEL_PROJECT_ID=${existing.id}  (maps fujairah-mineral)`,
-    );
-    return { id: existing.id, mapped: false };
+  const projects = Array.isArray(listed.json?.projects) ? listed.json.projects : [];
+  const chosen = projects[0];
+  if (!chosen?.id) {
+    fail("No control-room projects to bind for smoke");
   }
 
-  const created = await api("/api/sentinel/v1/projects", {
+  const bound = await api("/api/quality/projects", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      name: "Fujairah Peridotite Mineralisation",
-      description: "3DMinRV Step A smoke project",
-      domain: "ccs",
+      catalogProjectId: chosen.id,
+      name: chosen.name,
     }),
   });
-  if (!created.response.ok) {
+  if (!bound.response.ok || !bound.json?.sentinelProjectId) {
     fail(
-      `POST /api/sentinel/v1/projects → ${created.response.status}`,
-      created.json,
+      `POST /api/quality/projects → ${bound.response.status}`,
+      bound.json,
     );
   }
-  console.log(`Created Sentinel project ${created.json.id}`);
   console.log(
-    `Add to .env: SENTINEL_PROJECT_ID=${created.json.id}  (maps fujairah-mineral)`,
+    `Bound ${chosen.name} (${chosen.id}) → Sentinel ${bound.json.sentinelProjectId}`,
   );
-  return { id: created.json.id, mapped: false };
+  return {
+    catalogId: chosen.id,
+    id: bound.json.sentinelProjectId,
+  };
 }
 
 async function pollRun(runId) {
@@ -161,7 +145,7 @@ async function main() {
   console.log("PASS  other tenant denied");
 
   const project = await ensureProject();
-  const formProjectId = project.mapped ? "fujairah-mineral" : project.id;
+  const formProjectId = project.catalogId;
 
   const seed = await api(`/api/sentinel/v1/rules/seed/${project.id}`, {
     method: "POST",

@@ -65,7 +65,7 @@ export function RulesPage() {
     <div>
       <PageHeader
         title="Rule Manager"
-        description="28 CO₂ injection rules across eight dimensions. Edits apply to the next DQA run for this Sentinel project."
+        description="DQA rules for the selected project. New projects start empty — seed the default CO₂ set or add rules after the project exists."
         actions={
           <>
             <Button onClick={() => void load()} disabled={!projectId}>
@@ -82,7 +82,7 @@ export function RulesPage() {
         }
       />
       {!projectId ? (
-        <Banner kind="info">Select a Sentinel project in the header.</Banner>
+        <Banner kind="info">Select a project in the header to manage rules.</Banner>
       ) : null}
       {error ? <Banner kind="error">{error}</Banner> : null}
       {notice ? <Banner kind="ok">{notice}</Banner> : null}
@@ -97,7 +97,7 @@ export function RulesPage() {
           "Active",
           "",
         ]}
-        empty="No rules yet. Seed the CO₂ set for this project."
+        empty="No rules yet. Seed the default CO₂ set, or define rules for this project."
         rows={rules.map((rule) => [
           <span key="id" className="font-mono text-xs text-signal-sky">
             {rule.rule_id}

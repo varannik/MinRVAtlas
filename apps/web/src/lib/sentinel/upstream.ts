@@ -1,12 +1,10 @@
 import "server-only";
 
-import {
-  getSentinelConfig,
-  SentinelProjectMapError,
-} from "./config";
+import { getSentinelConfig, SentinelProjectMapError } from "./config";
 import {
   rewriteFormData,
   rewriteJsonValue,
+  rewritePath,
   rewriteSearchParams,
 } from "./rewrite";
 import { toUpstreamSentinelPath } from "./allowlist";
@@ -59,10 +57,10 @@ export async function sentinelUpstream(
     );
   }
 
-  const suffix = path.replace(/^\/+/, "");
+  const suffix = await rewritePath(path.replace(/^\/+/, ""));
   const url = new URL(toUpstreamSentinelPath(suffix), `${config.baseUrl}/`);
   if (init.body === undefined) {
-    const search = rewriteSearchParams(url.searchParams, config.projectMap);
+    const search = await rewriteSearchParams(url.searchParams);
     url.search = search.toString();
   }
 
@@ -71,12 +69,12 @@ export async function sentinelUpstream(
 
   let body = init.body;
   if (body instanceof FormData) {
-    body = rewriteFormData(body, config.projectMap);
+    body = await rewriteFormData(body);
     headers.delete("content-type");
   } else if (typeof body === "string" && headers.get("content-type")?.includes("json")) {
     try {
       body = JSON.stringify(
-        rewriteJsonValue(JSON.parse(body) as unknown, config.projectMap),
+        await rewriteJsonValue(JSON.parse(body) as unknown),
       );
     } catch (error) {
       if (error instanceof SentinelProjectMapError) throw error;

@@ -72,13 +72,13 @@ export function DatasetsPage() {
         }
       />
       {!projectId ? (
-        <Banner kind="info">Select a Sentinel project in the header.</Banner>
+        <Banner kind="info">Select a project in the header to manage datasets.</Banner>
       ) : null}
       {error ? <Banner kind="error">{error}</Banner> : null}
       {notice ? <Banner kind="ok">{notice}</Banner> : null}
       <DataTable
         columns={["Name", "Rows", "Cols", "Status"]}
-        empty="No datasets."
+        empty="No datasets for this project yet."
         rows={rows.map((row) => [
           <span key="n">{row.name}</span>,
           <span key="r" className="tabular">

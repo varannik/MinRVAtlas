@@ -87,7 +87,7 @@ export function SchedulesPage() {
     <div>
       <PageHeader
         title="Schedules"
-        description="Cron-triggered DQA (and optional pipeline) runs for this Sentinel project."
+        description="Cron-triggered DQA (and optional pipeline) runs for this project."
         actions={
           <>
             <Button onClick={() => void load()} disabled={!projectId}>
@@ -104,7 +104,7 @@ export function SchedulesPage() {
         }
       />
       {!projectId ? (
-        <Banner kind="info">Select a Sentinel project in the header.</Banner>
+        <Banner kind="info">Select a project in the header.</Banner>
       ) : null}
       {error ? <Banner kind="error">{error}</Banner> : null}
       {notice ? <Banner kind="ok">{notice}</Banner> : null}

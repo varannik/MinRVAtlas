@@ -32,10 +32,10 @@ export function ReportsPage() {
     <div>
       <PageHeader
         title="Reports"
-        description="Quality report for the selected Sentinel project. Files stream from FastAPI through the BFF."
+        description="Quality report for the selected project. Files stream from FastAPI through the BFF."
       />
       {!projectId ? (
-        <Banner kind="info">Select a Sentinel project in the header.</Banner>
+        <Banner kind="info">Select a project in the header.</Banner>
       ) : null}
       {error ? <Banner kind="error">{error}</Banner> : null}
       {notice ? <Banner kind="ok">{notice}</Banner> : null}

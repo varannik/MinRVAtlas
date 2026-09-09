@@ -90,7 +90,7 @@ export function CorrectionsPage() {
         }
       />
       {!projectId ? (
-        <Banner kind="info">Select a Sentinel project in the header.</Banner>
+        <Banner kind="info">Select a project in the header to manage corrections.</Banner>
       ) : null}
       {error ? <Banner kind="error">{error}</Banner> : null}
       {notice ? <Banner kind="ok">{notice}</Banner> : null}

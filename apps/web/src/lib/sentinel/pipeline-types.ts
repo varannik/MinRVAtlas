@@ -23,6 +23,48 @@ export type RegistryCheck = {
   detail: string;
 };
 
+export type DqaViolationHit = {
+  id: string;
+  rule_id: string;
+  rule_name?: string | null;
+  dimension?: string;
+  severity: string;
+  affected_field?: string | null;
+  affected_rows?: number[];
+  record_count?: number;
+  violation_detail?: Record<string, unknown>;
+  status?: string;
+};
+
+export type AnomalyModelVote = {
+  status?: string;
+  confidence?: number;
+  alarm_type?: string;
+  method?: string;
+};
+
+export type AnomalyHit = {
+  row_index?: number;
+  timestamp?: string | null;
+  parameter?: string;
+  value?: number;
+  unit?: string;
+  severity?: string;
+  ensemble_confidence?: number;
+  alarm_type?: string;
+  votes?: number;
+  models?: {
+    heuristic?: AnomalyModelVote;
+    statistical?: AnomalyModelVote;
+    ml?: AnomalyModelVote;
+  };
+  context?: {
+    threshold?: { high?: number; low?: number; high_high?: number; low_low?: number };
+    iqr_bounds?: { low?: number; high?: number };
+    z_score?: number;
+  };
+};
+
 export type PipelineResult = {
   tenantId: string;
   projectId: string;
@@ -39,6 +81,8 @@ export type PipelineResult = {
   mappedColumns?: Record<string, string>;
   schemaBlocked?: boolean;
   schemaMissing?: string[];
+  dqaViolations?: DqaViolationHit[];
+  anomalies?: AnomalyHit[];
   registryChecks?: RegistryCheck[];
   readyToSubmit?: boolean;
   blockReason?: string;

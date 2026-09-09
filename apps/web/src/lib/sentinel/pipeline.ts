@@ -1,11 +1,18 @@
 import "server-only";
 
-import { classifyRequirement, orderedEngines } from "@/lib/requirement-payload";
+import { getProject } from "@/lib/projects";
+import { enginesForPipeline } from "@/lib/requirement-payload";
 import { evaluateRegistryRules } from "@/lib/registries/step3";
 import type { ItemKind } from "@/lib/types";
 import { parseCsvHeaders, previewSchema, schemaForSlot } from "@/lib/slot-schema";
 import { remapCsv } from "./column-map";
-import type { EngineRun, PipelineOrigin, PipelineResult } from "./pipeline-types";
+import type {
+  AnomalyHit,
+  DqaViolationHit,
+  EngineRun,
+  PipelineOrigin,
+  PipelineResult,
+} from "./pipeline-types";
 import {
   computeReadyToSubmit,
   pipelineBlockReason,
@@ -27,6 +34,9 @@ export type PipelineFile = {
 export type PipelineInput = {
   tenantId: string;
   catalogProjectId: string;
+  projectName?: string;
+  projectDeveloper?: string;
+  vintage?: number;
   slotId: string;
   batchId: string;
   kind: ItemKind;
@@ -53,7 +63,23 @@ type AnomalyOut = {
   anomalies_detected?: number;
   readiness_score?: number;
   summary?: { critical?: number; high?: number; medium?: number };
+  anomalies?: AnomalyHit[];
 };
+
+const DQA_VIOLATION_CAP = 200;
+const ANOMALY_HIT_CAP = 400;
+
+function unwrapList<T>(data: unknown): T[] {
+  if (Array.isArray(data)) return data as T[];
+  if (
+    data &&
+    typeof data === "object" &&
+    Array.isArray((data as { items?: unknown }).items)
+  ) {
+    return (data as { items: T[] }).items;
+  }
+  return [];
+}
 
 function isDataFile(name: string): boolean {
   return DATA_EXT.test(name);
@@ -139,17 +165,27 @@ async function runAnomaly(datasetId: string): Promise<AnomalyOut> {
 
 async function runVv(
   files: PipelineFile[],
+  input: Pick<
+    PipelineInput,
+    "catalogProjectId" | "projectName" | "projectDeveloper" | "vintage"
+  >,
 ): Promise<{ id: string; detail: string; passed: boolean }> {
+  const project = getProject(input.catalogProjectId);
+  const name =
+    input.projectName || project?.name || input.catalogProjectId;
   const created = await sentinelUpstreamJson<{ id: string }>("v2/vv/projects", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      name: `Board intake ${new Date().toISOString().slice(0, 19)}`,
+      name: `${name} intake ${new Date().toISOString().slice(0, 19)}`,
+      description: `CATALOG:${input.catalogProjectId}`,
       registry_slug: "puro_earth_ccs",
       methodology_code: "PURO-CCS-GSC",
-      location: "Fujairah",
-      project_developer: "44.01",
-      vintage_year: 2026,
+      location: input.catalogProjectId,
+      project_developer:
+        input.projectDeveloper || project?.developer || "44.01",
+      vintage_year:
+        input.vintage ?? project?.vintage ?? new Date().getUTCFullYear(),
     }),
   });
   if (!created.id) throw new Error("V&V project create returned no id");
@@ -199,11 +235,14 @@ async function runVv(
 export async function runOperatorPipeline(
   input: PipelineInput,
 ): Promise<PipelineResult> {
-  const classification = classifyRequirement({
-    kind: input.kind,
-    label: input.label,
-  });
-  const engines = orderedEngines(classification.engines);
+  const dataFiles = input.files.filter((file) => isDataFile(file.name));
+  const docFiles = input.files.filter((file) => isDocFile(file.name));
+  const engines = enginesForPipeline(
+    input.slotId,
+    input.kind,
+    input.label,
+    docFiles.length > 0,
+  );
   const now = () => new Date().toISOString();
 
   const result: PipelineResult = {
@@ -218,9 +257,6 @@ export async function runOperatorPipeline(
     ),
     updatedAt: now(),
   };
-
-  const dataFiles = input.files.filter((file) => isDataFile(file.name));
-  const docFiles = input.files.filter((file) => isDocFile(file.name));
   let csvText: string | null = null;
   const schema = schemaForSlot(input.slotId, input.kind, input.label);
 
@@ -287,6 +323,17 @@ export async function runOperatorPipeline(
             run.gate_passed ? "pass" : "fail"
           }`,
         };
+        try {
+          const raw = await sentinelUpstreamJson<unknown>(
+            `v1/runs/${run.id}/violations?limit=${DQA_VIOLATION_CAP}`,
+          );
+          result.dqaViolations = unwrapList<DqaViolationHit>(raw).slice(
+            0,
+            DQA_VIOLATION_CAP,
+          );
+        } catch {
+          result.dqaViolations = [];
+        }
       }
     }
 
@@ -300,6 +347,7 @@ export async function runOperatorPipeline(
         try {
           const anomaly = await runAnomaly(result.datasetId);
           const critical = anomaly.summary?.critical ?? 0;
+          result.anomalies = (anomaly.anomalies ?? []).slice(0, ANOMALY_HIT_CAP);
           result.engines.anomaly = {
             status: critical > 0 ? "failed" : "passed",
             detail: `${anomaly.anomalies_detected ?? 0} hits · ${critical} critical`,
@@ -321,7 +369,7 @@ export async function runOperatorPipeline(
         };
       } else {
         try {
-          const vv = await runVv(docFiles);
+          const vv = await runVv(docFiles, input);
           result.vvProjectId = vv.id;
           result.engines.vv = {
             status: vv.passed ? "passed" : "failed",

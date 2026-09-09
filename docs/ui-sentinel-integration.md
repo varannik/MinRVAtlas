@@ -40,7 +40,6 @@ In AWS the same diagram holds: `dmrv-web` → internal ALB → `sentinel-api:800
 | --- | --- | --- |
 | `SENTINEL_SERVICE_TOKEN` | Next server env / ECS secret | No. Injected as `Authorization: Bearer` on the upstream call. |
 | `SENTINEL_BASE_URL` | Next server | No |
-| `SENTINEL_PROJECT_ID` | Next server | No. Rewrites catalog `fujairah-mineral` → Sentinel UUID. |
 | `x-tenant-id` | Request header | Yes — required on every BFF call. Quality Console always sends `fourfourone`. |
 | Sentinel user JWT / `/api/v1/auth` | FastAPI only | **Blocked** by the allowlist (403). |
 | Isometric tokens | Next server (`ISOMETRIC_*`) | No. Unrelated to Sentinel. |
@@ -95,16 +94,16 @@ Form fields: `project_id` (catalog id, e.g. `fujairah-mineral`), `slot_id`, `bat
 
 ## 4. Two project id spaces
 
-Never send `fujairah-mineral` to FastAPI. Sentinel `project_id` is a Postgres UUID.
+Never send a catalog slug (`fujairah-mineral`) or Certify `prj_…` to FastAPI as `project_id`. Sentinel `project_id` is a Postgres UUID.
 
 | Surface | Id the UI holds | What FastAPI receives |
 | --- | --- | --- |
-| Control room / pipeline | Catalog id `fujairah-mineral` | `SENTINEL_PROJECT_ID` UUID (rewrite of `project_id` / `projectId` in query, JSON, and multipart) |
-| Quality Console | UUID from `GET /api/sentinel/v1/projects` | That UUID as-is (already a Sentinel id) |
+| Control room / pipeline | Catalog or Certify id | Sentinel UUID created (empty) on first use, tagged `config.tags.catalog_id` |
+| Quality Console | Same catalog / Certify id in the project dropdown | Bound UUID in client state (`minrv-quality-catalog-project-id`) |
 
-Rewrite lives in `apps/web/src/lib/sentinel/rewrite.ts`. Map: `SENTINEL_PROJECT_ID` → Fujairah; optional `SENTINEL_PROJECT_MAP` JSON for extra catalog ids. Unmapped catalog id → **400**.
+Rewrite lives in `apps/web/src/lib/sentinel/rewrite.ts` via `ensureSentinelUuid`. Optional `SENTINEL_PROJECT_MAP` JSON can pin extra ids. There is no `SENTINEL_PROJECT_ID` env pin and no auto-created Fujairah mock.
 
-Quality Console stores the chosen UUID in `sessionStorage` (`minrv-quality-project-id`). Prefer a Sentinel project whose name contains “fujairah” when nothing is stored.
+Quality Console lists **control-room projects** (`GET /api/quality/projects`), not Sentinel’s own rows. Rules, models, and document checks start empty; **Seed CO₂ rules** on Rule Manager loads defaults after a real project is selected.
 
 ---
 
@@ -160,9 +159,11 @@ Intake popup: `apps/web/src/components/dashboard/requirement-workspace.tsx`.
 | --- | --- |
 | `sensor-stream` | DQA → anomaly → Step-3 |
 | `dataset` | DQA → V&V → Step-3 |
+| `ghg-entry:*` slot | DQA → anomaly → Step-3 (V&V only if docs are attached) |
 | `document`, `attestation` | V&V |
 
 3. **Run quality check** `POST /api/sentinel/pipeline` with `x-tenant-id`.
+   GHG entry (`slot_id` `ghg-entry:*`) uses DQA → anomaly → Step-3 even when `kind` is `dataset`. The fullscreen review overlay in `GhgEntryPanel` walks those engines as three UI steps over **one** pipeline result. Point-level DQA violations and anomaly hits are attached on `PipelineResult` (`dqaViolations`, `anomalies`). Editing a sample rebuilds the CSV and re-posts the same pipeline. The calculation tree is fed only when the operator finishes the overlay.
 4. Next, per engine (server, `pipeline.ts`):
    - CSV column remap (`column-map.ts`) onto Sentinel CO₂ tags, then `POST /api/v1/datasets/upload`.
    - `POST /api/v1/runs` and poll until `completed` / `failed` (90s).
@@ -201,7 +202,6 @@ Env: `apps/web/.env.local` (Next loads env from the app directory).
 SENTINEL_BASE_URL=http://localhost:8000
 SENTINEL_SERVICE_TOKEN=local-sentinel-m2m-token
 SENTINEL_TENANT_ID=fourfourone
-SENTINEL_PROJECT_ID=<uuid from smoke or Quality project picker>
 ```
 
 ```bash
@@ -233,7 +233,7 @@ Smoke CSV: `apps/sentinel/data/sample_data/STR1_FAIL_2024-03-15.csv`.
 | Catch-all BFF | `apps/web/src/app/api/sentinel/[...path]/route.ts` |
 | Pipeline BFF | `apps/web/src/app/api/sentinel/pipeline/route.ts` |
 | Orchestrator | `apps/web/src/lib/sentinel/pipeline.ts` |
-| Env + UUID map | `apps/web/src/lib/sentinel/config.ts` |
+| Env + bind | `apps/web/src/lib/sentinel/config.ts`, `bind.ts` |
 | Upstream (server→FastAPI) | `apps/web/src/lib/sentinel/upstream.ts` |
 | Column remap | `apps/web/src/lib/sentinel/column-map.ts` |
 | Board overlay | `apps/web/src/lib/sentinel/overlay.ts` |
@@ -241,5 +241,8 @@ Smoke CSV: `apps/sentinel/data/sample_data/STR1_FAIL_2024-03-15.csv`.
 | Intake | `apps/web/src/components/dashboard/requirement-workspace.tsx` |
 | Quality shell / nav | `apps/web/src/components/quality/shell.tsx`, `nav.ts` |
 | Pipeline session | `apps/web/src/store/pipeline-store.ts` |
+| GHG quality overlay | `apps/web/src/components/dashboard/ghg-quality/` |
+| GHG review session | `apps/web/src/store/ghg-quality-review-store.ts` |
 | Quality project | `apps/web/src/store/quality-store.ts` |
+| Quality bind API | `apps/web/src/app/api/quality/projects/route.ts` |
 | FastAPI | `apps/sentinel/backend/app/` |

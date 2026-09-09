@@ -28,6 +28,7 @@ interface DraftState {
   setStage: (slotId: string, stage: DraftStage) => void;
   setBinding: (slotId: string, header: string, canonical: string) => void;
   clearBinding: (slotId: string, header: string) => void;
+  replaceFile: (slotId: string, name: string, file: File) => void;
   clear: () => void;
 }
 
@@ -147,6 +148,24 @@ export const useRequirementDrafts = create<DraftState>((set, get) => ({
         },
       };
     }),
+  replaceFile: (slotId, name, file) => {
+    const current = fileBags.get(slotId) ?? [];
+    const mapped = current.map((entry) => (entry.name === name ? file : entry));
+    const stored = mapped.some((entry) => entry.name === file.name)
+      ? mapped
+      : [...mapped.filter((entry) => entry.name !== name), file];
+    fileBags.set(slotId, stored);
+    set((state) => ({
+      bySlot: {
+        ...state.bySlot,
+        [slotId]: {
+          ...emptyDraft(slotId),
+          ...state.bySlot[slotId],
+          files: metaFor(stored),
+        },
+      },
+    }));
+  },
   clear: () => {
     fileBags.clear();
     set({ bySlot: {} });
