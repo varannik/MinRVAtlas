@@ -1,0 +1,6613 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/v0/audits/{id}/export": {
+      "post": {
+        "description": "Starts an asynchronous export of an Audit's data whose results can be fetched using the returned job ID. Currently, only Framework Audits are supported. Returns a job ID and a status URL to check when the export is complete.",
+        "operationId": "createExportJobAudit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJobInit"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create audit export job",
+        "tags": [
+          "Audits"
+        ]
+      }
+    },
+    "/v0/audits/export/{id}": {
+      "get": {
+        "description": "Retrieves the status of a previously created Audit export job. When complete, the response includes a signed URL for downloading the exported data.",
+        "operationId": "findExportJobAudit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJob"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get audit export job",
+        "tags": [
+          "Audits"
+        ]
+      }
+    },
+    "/v0/audit-packages": {
+      "get": {
+        "description": "Returns a paginated list of audit packages.",
+        "operationId": "findManyAuditPackage",
+        "parameters": [
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "facilityId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AuditPackage"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get audit packages",
+        "tags": [
+          "Audit Packages"
+        ]
+      }
+    },
+    "/v0/audit-packages/{id}": {
+      "get": {
+        "description": "Retrieves a specific audit package by ID.",
+        "operationId": "findOneAuditPackage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPackage"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get audit package",
+        "tags": [
+          "Audit Packages"
+        ]
+      }
+    },
+    "/v0/audit-reports": {
+      "get": {
+        "description": "Returns a paginated list of audit reports.",
+        "operationId": "findManyAuditReport",
+        "parameters": [
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/AuditReport"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get audit reports",
+        "tags": [
+          "Audit Reports"
+        ]
+      }
+    },
+    "/v0/audit-reports/{id}": {
+      "get": {
+        "description": "Retrieves a specific audit report by ID.",
+        "operationId": "findOneAuditReport",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditReport"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get audit report",
+        "tags": [
+          "Audit Reports"
+        ]
+      }
+    },
+    "/v0/batches/{id}": {
+      "delete": {
+        "description": "Deletes a specific batch by ID.",
+        "operationId": "removeBatch",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete batch",
+        "tags": [
+          "Batches"
+        ]
+      }
+    },
+    "/v0/documents/{id}": {
+      "get": {
+        "description": "Retrieves a specific document by ID.",
+        "operationId": "findOneDocument",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Document"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get document",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/v0/documents": {
+      "get": {
+        "description": "Returns a paginated list of documents.",
+        "operationId": "findManyDocument",
+        "parameters": [
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "monitoringPeriodId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Document"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get documents",
+        "tags": [
+          "Documents"
+        ]
+      }
+    },
+    "/v0/document-instances": {
+      "post": {
+        "description": "Creates a new document instance.",
+        "operationId": "createDocumentInstance",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDocumentInstance"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentInstance"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create document instance",
+        "tags": [
+          "Document Instances"
+        ]
+      },
+      "get": {
+        "description": "Returns a paginated list of document instances.",
+        "operationId": "findManyDocumentInstance",
+        "parameters": [
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "documentId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "monitoringPeriodId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/DocumentInstance"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get document instances",
+        "tags": [
+          "Document Instances"
+        ]
+      }
+    },
+    "/v0/document-instances/{id}": {
+      "get": {
+        "description": "Retrieves a specific document instance by ID.",
+        "operationId": "findOneDocumentInstance",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentInstance"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get document instance",
+        "tags": [
+          "Document Instances"
+        ]
+      }
+    },
+    "/v0/evidence/export": {
+      "post": {
+        "description": "Creates a job to export Evidence files. Returns a job ID, current status, and a signed URL if the export is ready.",
+        "operationId": "createExportJobEvidence",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEvidenceExportJob"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJobInit"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create evidence export job",
+        "tags": [
+          "Evidence"
+        ]
+      }
+    },
+    "/v0/evidence/export/{id}": {
+      "get": {
+        "description": "Retrieves the Evidence export job.",
+        "operationId": "findExportJobEvidence",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportJob"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get evidence export job",
+        "tags": [
+          "Evidence"
+        ]
+      }
+    },
+    "/v0/expected-fields": {
+      "post": {
+        "description": "Creates a new Expected Field for a Document Instance. The type fields determines the other input fields.",
+        "operationId": "createExpectedField",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateNumericExpectedField"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CreateTextExpectedField"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CreateBooleanExpectedField"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CreateDateExpectedField"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "NUMERIC": "#/components/schemas/CreateNumericExpectedField",
+                    "TEXT": "#/components/schemas/CreateTextExpectedField",
+                    "BOOLEAN": "#/components/schemas/CreateBooleanExpectedField",
+                    "DATE": "#/components/schemas/CreateDateExpectedField"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": []
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create expected field",
+        "tags": [
+          "Expected Fields"
+        ]
+      },
+      "get": {
+        "description": "Returns a paginated list of expected fields.",
+        "operationId": "findManyExpectedField",
+        "parameters": [
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "documentInstanceId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "monitoringPeriodId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "evidenceRequestId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "modelId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/Object"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "oneOf": [
+                              {
+                                "$ref": "#/components/schemas/NumericExpectedField"
+                              },
+                              {
+                                "$ref": "#/components/schemas/DateExpectedField"
+                              },
+                              {
+                                "$ref": "#/components/schemas/TextExpectedField"
+                              },
+                              {
+                                "$ref": "#/components/schemas/BooleanExpectedField"
+                              },
+                              {
+                                "$ref": "#/components/schemas/AggregateRefExpectedField"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get expected fields",
+        "tags": [
+          "Expected Fields"
+        ]
+      }
+    },
+    "/v0/expected-fields/{id}": {
+      "get": {
+        "description": "Retrieves a specific expected field by ID.",
+        "operationId": "findOneExpectedField",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/NumericExpectedField"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DateExpectedField"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TextExpectedField"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BooleanExpectedField"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AggregateRefExpectedField"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get expected field",
+        "tags": [
+          "Expected Fields"
+        ]
+      },
+      "patch": {
+        "description": "Updates an existing Expected Field by ID. The type field determines the value field type.",
+        "operationId": "updateExpectedField",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateNumericExpectedField"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UpdateTextExpectedField"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UpdateBooleanExpectedField"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UpdateDateExpectedField"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "NUMERIC": "#/components/schemas/UpdateNumericExpectedField",
+                    "TEXT": "#/components/schemas/UpdateTextExpectedField",
+                    "BOOLEAN": "#/components/schemas/UpdateBooleanExpectedField",
+                    "DATE": "#/components/schemas/UpdateDateExpectedField"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": []
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update expected field",
+        "tags": [
+          "Expected Fields"
+        ]
+      },
+      "delete": {
+        "description": "Deletes an Expected Field by ID. Warning: This operation will cascade delete all associated Expected Field Values. This action cannot be undone.",
+        "operationId": "removeExpectedField",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Delete expected field",
+        "tags": [
+          "Expected Fields"
+        ]
+      }
+    },
+    "/v0/expected-field-values/{id}": {
+      "get": {
+        "description": "Retrieves a specific expected field value by ID.",
+        "operationId": "findOneExpectedFieldValue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/NumericExpectedFieldValue"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DateExpectedFieldValue"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TextExpectedFieldValue"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BooleanExpectedFieldValue"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AggregateRefExpectedFieldValue"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get expected field value",
+        "tags": [
+          "Expected Field Values"
+        ]
+      },
+      "patch": {
+        "description": "Updates an existing expected field value by ID.",
+        "operationId": "updateExpectedFieldValue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateNumericExpectedFieldValue"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UpdateTextExpectedFieldValue"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UpdateBooleanExpectedFieldValue"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UpdateDateExpectedFieldValue"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "NUMERIC": "#/components/schemas/UpdateNumericExpectedFieldValue",
+                    "TEXT": "#/components/schemas/UpdateTextExpectedFieldValue",
+                    "BOOLEAN": "#/components/schemas/UpdateBooleanExpectedFieldValue",
+                    "DATE": "#/components/schemas/UpdateDateExpectedFieldValue"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": []
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update expected field value",
+        "tags": [
+          "Expected Field Values"
+        ]
+      },
+      "delete": {
+        "description": "Deletes a specific expected field value by ID.",
+        "operationId": "removeExpectedFieldValue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Delete expected field value",
+        "tags": [
+          "Expected Field Values"
+        ]
+      }
+    },
+    "/v0/expected-field-values": {
+      "get": {
+        "description": "Returns a paginated list of expected field values.",
+        "operationId": "findManyExpectedFieldValue",
+        "parameters": [
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "evidenceRequestId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "expectedFieldId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "batchItemId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "oneOf": [
+                              {
+                                "$ref": "#/components/schemas/NumericExpectedFieldValue"
+                              },
+                              {
+                                "$ref": "#/components/schemas/DateExpectedFieldValue"
+                              },
+                              {
+                                "$ref": "#/components/schemas/TextExpectedFieldValue"
+                              },
+                              {
+                                "$ref": "#/components/schemas/BooleanExpectedFieldValue"
+                              },
+                              {
+                                "$ref": "#/components/schemas/AggregateRefExpectedFieldValue"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get expected field values",
+        "tags": [
+          "Expected Field Values"
+        ]
+      }
+    },
+    "/v0/evidence-requests": {
+      "post": {
+        "description": "Creates a new evidence request.",
+        "operationId": "createEvidenceRequest",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEvidenceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceRequest"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create evidence request",
+        "tags": [
+          "Evidence Requests"
+        ]
+      },
+      "get": {
+        "description": "Returns a paginated list of evidence requests.",
+        "operationId": "findManyEvidenceRequest",
+        "parameters": [
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "monitoringPeriodId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/EvidenceRequest"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get evidence requests",
+        "tags": [
+          "Evidence Requests"
+        ]
+      }
+    },
+    "/v0/evidence-requests/{id}": {
+      "get": {
+        "description": "Retrieves a specific evidence request by ID.",
+        "operationId": "findOneEvidenceRequest",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceRequest"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get evidence request",
+        "tags": [
+          "Evidence Requests"
+        ]
+      },
+      "patch": {
+        "description": "Updates an existing evidence request by ID.",
+        "operationId": "updateEvidenceRequest",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEvidenceRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceRequest"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update evidence request",
+        "tags": [
+          "Evidence Requests"
+        ]
+      },
+      "delete": {
+        "description": "Deletes a specific evidence request by ID.",
+        "operationId": "removeEvidenceRequest",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete evidence request",
+        "tags": [
+          "Evidence Requests"
+        ]
+      }
+    },
+    "/v0/evidence-requests/{id}/evidence": {
+      "post": {
+        "description": "Uploads Evidence to an Evidence Request.",
+        "operationId": "createEvidence",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEvidence"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Evidence"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create evidence",
+        "tags": [
+          "Evidence Requests",
+          "Evidence"
+        ]
+      }
+    },
+    "/v0/evidence-requests/{id}/values": {
+      "post": {
+        "operationId": "createExpectedFieldValue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateNumericExpectedFieldValue"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CreateTextExpectedFieldValue"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CreateBooleanExpectedFieldValue"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CreateDateExpectedFieldValue"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "NUMERIC": "#/components/schemas/CreateNumericExpectedFieldValue",
+                    "TEXT": "#/components/schemas/CreateTextExpectedFieldValue",
+                    "BOOLEAN": "#/components/schemas/CreateBooleanExpectedFieldValue",
+                    "DATE": "#/components/schemas/CreateDateExpectedFieldValue"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": []
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create expected field value",
+        "tags": [
+          "Evidence Requests",
+          "Expected Field Values"
+        ]
+      }
+    },
+    "/v0/evidence-requests/{id}/batch-items": {
+      "get": {
+        "description": "Returns a paginated list of Batch Items for an Evidence Request.",
+        "operationId": "findManyBatchItems",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/BatchItemDto"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get batch items for evidence request.",
+        "tags": [
+          "Evidence Requests"
+        ]
+      }
+    },
+    "/v0/evidence-templates/{id}": {
+      "get": {
+        "description": "Retrieves a specific evidence template by ID.",
+        "operationId": "findOneEvidenceTemplate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceTemplate"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get evidence template",
+        "tags": [
+          "Evidence Templates"
+        ]
+      }
+    },
+    "/v0/evidence-templates": {
+      "get": {
+        "description": "Returns a paginated list of evidence templates.",
+        "operationId": "findManyEvidenceTemplate",
+        "parameters": [
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "monitoringPeriodId",
+            "required": false,
+            "in": "query",
+            "description": "Must be provided if documentId is specified.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "documentId",
+            "required": false,
+            "in": "query",
+            "description": "Must be provided if monitoringPeriodId is specified.",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "facilityId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/EvidenceTemplate"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get evidence templates",
+        "tags": [
+          "Evidence Templates"
+        ]
+      }
+    },
+    "/v0/facilities": {
+      "post": {
+        "description": "Creates a new facility.",
+        "operationId": "createFacility",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFacility"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Facility"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create facility",
+        "tags": [
+          "Facilities"
+        ]
+      },
+      "get": {
+        "description": "Returns a paginated list of facilities.",
+        "operationId": "findManyFacility",
+        "parameters": [
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Facility"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get facilities",
+        "tags": [
+          "Facilities"
+        ]
+      }
+    },
+    "/v0/facilities/bulk": {
+      "post": {
+        "description": "Creates multiple facilities.",
+        "operationId": "createFacilities",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "Array of facilities to create",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CreateFacility"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Facility"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create multiple facilities",
+        "tags": [
+          "Facilities"
+        ]
+      }
+    },
+    "/v0/facilities/{id}": {
+      "get": {
+        "description": "Retrieves a specific facility by ID.",
+        "operationId": "findOneFacility",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Facility"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get facility",
+        "tags": [
+          "Facilities"
+        ]
+      },
+      "patch": {
+        "description": "Updates an existing facility by ID.",
+        "operationId": "updateFacility",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFacility"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Facility"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update facility",
+        "tags": [
+          "Facilities"
+        ]
+      },
+      "delete": {
+        "description": "Deletes a specific facility by ID.",
+        "operationId": "removeFacility",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete facility",
+        "tags": [
+          "Facilities"
+        ]
+      }
+    },
+    "/v0/facilities/{id}/audit-packages": {
+      "post": {
+        "description": "Creates a new audit package. Note: The auditor for the submitted package is selected automatically based on its subjects. All acknowledgement fields for those subjects are also set to true automatically.",
+        "operationId": "createAuditPackage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAuditPackage"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditPackage"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create audit package",
+        "tags": [
+          "Facilities",
+          "Audit Packages"
+        ]
+      }
+    },
+    "/v0/fields/{id}": {
+      "get": {
+        "description": "Retrieves a specific field by ID.",
+        "operationId": "findOneField",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Field"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get field",
+        "tags": [
+          "Fields"
+        ]
+      },
+      "patch": {
+        "description": "Updates an existing field by ID.",
+        "operationId": "updateField",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateField"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Field"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update field",
+        "tags": [
+          "Fields"
+        ]
+      },
+      "delete": {
+        "description": "Deletes a specific field by ID.",
+        "operationId": "removeField",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Delete field",
+        "tags": [
+          "Fields"
+        ]
+      }
+    },
+    "/v0/fields/{id}/values": {
+      "get": {
+        "description": "Returns a paginated list of field values.",
+        "operationId": "findManyFieldValue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns a single value for non-batch results, or a paginated list of batch values for batch results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ExpressionValue"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BatchExpressionValues"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get field values",
+        "tags": [
+          "Fields"
+        ]
+      }
+    },
+    "/v0/field-libraries/{id}": {
+      "delete": {
+        "description": "Deletes a specific field library by ID.",
+        "operationId": "removeFieldLibrary",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Delete field library",
+        "tags": [
+          "Field Libraries"
+        ]
+      }
+    },
+    "/v0/field-libraries/{id}/fields": {
+      "post": {
+        "description": "Creates a new field.",
+        "operationId": "createField",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateField"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Field"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create field",
+        "tags": [
+          "Field Libraries",
+          "Fields"
+        ]
+      },
+      "get": {
+        "description": "Returns a paginated list of fields.",
+        "operationId": "findManyFields",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Field"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get fields",
+        "tags": [
+          "Field Libraries",
+          "Fields"
+        ]
+      }
+    },
+    "/v0/formulas/{id}": {
+      "get": {
+        "description": "Retrieves a specific formula by ID.",
+        "operationId": "findOneFormula",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Formula"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get formula",
+        "tags": [
+          "Formulas"
+        ]
+      },
+      "patch": {
+        "description": "Updates an existing formula by ID.",
+        "operationId": "updateFormula",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFormula"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Formula"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update formula",
+        "tags": [
+          "Formulas"
+        ]
+      },
+      "delete": {
+        "description": "Deletes a specific formula by ID.",
+        "operationId": "removeFormula",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Delete formula",
+        "tags": [
+          "Formulas"
+        ]
+      }
+    },
+    "/v0/formulas/{id}/values": {
+      "get": {
+        "description": "Returns a paginated list of formula values.",
+        "operationId": "findManyFormulaValue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns a single value for non-batch results, or a paginated list of batch values for batch results.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ExpressionValue"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BatchExpressionValues"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get formula values",
+        "tags": [
+          "Formulas"
+        ]
+      }
+    },
+    "/v0/framework-instances": {
+      "get": {
+        "description": "Returns a paginated list of framework instances.",
+        "operationId": "findManyFrameworkInstance",
+        "parameters": [
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "frameworkId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "nullable": true,
+              "type": "string"
+            }
+          },
+          {
+            "name": "monitoringPeriodId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "nullable": true,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/FrameworkInstance"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get framework instances",
+        "tags": [
+          "Framework Instances"
+        ]
+      }
+    },
+    "/v0/framework-instances/{id}": {
+      "get": {
+        "description": "Retrieves a specific framework instance by ID.",
+        "operationId": "findOneFrameworkInstance",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FrameworkInstance"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get framework instance",
+        "tags": [
+          "Framework Instances"
+        ]
+      },
+      "delete": {
+        "description": "Deletes a specific framework instance by ID.",
+        "operationId": "removeFrameworkInstance",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Delete framework instance",
+        "tags": [
+          "Framework Instances"
+        ]
+      }
+    },
+    "/v0/models/{id}": {
+      "get": {
+        "description": "Retrieves a specific model by ID.",
+        "operationId": "findOneModel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Model"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get model",
+        "tags": [
+          "Models"
+        ]
+      },
+      "patch": {
+        "description": "Updates an existing model by ID.",
+        "operationId": "updateModel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Model"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update model",
+        "tags": [
+          "Models"
+        ]
+      },
+      "delete": {
+        "description": "Deletes a specific model by ID.",
+        "operationId": "removeModel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "summary": "Delete model",
+        "tags": [
+          "Models"
+        ]
+      }
+    },
+    "/v0/models/{id}/sections": {
+      "post": {
+        "description": "Creates a new model section.",
+        "operationId": "createModelSection",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateModelSection"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelSection"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create model section",
+        "tags": [
+          "Models",
+          "Model Sections"
+        ]
+      },
+      "get": {
+        "description": "Returns a paginated list of model sections.",
+        "operationId": "findManyModelSections",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ModelSection"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get model sections",
+        "tags": [
+          "Models",
+          "Model Sections"
+        ]
+      }
+    },
+    "/v0/model-sections/{id}": {
+      "get": {
+        "description": "Retrieves a specific model section by ID.",
+        "operationId": "findOneModelSection",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelSection"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get model section",
+        "tags": [
+          "Model Sections"
+        ]
+      },
+      "patch": {
+        "description": "Updates an existing model section by ID.",
+        "operationId": "updateModelSection",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateModelSection"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelSection"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update model section",
+        "tags": [
+          "Model Sections"
+        ]
+      },
+      "delete": {
+        "description": "Deletes a specific model section by ID.",
+        "operationId": "removeModelSection",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelSection"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete model section",
+        "tags": [
+          "Model Sections"
+        ]
+      }
+    },
+    "/v0/model-sections/{id}/field-libraries": {
+      "post": {
+        "description": "Creates a new field library.",
+        "operationId": "createFieldLibrary",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFieldLibrary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FieldLibrary"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create field library",
+        "tags": [
+          "Model Sections",
+          "Field Libraries"
+        ]
+      },
+      "get": {
+        "description": "Returns a paginated list of field libraries.",
+        "operationId": "findManyFieldLibraries",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/FieldLibrary"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get field libraries",
+        "tags": [
+          "Model Sections",
+          "Field Libraries"
+        ]
+      }
+    },
+    "/v0/model-sections/{id}/formulas": {
+      "post": {
+        "description": "Creates a new formula.",
+        "operationId": "createFormula",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFormula"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Formula"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create formula",
+        "tags": [
+          "Model Sections",
+          "Formulas"
+        ]
+      },
+      "get": {
+        "description": "Returns a paginated list of formulas.",
+        "operationId": "findManyFormulas",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Formula"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get formulas",
+        "tags": [
+          "Model Sections",
+          "Formulas"
+        ]
+      }
+    },
+    "/v0/model-templates": {
+      "get": {
+        "description": "Returns a paginated list of model templates.",
+        "operationId": "findManyModelTemplate",
+        "parameters": [
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/ModelTemplate"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get model templates",
+        "tags": [
+          "Model Templates"
+        ]
+      }
+    },
+    "/v0/monitoring-periods": {
+      "post": {
+        "description": "Creates a new monitoring period.",
+        "operationId": "createMonitoringPeriod",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMonitoringPeriod"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitoringPeriod"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create monitoring period",
+        "tags": [
+          "Monitoring Periods"
+        ]
+      },
+      "get": {
+        "description": "Returns a paginated list of Monitoring Periods.",
+        "operationId": "findManyMonitoringPeriod",
+        "parameters": [
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "facilityId",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/MonitoringPeriod"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get monitoring periods",
+        "tags": [
+          "Monitoring Periods"
+        ]
+      }
+    },
+    "/v0/monitoring-periods/{id}/duplicate": {
+      "post": {
+        "description": "Creates a copy of an existing Monitoring Period to a target Facility with new start and end dates.",
+        "operationId": "duplicateMonitoringPeriod",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DuplicateMonitoringPeriod"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitoringPeriod"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Duplicate monitoring period",
+        "tags": [
+          "Monitoring Periods"
+        ]
+      }
+    },
+    "/v0/monitoring-periods/{id}": {
+      "get": {
+        "description": "Retrieves a specific monitoring period by ID.",
+        "operationId": "findOneMonitoringPeriod",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitoringPeriod"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get monitoring period",
+        "tags": [
+          "Monitoring Periods"
+        ]
+      },
+      "patch": {
+        "description": "Updates an existing monitoring period by ID.",
+        "operationId": "updateMonitoringPeriod",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMonitoringPeriod"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitoringPeriod"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Update monitoring period",
+        "tags": [
+          "Monitoring Periods"
+        ]
+      },
+      "delete": {
+        "description": "Deletes a specific monitoring period by ID.",
+        "operationId": "removeMonitoringPeriod",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MonitoringPeriod"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Delete monitoring period",
+        "tags": [
+          "Monitoring Periods"
+        ]
+      }
+    },
+    "/v0/monitoring-periods/{id}/batches": {
+      "post": {
+        "description": "Creates a new batch.",
+        "operationId": "createBatch",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Batch"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create batch",
+        "tags": [
+          "Monitoring Periods",
+          "Batches"
+        ]
+      }
+    },
+    "/v0/monitoring-periods/{id}/models": {
+      "post": {
+        "description": "Creates a new model.",
+        "operationId": "createModel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Model"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create model",
+        "tags": [
+          "Monitoring Periods",
+          "Models"
+        ]
+      },
+      "get": {
+        "description": "Returns a paginated list of models.",
+        "operationId": "findManyModels",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Model"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get models",
+        "tags": [
+          "Monitoring Periods",
+          "Models"
+        ]
+      }
+    },
+    "/v0/monitoring-periods/{id}/framework-instances": {
+      "post": {
+        "description": "Creates a new framework instance.",
+        "operationId": "createFrameworkInstance",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFrameworkInstance"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FrameworkInstance"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create framework instance",
+        "tags": [
+          "Monitoring Periods",
+          "Framework Instances"
+        ]
+      }
+    },
+    "/v0/frameworks": {
+      "get": {
+        "description": "Returns a paginated list of frameworks.",
+        "operationId": "findManyFramework",
+        "parameters": [
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Framework"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get frameworks",
+        "tags": [
+          "Frameworks"
+        ]
+      }
+    },
+    "/v0/frameworks/{id}": {
+      "get": {
+        "description": "Retrieves a framework by ID.",
+        "operationId": "findOneFramework",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Framework"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get framework by ID",
+        "tags": [
+          "Frameworks"
+        ]
+      }
+    },
+    "/v0/organizations": {
+      "post": {
+        "description": "Creates a new organization.",
+        "operationId": "createOrganization",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrganization"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organization"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Create organization",
+        "tags": [
+          "Organizations"
+        ]
+      },
+      "get": {
+        "description": "Returns a paginated list of organizations.",
+        "operationId": "findManyOrganization",
+        "parameters": [
+          {
+            "name": "pageCursor",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10,
+              "type": "number"
+            }
+          },
+          {
+            "name": "label",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/PageDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/Organization"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get organizations",
+        "tags": [
+          "Organizations"
+        ]
+      }
+    },
+    "/v0/users": {
+      "post": {
+        "description": "Invites a new User to the platform.",
+        "operationId": "inviteOrganizationUser",
+        "parameters": [
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "description": "A unique identifier for the request",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteUser"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationUser"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Invite user",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/v0/partners/auth/access-tokens": {
+      "post": {
+        "description": "Redeems an authorization code (provided by the supplier) to issue an access token (`poa_…`) scoped to the supplier's organization.\n\n Requires Partner Client Secret (`pcs_…`) as Bearer.\n\nFor security purposes, this endpoint can only be called once for a given authorization code.",
+        "operationId": "createPartnerAccessToken",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePartnerAccessToken"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatePartnerAccessTokenResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "PartnerClientSecret": []
+          }
+        ],
+        "summary": "Create a partner access token",
+        "tags": [
+          "Partner Authentication"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Puro.earth dMRV Connect (Beta)",
+    "description": "The dMRV Connect enables you to programmatically interact with Puro's compliance system. Use it to upload evidence and centralize all data needed to meet CDR compliance requirements.",
+    "version": "Beta",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "Partner Authentication",
+      "description": "\nPartners can authenticate in **two ways**, depending on what they're doing:\n\n**1) Partner Client Secret (`pcs_…`)**\n\n* A global credential issued to a registered partner.\n* Use it for organization-agnostic endpoints only, most importantly to create an organization-scoped access token (see below).\n* Cannot be used to access a supplier's organization data.\n* Format: starts with `pcs_`. Treat it like a password (store securely; never commit to source control).\n* How to get one: partners must register with Puro.earth. Please contact tech-support@puro.earth.\n\n**2) Partner Access Token (`poa_…`)**\n\n* A bearer token scoped to a single supplier organization\n* Issued by calling `POST /v0/partners/auth/access-tokens`\n* Use it to access org-specific API endpoints on behalf of your partner integration (not a human user).\n* Permissions: supplier organizations determine the permissions of the access token, such as which facilities can be accessed.\n* Revocation: supplier organizations can revoke these at any time; calls with a revoked token will fail.\n"
+    },
+    {
+      "name": "Audits",
+      "description": "An Audit represents the review of a single compliance Framework Instance or Model by an Auditor Organization. It describes what is being audited, who is auditing, and where it is in its process."
+    },
+    {
+      "name": "Audit Packages",
+      "description": "An Audit Package is a collection of Audits for a specific Facility. Audit Packages are shared with reviewers, such as Auditors or Issuing Authorities, to evaluate compliance of the Frameworks or Models against defined requirements."
+    },
+    {
+      "name": "Audit Reports",
+      "description": "An Audit Report records the outcome of a review for an Audit Package. Reviewers publish Audit Reports based on their permissions. Publishing an Audit Report indicates that the associated Audit Package and by extension the Audit—has been formally reviewed."
+    },
+    {
+      "name": "Batches",
+      "description": "Batches represent units of carbon stored within a Monitoring Period. When an Evidence Request is configured as type BATCH, submissions can be organized by batchItemId, allowing the grouping of related Evidence files and Expected Field Values together. This enables efficient data entry where common field values are specified once per Batch rather than repeated for each individual submission."
+    },
+    {
+      "name": "Documents",
+      "description": "A Document represents a specific compliance requirement. It contains one or more Evidence Requests for a given collection period. Documents can be mapped across Frameworks, allowing the same data to satisfy different requirements."
+    },
+    {
+      "name": "Document Instances",
+      "description": "A Document Instance represents a Document applied to a specific Monitoring Period. Document Instances can contain Evidence Requests, Templates, Expected Fields to structure the collection of compliance data."
+    },
+    {
+      "name": "Evidence",
+      "description": "Evidence represents the files submitted to an Evidence Request. Each Evidence is tied to an Evidence Request and Evidence Template."
+    },
+    {
+      "name": "Evidence Requests",
+      "description": "An Evidence Request prompts the submission of files (Evidence) and/or structured data (Expected Field Values) for a Document Instance. Requests can be STANDARD (single submission) or BATCH (requiring one submission per batch in the Monitoring Period). Evidence Requests can be assigned to users, include a due date, and track status."
+    },
+    {
+      "name": "Expected Fields",
+      "description": "Expected Fields are configurations for the data inputs for a Document Instance. Each field specifies its data type—text, numeric, date, or boolean—and can include validation constraints like min/max values or date ranges to ensure accurate data capture."
+    },
+    {
+      "name": "Expected Field Values",
+      "description": "Expected Field Values are the actual value entries for Expected Fields, capturing the specific numbers, text, dates, or boolean value submitted in Evidence Requests. These values form the dataset used in reporting and analysis."
+    },
+    {
+      "name": "Evidence Templates",
+      "description": "Evidence Templates define the expected format for CSV file submissions. Templates specify column headers, data types, and validation rules that uploaded files should conform to. Files that don't match the template structure are flagged in the platform for review rather than rejected by the API."
+    },
+    {
+      "name": "Facilities",
+      "description": "A Facility represents a physical or operational location where environmental activities occur. Facilities serve as the primary unit for reporting, linking Monitoring Periods, Audit Packages, Documents, and Evidence Requests."
+    },
+    {
+      "name": "Field Libraries",
+      "description": "A Field Library is a collection of related Fields. Every Field inherently belongs to a Field Library."
+    },
+    {
+      "name": "Fields",
+      "description": "Fields reference Document Instances and derive calculations from their Expected Fields. For Document Instances with repeating Evidence Requests, Expected Field values can be averaged or summed in the calculations. For Document Instances with Batch Evidence Requests, calculations are vectorized so that each batch is matched to its relevant data point, producing a result for every batch."
+    },
+    {
+      "name": "Formulas",
+      "description": "Formulas are calculations that reference other Fields and Formulas."
+    },
+    {
+      "name": "Frameworks",
+      "description": "A Framework Instance is a Framework applied to a specific Monitoring Period."
+    },
+    {
+      "name": "Framework Instances",
+      "description": "A Framework Instance is a Framework applied to a specific Monitoring Period."
+    },
+    {
+      "name": "Models",
+      "description": "Models are formula-based computations that reference Expected Fields defined in Documents. Models enable consistent, repeatable calculations across Facilities and Monitoring Periods, ensuring that updates to source data automatically propagate to model outputs."
+    },
+    {
+      "name": "Model Templates",
+      "description": "Model Templates are partially defined Models that can be applied to a Monitoring Period. When applied to a Monitoring Period, a Model Template generates a Model with Formulas and Fields that can be further configured."
+    },
+    {
+      "name": "Monitoring Periods",
+      "description": "A Monitoring Period defines a specific time frame within a Facility during which CDR activities are tracked and reported. Data collected during a Monitoring Period is associated with relevant Documents and Evidence Requests for auditing and compliance purposes."
+    },
+    {
+      "name": "Model Sections",
+      "description": "Model Sections provide the top-level structure within a Model. They group related Fields and Formulas, helping organize calculations into smaller components."
+    },
+    {
+      "name": "Organizations",
+      "description": "An Organization represents the top-level entity under which Users, Facilities, and Audits are managed. It defines ownership and permissions for all data and operations within the platform."
+    },
+    {
+      "name": "Users",
+      "description": "Users are individuals or service accounts that interact with the platform. They can be assigned roles and permissions to upload data, review audits, or manage other organizational data."
+    }
+  ],
+  "servers": [
+    {
+      "url": "https://api.portal.puro.earth"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      },
+      "PartnerClientSecret": {
+        "scheme": "bearer",
+        "bearerFormat": "PCS",
+        "type": "http",
+        "description": "Partner Client Secret (pcs_…): use for org-agnostic endpoints like creating access tokens."
+      },
+      "PartnerAccessToken": {
+        "scheme": "bearer",
+        "bearerFormat": "POA",
+        "type": "http",
+        "description": "Partner Access Token (poa_…): org-scoped bearer for data endpoints."
+      }
+    },
+    "schemas": {
+      "ExportJobInit": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "statusUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "statusUrl"
+        ]
+      },
+      "ExportJob": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "COMPLETED",
+              "FAILED"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "signedUrl": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "status",
+          "id",
+          "signedUrl"
+        ]
+      },
+      "PageInfoDto": {
+        "type": "object",
+        "properties": {
+          "startCursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "endCursor": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasPreviousPage": {
+            "type": "boolean"
+          },
+          "hasNextPage": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "startCursor",
+          "endCursor",
+          "hasPreviousPage",
+          "hasNextPage"
+        ]
+      },
+      "PageDto": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "array"
+            }
+          },
+          "pageInfo": {
+            "$ref": "#/components/schemas/PageInfoDto"
+          }
+        },
+        "required": [
+          "data",
+          "pageInfo"
+        ]
+      },
+      "Organization": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ]
+      },
+      "OrganizationUser": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email"
+        ]
+      },
+      "Audit": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              "FRAMEWORK_INSTANCE",
+              "MODEL"
+            ],
+            "type": "string"
+          },
+          "subjectId": {
+            "type": "string",
+            "description": "The ID of the subject being audited."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "APPROVED",
+              "REJECTED",
+              "IN_PROGRESS"
+            ]
+          },
+          "auditorOrganization": {
+            "description": "The organization performing the audit.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Organization"
+              }
+            ]
+          },
+          "auditors": {
+            "description": "The individual auditors involved in the audit.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrganizationUser"
+            }
+          },
+          "createdBy": {
+            "type": "string",
+            "description": "The name of the organization that created the audit."
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "monitoringPeriodId": {
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "completedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "type",
+          "subjectId",
+          "status",
+          "auditorOrganization",
+          "auditors",
+          "createdBy",
+          "id",
+          "label",
+          "monitoringPeriodId",
+          "createdAt",
+          "completedAt"
+        ]
+      },
+      "AuditPackageField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "NUMERIC",
+              "EXTERNAL_PRODUCT",
+              "ACKNOWLEDGMENT",
+              "BOOLEAN"
+            ],
+            "description": "The type of the field value."
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "label",
+          "value"
+        ]
+      },
+      "AuditPackage": {
+        "type": "object",
+        "properties": {
+          "primaryAuditorOrganization": {
+            "description": "The primary organization reviewing the Audit Package.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Organization"
+              }
+            ]
+          },
+          "secondaryAuditorOrganizations": {
+            "nullable": true,
+            "description": "The secondary organizations reviewing the Audit Package.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Organization"
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "facilityId": {
+            "type": "string"
+          },
+          "startDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "endDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "audits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Audit"
+            }
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditPackageField"
+            }
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "primaryAuditorOrganization",
+          "secondaryAuditorOrganizations",
+          "id",
+          "facilityId",
+          "startDate",
+          "endDate",
+          "audits",
+          "fields",
+          "createdAt"
+        ]
+      },
+      "AuditReportConfirmation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "confirmedBy": {
+            "$ref": "#/components/schemas/OrganizationUser"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "confirmedBy",
+          "createdAt"
+        ]
+      },
+      "File": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "downloadUrl": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "downloadUrl"
+        ]
+      },
+      "AuditReportField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "NUMERIC",
+              "EXTERNAL_PRODUCT",
+              "ACKNOWLEDGMENT",
+              "BOOLEAN"
+            ],
+            "description": "The type of the field value."
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "label",
+          "value"
+        ]
+      },
+      "AuditReport": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "packageId": {
+            "type": "string"
+          },
+          "publishedAt": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "publishedBy": {
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrganizationUser"
+              }
+            ]
+          },
+          "confirmations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditReportConfirmation"
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/File"
+            }
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditReportField"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "packageId",
+          "publishedAt",
+          "publishedBy",
+          "confirmations",
+          "files",
+          "fields"
+        ]
+      },
+      "Document": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "description"
+        ]
+      },
+      "CreateDocumentInstance": {
+        "type": "object",
+        "properties": {
+          "documentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "monitoringPeriodId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "documentId",
+          "monitoringPeriodId"
+        ]
+      },
+      "DocumentInstance": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "documentId": {
+            "type": "string"
+          },
+          "monitoringPeriodId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "documentId",
+          "monitoringPeriodId"
+        ]
+      },
+      "CreateEvidenceExportJob": {
+        "type": "object",
+        "properties": {
+          "merge": {
+            "type": "boolean",
+            "default": false,
+            "description": "If true, the export job will merge all evidence files with the same template into a single file"
+          },
+          "evidenceTemplateIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "monitoringPeriodIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "facilityIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "evidenceRequestStatuses": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "NumericExpectedField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "object",
+            "default": "NUMERIC"
+          },
+          "unit": {
+            "type": "string",
+            "nullable": true
+          },
+          "minValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "maxValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "id": {
+            "type": "string"
+          },
+          "documentInstanceId": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "unit",
+          "minValue",
+          "maxValue",
+          "id",
+          "documentInstanceId",
+          "label"
+        ]
+      },
+      "DateExpectedField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "object",
+            "default": "DATE"
+          },
+          "minDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "maxDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "id": {
+            "type": "string"
+          },
+          "documentInstanceId": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "minDate",
+          "maxDate",
+          "id",
+          "documentInstanceId",
+          "label"
+        ]
+      },
+      "TextExpectedField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "object",
+            "default": "TEXT"
+          },
+          "id": {
+            "type": "string"
+          },
+          "documentInstanceId": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "documentInstanceId",
+          "label"
+        ]
+      },
+      "BooleanExpectedField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "object",
+            "default": "BOOLEAN"
+          },
+          "id": {
+            "type": "string"
+          },
+          "documentInstanceId": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "documentInstanceId",
+          "label"
+        ]
+      },
+      "AggregateRefExpectedField": {
+        "type": "object",
+        "properties": {
+          "aggregateFn": {
+            "type": "string",
+            "enum": [
+              "SUM",
+              "AVG"
+            ]
+          },
+          "type": {
+            "type": "object",
+            "default": "AGGREGATE_REF"
+          },
+          "unit": {
+            "type": "string",
+            "nullable": true
+          },
+          "minValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "maxValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "refColumnId": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "documentInstanceId": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "aggregateFn",
+          "type",
+          "unit",
+          "minValue",
+          "maxValue",
+          "refColumnId",
+          "id",
+          "documentInstanceId",
+          "label"
+        ]
+      },
+      "CreateNumericExpectedField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "NUMERIC",
+            "enum": [
+              "NUMERIC"
+            ]
+          },
+          "unit": {
+            "type": "string",
+            "nullable": true
+          },
+          "minValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "maxValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "documentInstanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "documentInstanceId",
+          "label"
+        ]
+      },
+      "CreateTextExpectedField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "TEXT",
+            "enum": [
+              "TEXT"
+            ]
+          },
+          "documentInstanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "documentInstanceId",
+          "label"
+        ]
+      },
+      "CreateBooleanExpectedField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "BOOLEAN",
+            "enum": [
+              "BOOLEAN"
+            ]
+          },
+          "documentInstanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "documentInstanceId",
+          "label"
+        ]
+      },
+      "CreateDateExpectedField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "DATE",
+            "enum": [
+              "DATE"
+            ]
+          },
+          "minDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "maxDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "documentInstanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "documentInstanceId",
+          "label"
+        ]
+      },
+      "Object": {
+        "type": "object",
+        "properties": {}
+      },
+      "UpdateNumericExpectedField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "NUMERIC",
+            "enum": [
+              "NUMERIC"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string",
+            "nullable": true
+          },
+          "minValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "maxValue": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "UpdateTextExpectedField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "TEXT",
+            "enum": [
+              "TEXT"
+            ]
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "UpdateBooleanExpectedField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "BOOLEAN",
+            "enum": [
+              "BOOLEAN"
+            ]
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "UpdateDateExpectedField": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "DATE",
+            "enum": [
+              "DATE"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "minDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "maxDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "NumericExpectedFieldValue": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "object",
+            "default": "NUMERIC"
+          },
+          "value": {
+            "type": "string",
+            "nullable": true
+          },
+          "hasErrors": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "expectedFieldId": {
+            "type": "string"
+          },
+          "evidenceRequestId": {
+            "type": "string"
+          },
+          "batchItemId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "type",
+          "value",
+          "hasErrors",
+          "id",
+          "expectedFieldId",
+          "evidenceRequestId",
+          "batchItemId"
+        ]
+      },
+      "DateExpectedFieldValue": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "object",
+            "default": "DATE"
+          },
+          "value": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "id": {
+            "type": "string"
+          },
+          "expectedFieldId": {
+            "type": "string"
+          },
+          "evidenceRequestId": {
+            "type": "string"
+          },
+          "batchItemId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "type",
+          "value",
+          "id",
+          "expectedFieldId",
+          "evidenceRequestId",
+          "batchItemId"
+        ]
+      },
+      "TextExpectedFieldValue": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "object",
+            "default": "TEXT"
+          },
+          "value": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "expectedFieldId": {
+            "type": "string"
+          },
+          "evidenceRequestId": {
+            "type": "string"
+          },
+          "batchItemId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "type",
+          "value",
+          "id",
+          "expectedFieldId",
+          "evidenceRequestId",
+          "batchItemId"
+        ]
+      },
+      "BooleanExpectedFieldValue": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "object",
+            "default": "BOOLEAN"
+          },
+          "id": {
+            "type": "string"
+          },
+          "expectedFieldId": {
+            "type": "string"
+          },
+          "evidenceRequestId": {
+            "type": "string"
+          },
+          "batchItemId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "value",
+          "type",
+          "id",
+          "expectedFieldId",
+          "evidenceRequestId",
+          "batchItemId"
+        ]
+      },
+      "AggregateRefExpectedFieldValue": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "object",
+            "default": "AGGREGATE_REF"
+          },
+          "value": {
+            "type": "string",
+            "nullable": true
+          },
+          "evidenceId": {
+            "type": "string"
+          },
+          "hasErrors": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string"
+          },
+          "expectedFieldId": {
+            "type": "string"
+          },
+          "evidenceRequestId": {
+            "type": "string"
+          },
+          "batchItemId": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "type",
+          "value",
+          "evidenceId",
+          "hasErrors",
+          "id",
+          "expectedFieldId",
+          "evidenceRequestId",
+          "batchItemId"
+        ]
+      },
+      "UpdateNumericExpectedFieldValue": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "NUMERIC",
+            "enum": [
+              "NUMERIC"
+            ]
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "value"
+        ]
+      },
+      "UpdateTextExpectedFieldValue": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "TEXT",
+            "enum": [
+              "TEXT"
+            ]
+          },
+          "value": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "value"
+        ]
+      },
+      "UpdateBooleanExpectedFieldValue": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "BOOLEAN",
+            "enum": [
+              "BOOLEAN"
+            ]
+          },
+          "value": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "value"
+        ]
+      },
+      "UpdateDateExpectedFieldValue": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "DATE",
+            "enum": [
+              "DATE"
+            ]
+          },
+          "value": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "value"
+        ]
+      },
+      "CreateEvidenceRequest": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "STANDARD",
+            "enum": [
+              "STANDARD",
+              "BATCH"
+            ]
+          },
+          "documentInstanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dueDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "collectionStartDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "collectionEndDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "documentInstanceId"
+        ]
+      },
+      "EvidenceRequest": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "STANDARD",
+              "BATCH"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "READY_FOR_REVIEW",
+              "APPROVED",
+              "SKIPPED"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "dueDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "collectionStartDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "collectionEndDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "reasonSkipped": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "type",
+          "status",
+          "id",
+          "dueDate",
+          "collectionStartDate",
+          "collectionEndDate",
+          "reasonSkipped"
+        ]
+      },
+      "UpdateEvidenceRequest": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "PENDING",
+              "READY_FOR_REVIEW",
+              "APPROVED",
+              "SKIPPED"
+            ],
+            "description": "The status of the evidence request."
+          },
+          "reasonSkipped": {
+            "type": "string",
+            "nullable": true
+          },
+          "dueDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "collectionStartDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          },
+          "collectionEndDate": {
+            "format": "date-time",
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CreateEvidence": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary"
+          },
+          "evidenceTemplateId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "file"
+        ]
+      },
+      "Evidence": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "evidenceRequestId": {
+            "type": "string"
+          },
+          "evidenceTemplateId": {
+            "type": "string",
+            "nullable": true
+          },
+          "validationErrors": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "evidenceRequestId",
+          "evidenceTemplateId",
+          "validationErrors"
+        ]
+      },
+      "CreateNumericExpectedFieldValue": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "NUMERIC",
+            "enum": [
+              "NUMERIC"
+            ]
+          },
+          "value": {
+            "type": "string"
+          },
+          "expectedFieldId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "batchItemId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "type",
+          "value",
+          "expectedFieldId"
+        ]
+      },
+      "CreateTextExpectedFieldValue": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "TEXT",
+            "enum": [
+              "TEXT"
+            ]
+          },
+          "value": {
+            "type": "string"
+          },
+          "expectedFieldId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "batchItemId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "type",
+          "value",
+          "expectedFieldId"
+        ]
+      },
+      "CreateBooleanExpectedFieldValue": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "BOOLEAN",
+            "enum": [
+              "BOOLEAN"
+            ]
+          },
+          "value": {
+            "type": "boolean"
+          },
+          "expectedFieldId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "batchItemId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "type",
+          "value",
+          "expectedFieldId"
+        ]
+      },
+      "CreateDateExpectedFieldValue": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "DATE",
+            "enum": [
+              "DATE"
+            ]
+          },
+          "value": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expectedFieldId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "batchItemId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "type",
+          "value",
+          "expectedFieldId"
+        ]
+      },
+      "BatchItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "BATCH",
+              "GROUP"
+            ]
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "label"
+        ]
+      },
+      "EvidenceTemplate": {
+        "type": "object",
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/NumericEvidenceTemplateColumn"
+                },
+                {
+                  "$ref": "#/components/schemas/TextEvidenceTemplateColumn"
+                },
+                {
+                  "$ref": "#/components/schemas/DateEvidenceTemplateColumn"
+                }
+              ]
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ]
+      },
+      "CreateFacility": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "Facility": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "organizationId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "description",
+          "organizationId"
+        ]
+      },
+      "UpdateFacility": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AuditPackageSubjectInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "FRAMEWORK_INSTANCE",
+              "MODEL"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "type"
+        ]
+      },
+      "CreateAuditPackage": {
+        "type": "object",
+        "properties": {
+          "subjects": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuditPackageSubjectInput"
+            }
+          }
+        },
+        "required": [
+          "subjects"
+        ]
+      },
+      "ExpectedFieldVariableInput": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "EXPECTED_FIELD"
+            ]
+          },
+          "aggregateFn": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "sum",
+              "mean"
+            ],
+            "description": "Aggregate function to apply when computing the expected field value"
+          },
+          "refId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "type",
+          "refId"
+        ]
+      },
+      "MonitoringPeriodDateVariableInput": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "MONITORING_PERIOD_START_DATE",
+              "MONITORING_PERIOD_END_DATE"
+            ]
+          },
+          "refId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "type",
+          "refId"
+        ]
+      },
+      "ExpectedFieldVariable": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "EXPECTED_FIELD",
+            "enum": [
+              "EXPECTED_FIELD"
+            ]
+          },
+          "aggregateFn": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "sum",
+              "mean"
+            ],
+            "description": "Aggregate function to apply when computing the expected field value"
+          },
+          "refId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "refId"
+        ]
+      },
+      "MonitoringPeriodDateVariable": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              "MONITORING_PERIOD_START_DATE",
+              "MONITORING_PERIOD_END_DATE"
+            ],
+            "type": "string"
+          },
+          "refId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "refId"
+        ]
+      },
+      "Field": {
+        "type": "object",
+        "properties": {
+          "emissionImpactType": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "SEQUESTRATION",
+              "EMISSION"
+            ]
+          },
+          "variables": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ExpectedFieldVariable"
+                },
+                {
+                  "$ref": "#/components/schemas/MonitoringPeriodDateVariable"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "EXPECTED_FIELD": "#/components/schemas/ExpectedFieldVariable",
+                  "MONITORING_PERIOD_START_DATE": "#/components/schemas/MonitoringPeriodDateVariable",
+                  "MONITORING_PERIOD_END_DATE": "#/components/schemas/MonitoringPeriodDateVariable"
+                }
+              }
+            }
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "expression": {
+            "type": "string",
+            "nullable": true
+          },
+          "fieldLibraryId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "emissionImpactType",
+          "variables",
+          "id",
+          "label",
+          "description",
+          "expression",
+          "fieldLibraryId"
+        ]
+      },
+      "UpdateField": {
+        "type": "object",
+        "properties": {
+          "expression": {
+            "type": "string",
+            "nullable": true,
+            "description": "The mathematical expression. You can reference variable values using the escaped refId. To escape the refId, replace any dashes with underscores and add an underscore prefix.",
+            "example": "_abcd_123 / _efgh_456 * 100"
+          },
+          "emissionImpactType": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "SEQUESTRATION",
+              "EMISSION"
+            ]
+          },
+          "variables": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ExpectedFieldVariableInput"
+                },
+                {
+                  "$ref": "#/components/schemas/MonitoringPeriodDateVariableInput"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "EXPECTED_FIELD": "#/components/schemas/ExpectedFieldVariableInput",
+                  "MONITORING_PERIOD_START_DATE": "#/components/schemas/MonitoringPeriodDateVariableInput",
+                  "MONITORING_PERIOD_END_DATE": "#/components/schemas/MonitoringPeriodDateVariableInput"
+                }
+              }
+            }
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ExpressionValue": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "nullable": true
+          },
+          "unit": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "value",
+          "unit"
+        ]
+      },
+      "BatchExpressionValue": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string",
+            "nullable": true
+          },
+          "unit": {
+            "type": "string",
+            "nullable": true
+          },
+          "batchId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "value",
+          "unit",
+          "batchId"
+        ]
+      },
+      "BatchExpressionValues": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "description": "Array of batch expression values",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatchExpressionValue"
+            }
+          },
+          "pageInfo": {
+            "$ref": "#/components/schemas/PageInfoDto"
+          }
+        },
+        "required": [
+          "data",
+          "pageInfo"
+        ]
+      },
+      "CreateField": {
+        "type": "object",
+        "properties": {
+          "expression": {
+            "type": "string",
+            "nullable": true,
+            "description": "The mathematical expression. You can reference variable values using the escaped refId. To escape the refId, replace any dashes with underscores and add an underscore prefix.",
+            "example": "_abcd_123 / _efgh_456 * 100"
+          },
+          "emissionImpactType": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "SEQUESTRATION",
+              "EMISSION"
+            ]
+          },
+          "variables": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ExpectedFieldVariableInput"
+                },
+                {
+                  "$ref": "#/components/schemas/MonitoringPeriodDateVariableInput"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "EXPECTED_FIELD": "#/components/schemas/ExpectedFieldVariableInput",
+                  "MONITORING_PERIOD_START_DATE": "#/components/schemas/MonitoringPeriodDateVariableInput",
+                  "MONITORING_PERIOD_END_DATE": "#/components/schemas/MonitoringPeriodDateVariableInput"
+                }
+              }
+            }
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "FormulaVariable": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              "FIELD_OR_FORMULA",
+              "MONITORING_PERIOD_START_DATE",
+              "MONITORING_PERIOD_END_DATE"
+            ],
+            "type": "string"
+          },
+          "refId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "refId"
+        ]
+      },
+      "Formula": {
+        "type": "object",
+        "properties": {
+          "emissionImpactType": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "SEQUESTRATION",
+              "EMISSION"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "expression": {
+            "type": "string",
+            "nullable": true
+          },
+          "variables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FormulaVariable"
+            }
+          },
+          "sectionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "emissionImpactType",
+          "id",
+          "label",
+          "description",
+          "expression",
+          "variables",
+          "sectionId"
+        ]
+      },
+      "FormulaVariableInput": {
+        "type": "object",
+        "properties": {
+          "refId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The reference ID of the variable."
+          },
+          "type": {
+            "enum": [
+              "FIELD_OR_FORMULA",
+              "MONITORING_PERIOD_START_DATE",
+              "MONITORING_PERIOD_END_DATE"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "refId",
+          "type"
+        ]
+      },
+      "UpdateFormula": {
+        "type": "object",
+        "properties": {
+          "expression": {
+            "type": "string",
+            "nullable": true,
+            "description": "The mathematical expression. You can reference variable values using the escaped refId. To escape the refId, replace any dashes with underscores and add an underscore prefix.",
+            "example": "_abcd_123 / _efgh_456 * 100"
+          },
+          "emissionImpactType": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "SEQUESTRATION",
+              "EMISSION"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "variables": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FormulaVariableInput"
+            }
+          }
+        }
+      },
+      "FrameworkInstance": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "frameworkId": {
+            "type": "string"
+          },
+          "monitoringPeriodId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "frameworkId",
+          "monitoringPeriodId"
+        ]
+      },
+      "Model": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "description"
+        ]
+      },
+      "UpdateModel": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CreateModelSection": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "ModelSection": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "description"
+        ]
+      },
+      "UpdateModelSection": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CreateFieldLibrary": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "FieldLibrary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "sectionId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "description",
+          "sectionId"
+        ]
+      },
+      "CreateFormula": {
+        "type": "object",
+        "properties": {
+          "expression": {
+            "type": "string",
+            "nullable": true,
+            "description": "The mathematical expression. You can reference variable values using the escaped refId. To escape the refId, replace any dashes with underscores and add an underscore prefix.",
+            "example": "_abcd_123 / _efgh_456 * 100"
+          },
+          "emissionImpactType": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "SEQUESTRATION",
+              "EMISSION"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "variables": {
+            "nullable": true,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FormulaVariableInput"
+            }
+          }
+        }
+      },
+      "ModelTemplate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "description"
+        ]
+      },
+      "CreateMonitoringPeriod": {
+        "type": "object",
+        "properties": {
+          "facilityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endDate": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "facilityId",
+          "startDate",
+          "endDate"
+        ]
+      },
+      "MonitoringPeriod": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endDate": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "facilityId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "description",
+          "startDate",
+          "endDate",
+          "facilityId"
+        ]
+      },
+      "DuplicateMonitoringPeriod": {
+        "type": "object",
+        "properties": {
+          "targetFacilityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "startDate": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endDate": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetFacilityId",
+          "startDate",
+          "endDate"
+        ]
+      },
+      "UpdateMonitoringPeriod": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "startDate": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "endDate": {
+            "format": "date-time",
+            "type": "string"
+          }
+        }
+      },
+      "Batch": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "CreateModel": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "templateId": {
+            "type": "string",
+            "nullable": true,
+            "format": "uuid"
+          }
+        }
+      },
+      "CreateFrameworkInstance": {
+        "type": "object",
+        "properties": {
+          "frameworkId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "frameworkId"
+        ]
+      },
+      "Framework": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "description"
+        ]
+      },
+      "CreateOrganization": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ]
+      },
+      "InviteUser": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "ADMIN",
+              "LIMITED_ACCESS_MEMBER",
+              "ISSUING_AUTHORITY_ADMIN",
+              "ISSUING_AUTHORITY_EDITOR",
+              "ISSUING_AUTHORITY_VIEWER",
+              "VERIFIER_ADMIN",
+              "MANAGED_ADMIN"
+            ],
+            "description": "The role of the user to invite."
+          },
+          "email": {
+            "type": "string"
+          },
+          "firstName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastName": {
+            "type": "string",
+            "nullable": true
+          },
+          "sendInviteEmail": {
+            "type": "boolean",
+            "nullable": true
+          }
+        },
+        "required": [
+          "role",
+          "email"
+        ]
+      },
+      "CreatePartnerAccessToken": {
+        "type": "object",
+        "properties": {
+          "authorizationCode": {
+            "type": "string",
+            "description": "The authorization code used to create the access token"
+          }
+        },
+        "required": [
+          "authorizationCode"
+        ]
+      },
+      "CreatePartnerAccessTokenResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "The newly created access token.",
+            "example": "poa_abc123"
+          }
+        },
+        "description": "Response returned when creating a partner access token.",
+        "required": [
+          "accessToken"
+        ]
+      },
+      "NumericEvidenceTemplateColumn": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "label",
+          "required"
+        ]
+      },
+      "TextEvidenceTemplateColumn": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "label",
+          "required"
+        ]
+      },
+      "DateEvidenceTemplateColumn": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "label",
+          "required"
+        ]
+      }
+    }
+  },
+  "security": [
+    {
+      "bearer": []
+    }
+  ],
+  "x-tagGroups": [
+    {
+      "name": "Data Management",
+      "tags": [
+        "Audit Packages",
+        "Audit Reports",
+        "Audits",
+        "Batches",
+        "Document Instances",
+        "Documents",
+        "Evidence",
+        "Evidence Requests",
+        "Evidence Templates",
+        "Expected Field Values",
+        "Expected Fields",
+        "Facilities",
+        "Framework Instances",
+        "Fields",
+        "Field Libraries",
+        "Formulas",
+        "Frameworks",
+        "Models",
+        "Model Sections",
+        "Model Templates",
+        "Monitoring Periods"
+      ]
+    },
+    {
+      "name": "Partners",
+      "tags": [
+        "Partner Authentication"
+      ]
+    },
+    {
+      "name": "Organizations and Users",
+      "tags": [
+        "Organizations",
+        "Users"
+      ]
+    }
+  ]
+}

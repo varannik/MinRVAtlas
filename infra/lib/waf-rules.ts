@@ -10,6 +10,37 @@ export const CRS_API_BODY_OVERRIDES: wafv2.CfnWebACL.RuleActionOverrideProperty[
     { name: "CrossSiteScripting_BODY", actionToUse: { count: {} } },
   ];
 
+/** Rate-limit Cognito callback and token routes on the public ALB. */
+export function authRateLimitRule(
+  priority: number,
+  limit = 100,
+): wafv2.CfnWebACL.RuleProperty {
+  return {
+    name: "AuthRateLimit",
+    priority,
+    action: { block: {} },
+    statement: {
+      rateBasedStatement: {
+        limit,
+        aggregateKeyType: "IP",
+        scopeDownStatement: {
+          byteMatchStatement: {
+            searchString: "/auth",
+            fieldToMatch: { uriPath: {} },
+            positionalConstraint: "STARTS_WITH",
+            textTransformations: [{ priority: 0, type: "LOWERCASE" }],
+          },
+        },
+      },
+    },
+    visibilityConfig: {
+      cloudWatchMetricsEnabled: true,
+      metricName: "AuthRateLimit",
+      sampledRequestsEnabled: true,
+    },
+  };
+}
+
 export function managedRule(
   name: string,
   priority: number,

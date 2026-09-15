@@ -30,7 +30,7 @@ endif
 
 .PHONY: deps bootstrap status inventory synth diff deploy destroy push-images \
 	ci docker-build docker-push pipeline pipeline-start pipeline-status \
-	ecs-status logs rollback identity
+	ecs-status logs rollback identity seed-cognito
 
 deps:
 	npm install
@@ -94,3 +94,7 @@ logs: identity
 
 rollback: identity
 	npx ts-node --prefer-ts-exts scripts/cicd-ops.ts rollback
+
+# After minrv-ew2-{stage}-identity is CREATE_COMPLETE. Does not create the pool.
+seed-cognito:
+	npx ts-node --prefer-ts-exts scripts/seed-cognito.ts

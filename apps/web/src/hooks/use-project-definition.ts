@@ -9,6 +9,7 @@ type DefinitionState = {
   byId: Record<string, ProjectDefinition>;
   loadingId: string | null;
   remember: (projectId: string, definition: ProjectDefinition) => void;
+  forget: (projectId: string) => void;
   setLoading: (projectId: string | null) => void;
 };
 
@@ -20,8 +21,25 @@ const useDefinitionStore = create<DefinitionState>((set) => ({
       byId: { ...state.byId, [projectId]: definition },
       loadingId: state.loadingId === projectId ? null : state.loadingId,
     })),
+  forget: (projectId) =>
+    set((state) => {
+      const byId = { ...state.byId };
+      delete byId[projectId];
+      return { byId };
+    }),
   setLoading: (projectId) => set({ loadingId: projectId }),
 }));
+
+export function forgetProjectDefinition(projectId: string) {
+  useDefinitionStore.getState().forget(projectId);
+}
+
+export function rememberProjectDefinition(
+  projectId: string,
+  definition: ProjectDefinition,
+) {
+  useDefinitionStore.getState().remember(projectId, definition);
+}
 
 export function useProjectDefinition(project: Project | undefined) {
   const definition = useDefinitionStore((state) =>

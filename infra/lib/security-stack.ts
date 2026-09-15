@@ -11,6 +11,7 @@ import {
   entraSecretName,
   isometricSecretName,
   kmsAlias,
+  sessionKeySecretName,
 } from "./config";
 import { Ew2Stack, type Ew2StackProps } from "./ew2-stack";
 
@@ -20,6 +21,7 @@ export class SecurityStack extends Ew2Stack {
   public readonly jwtSecret: secretsmanager.Secret;
   public readonly isometricSecret: secretsmanager.Secret;
   public readonly entraSecret: secretsmanager.Secret;
+  public readonly sessionSecret: secretsmanager.Secret;
   public readonly deployRole: iam.Role;
 
   constructor(scope: Construct, id: string, props: Ew2StackProps) {
@@ -123,6 +125,17 @@ export class SecurityStack extends Ew2Stack {
       },
     });
 
+    this.sessionSecret = new secretsmanager.Secret(this, "SessionKey", {
+      secretName: sessionKeySecretName(cfg.stageName),
+      description: "Next.js minrv_session AES-GCM key (web task only)",
+      encryptionKey: this.key,
+      removalPolicy: removal,
+      generateSecretString: {
+        excludePunctuation: true,
+        passwordLength: 64,
+      },
+    });
+
     this.deployRole = this.createDeployRole();
 
     new cdk.CfnOutput(this, "KeyArn", { value: this.key.keyArn });
@@ -131,6 +144,9 @@ export class SecurityStack extends Ew2Stack {
       value: this.isometricSecret.secretArn,
     });
     new cdk.CfnOutput(this, "DeployRoleArn", { value: this.deployRole.roleArn });
+    new cdk.CfnOutput(this, "SessionKeyArn", {
+      value: this.sessionSecret.secretArn,
+    });
   }
 
   private createDeployRole(): iam.Role {

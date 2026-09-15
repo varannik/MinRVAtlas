@@ -408,12 +408,18 @@ Supported **source file types** (Certify): txt, pdf, doc/docx, jpeg/png/heic/tif
 
 ### 8.2 Project Design (PDD)
 
-[Project design](https://docs.isometric.com/user-guides/certify/project-design.md) is a **Certify UI checklist**, not a documented REST resource.
+[Project design](https://docs.isometric.com/user-guides/certify/project-design.md) is a **Certify UI checklist**. The published MRV OpenAPI still has **no** endpoints for listing/drafting/submitting `R-…` requirements, Remi, Request validation, or Log of Issues.
 
-Treat PDD as:
+3DMinRV now opens a **Project Setup workspace** from the Charter badge (`GET`/`POST /api/registry/setup`):
 
-- **Document-class** on the board (bundled rulebook: `pdd`, safeguards, VVB reports).
-- Evidence that exists as `Source` objects can still be listed/downloaded.
+- **Design tab** — bundled A–E catalogue (not live Certify shortcodes). Operators upload categorized **sources** tagged `minrv:pdd:{section}:{key}:…`. Official Remi / Request validation stay a Certify deep-link.
+- **Storage sites** — `GET`/`POST`/`PATCH` `/projects/{id}/storage_locations` (beta, point lat/lng only). Per-site monitoring submissions reuse the existing source + nested submissions write. Native GeoJSON polygons stay Certify UI.
+- **Feedstocks** — types are **created in Certify only**; MinRV can PATCH types, POST/DELETE batches, and attach sources.
+- **Field measurements** — `POST /measurement_locations` and `POST /measurement_samples` (CSV). Removal-area GeoJSON is stored as a source only.
+
+Treat remaining PDD gaps as:
+
+- **Document-class** on the period board (bundled rulebook: `pdd`, safeguards, VVB reports).
 - After publication, a redacted PDD often appears as a **Registry project document**.
 
 ### 8.3 Fujairah / in-situ classification

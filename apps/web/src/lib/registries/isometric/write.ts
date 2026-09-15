@@ -149,7 +149,7 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function authHeaders(credentials: RegistryCredentials): HeadersInit {
+export function authHeaders(credentials: RegistryCredentials): HeadersInit {
   return {
     accept: "application/json",
     "content-type": "application/json",
@@ -158,7 +158,7 @@ function authHeaders(credentials: RegistryCredentials): HeadersInit {
   };
 }
 
-function toDate(value: string | undefined, endOfDay: boolean): string {
+export function toDate(value: string | undefined, endOfDay: boolean): string {
   const day = (value && /^\d{4}-\d{2}-\d{2}/.test(value)
     ? value.slice(0, 10)
     : new Date().toISOString().slice(0, 10));
@@ -170,11 +170,11 @@ function publishedAt(periodEnd?: string): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function referenceId(parts: string[]): string {
+export function referenceId(parts: string[]): string {
   return parts.join(":").replace(/[^A-Za-z0-9._:-]+/g, "-").slice(0, 200);
 }
 
-async function mrvJson<T>(
+export async function mrvJson<T>(
   environment: RegistryEnvironment,
   path: string,
   credentials: RegistryCredentials,
@@ -273,16 +273,23 @@ type CreateSourceResponse = {
   source: Source;
 };
 
-async function uploadSource(
-  input: SlotWriteInput,
-  file: SubmitFile,
-): Promise<Source> {
-  if (file.bytes.byteLength > SOURCE_MAX_BYTES) {
+export type CertifySourceUpload = {
+  environment: RegistryEnvironment;
+  credentials: RegistryCredentials;
+  file: SubmitFile;
+  displayName: string;
+  description?: string | null;
+  supplierReferenceId: string;
+  publishedAt?: string;
+};
+
+export async function uploadCertifySource(input: CertifySourceUpload): Promise<Source> {
+  if (input.file.bytes.byteLength > SOURCE_MAX_BYTES) {
     throw new SubmitBlockedError(
-      `${file.name} is larger than Certify's 50 MB source limit`,
+      `${input.file.name} is larger than Certify's 50 MB source limit`,
     );
   }
-  const contentType = sourceContentType(file.name, file.type);
+  const contentType = sourceContentType(input.file.name, input.file.type);
   const created = await mrvJson<CreateSourceResponse>(
     input.environment,
     sourcesPath(),
@@ -291,25 +298,40 @@ async function uploadSource(
       body: {
         __typename: "CreateDocumentSourceRequest",
         project_id: input.credentials.externalProjectId,
-        display_name: `${input.label} · ${file.name}`.slice(0, 150),
-        file_name: file.name,
+        display_name: input.displayName.slice(0, 150),
+        file_name: input.file.name,
         content_type: contentType,
-        content_length: file.bytes.byteLength,
-        published_at: publishedAt(input.periodEnd),
+        content_length: input.file.bytes.byteLength,
+        published_at: input.publishedAt ?? publishedAt(),
         is_public: false,
-        description: input.notes.slice(0, 2000) || null,
-        supplier_reference_id: referenceId([
-          "minrv",
-          input.batchId,
-          input.slotId,
-          file.name,
-          crypto.randomUUID(),
-        ]),
+        description: (input.description ?? "").slice(0, 2000) || null,
+        supplier_reference_id: input.supplierReferenceId.slice(0, 200),
       },
     },
   );
-  await putBytes(created.signed_upload_url, contentType, file.bytes);
+  await putBytes(created.signed_upload_url, contentType, input.file.bytes);
   return created.source;
+}
+
+async function uploadSource(
+  input: SlotWriteInput,
+  file: SubmitFile,
+): Promise<Source> {
+  return uploadCertifySource({
+    environment: input.environment,
+    credentials: input.credentials,
+    file,
+    displayName: `${input.label} · ${file.name}`,
+    description: input.notes,
+    supplierReferenceId: referenceId([
+      "minrv",
+      input.batchId,
+      input.slotId,
+      file.name,
+      crypto.randomUUID(),
+    ]),
+    publishedAt: publishedAt(input.periodEnd),
+  });
 }
 
 async function createDatapoints(

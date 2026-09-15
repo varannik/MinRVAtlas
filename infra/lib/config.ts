@@ -43,6 +43,12 @@ export interface StageConfig {
   webImageTag?: string;
   sentinelImageTag?: string;
   enableCloudFront: boolean;
+  /**
+   * Extra Cognito callback (typically http://{public-alb}/auth/callback)
+   * after the ALB exists. Localhost is always registered. Set DOMAIN_NAME for HTTPS.
+   */
+  cognitoCallbackUrl?: string;
+  cognitoLogoutUrl?: string;
 }
 
 export const ENV_EW2: cdk.Environment = { account: ACCOUNT, region: REGION };
@@ -88,6 +94,19 @@ export function entraSecretName(stage: StageName): string {
   return `minrv/ew2/${stage}/entra`;
 }
 
+export function sessionKeySecretName(stage: StageName): string {
+  return `minrv/ew2/${stage}/session-key`;
+}
+
+export function cognitoClientSecretName(stage: StageName): string {
+  return `minrv/ew2/${stage}/cognito`;
+}
+
+/** Globally unique Cognito hosted-UI prefix. Created in eu-west-2; not imported. */
+export function cognitoDomainPrefix(stage: StageName): string {
+  return `${STACK_PREFIX}-${stage}`;
+}
+
 export function evidenceBucketName(stage: StageName, account = ACCOUNT): string {
   return `${STACK_PREFIX}-${stage}-evidence-${account}`;
 }
@@ -107,6 +126,7 @@ export function ecrSentinelRepo(): string {
 export const STACK_ORDER = [
   "network",
   "security",
+  "identity",
   "data",
   "compute",
   "edge",

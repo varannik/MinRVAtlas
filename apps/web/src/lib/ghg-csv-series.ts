@@ -33,7 +33,9 @@ export type GhgSeriesEntity = {
 export type GhgPeriodConstant = {
   header: string;
   label: string;
+  unit: string;
   value: number;
+  colIndex: number;
 };
 
 export type GhgSeriesTable = {
@@ -134,10 +136,13 @@ export function parseGhgSeries(text: string, fileName: string): GhgSeriesTable {
         const values = rows.map((row) => numericCell(row[colIndex] ?? ""));
         const last = [...values].reverse().find((n) => n != null);
         if (last != null) {
+          const meta = seriesMeta(header, canonicalFromHeader(header) ?? header);
           constants.push({
             header,
-            label: seriesMeta(header, canonicalFromHeader(header) ?? header).label,
+            label: meta.label,
+            unit: meta.unit,
             value: last,
+            colIndex,
           });
         }
       }
@@ -147,10 +152,13 @@ export function parseGhgSeries(text: string, fileName: string): GhgSeriesTable {
     const finite = uniqueFinite(values);
     if (finite.length === 0) return;
     if (finite.length === 1) {
+      const meta = seriesMeta(header, canonicalFromHeader(header) ?? header);
       constants.push({
         header,
-        label: seriesMeta(header, canonicalFromHeader(header) ?? header).label,
+        label: meta.label,
+        unit: meta.unit,
         value: finite[0],
+        colIndex,
       });
       return;
     }
@@ -193,6 +201,25 @@ export function serializeGhgTable(table: Pick<GhgSeriesTable, "headers" | "rows"
   return `${lines.join("\n")}\n`;
 }
 
+export function patchGhgColumn(
+  table: GhgSeriesTable,
+  colIndex: number,
+  value: number,
+): GhgSeriesTable {
+  const rows = table.rows.map((row) =>
+    row.map((cell, j) => (j === colIndex ? String(value) : cell)),
+  );
+  const constants = table.constants.map((row) =>
+    row.colIndex === colIndex ? { ...row, value } : row,
+  );
+  const entities = table.entities.map((entity) => {
+    if (entity.colIndex !== colIndex) return entity;
+    const values = entity.values.map(() => value);
+    return { ...entity, values, min: value, max: value };
+  });
+  return { ...table, rows, constants, entities };
+}
+
 export function patchGhgCell(
   table: GhgSeriesTable,
   colIndex: number,
@@ -213,7 +240,10 @@ export function patchGhgCell(
       max: finite.length ? Math.max(...finite) : entity.max,
     };
   });
-  return { ...table, rows, entities };
+  const constants = table.constants.map((row) =>
+    row.colIndex === colIndex ? { ...row, value } : row,
+  );
+  return { ...table, rows, entities, constants };
 }
 
 export function tableToFile(table: GhgSeriesTable): File {

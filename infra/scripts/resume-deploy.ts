@@ -112,6 +112,12 @@ function cdkContextArgs(): string[] {
   if (process.env.GITHUB_BRANCH_PROD) {
     args.push("-c", `githubBranchProd=${process.env.GITHUB_BRANCH_PROD}`);
   }
+  if (process.env.COGNITO_CALLBACK_URL) {
+    args.push("-c", `cognitoCallbackUrl=${process.env.COGNITO_CALLBACK_URL}`);
+  }
+  if (process.env.COGNITO_LOGOUT_URL) {
+    args.push("-c", `cognitoLogoutUrl=${process.env.COGNITO_LOGOUT_URL}`);
+  }
   return args;
 }
 

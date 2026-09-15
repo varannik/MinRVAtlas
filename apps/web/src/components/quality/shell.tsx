@@ -155,6 +155,12 @@ export function QualityShell({ children }: { children: ReactNode }) {
           <Globe2 className="size-3.5" />
           Control room
         </Link>
+        <a
+          href="/auth/logout"
+          className="px-4 pb-3 text-[11px] text-mist hover:text-frost"
+        >
+          Sign out
+        </a>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">

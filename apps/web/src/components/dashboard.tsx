@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BoardSlot } from "./dashboard/board-slot";
 import { ProjectCharter } from "./dashboard/project-charter";
 import { ProjectRail } from "./dashboard/project-rail";
+import { ProjectSetupWorkspace } from "./dashboard/project-setup/workspace";
 import { RequirementWorkspace } from "./dashboard/requirement-workspace";
 import { PeriodDesk } from "./dashboard/period-desk";
 import { SpatialConnector } from "./dashboard/spatial-connector";
@@ -48,6 +49,8 @@ export function Dashboard() {
   const selectSubmission = useDashboard((state) => state.selectSubmission);
   const selectRequirement = useDashboard((state) => state.selectRequirement);
   const selectedSlotId = useDashboard((state) => state.selectedSlotId);
+  const setupOpen = useDashboard((state) => state.setupOpen);
+  const closeSetup = useDashboard((state) => state.closeSetup);
   const portfolioOpen = useDashboard((state) => state.portfolioOpen);
   const setPortfolioOpen = useDashboard((state) => state.setPortfolioOpen);
   const setRequirementSpec = useDashboard((state) => state.setRequirementSpec);
@@ -92,9 +95,7 @@ export function Dashboard() {
     null;
   const selectedItem =
     batch?.items.find((item) => item.slotId === selectedSlotId) ?? null;
-  const workspaceOpen = Boolean(selectedItem);
-  const selectedSlotIdRef = useRef(selectedSlotId);
-  selectedSlotIdRef.current = selectedSlotId;
+  const workspaceOpen = Boolean(selectedItem) || setupOpen;
 
   useEffect(() => {
     if (!batches?.length) {
@@ -109,18 +110,23 @@ export function Dashboard() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (useDashboard.getState().portfolioOpen) {
+        const state = useDashboard.getState();
+        if (state.portfolioOpen) {
           setPortfolioOpen(false);
           return;
         }
-        if (selectedSlotIdRef.current) {
+        if (state.setupOpen) {
+          closeSetup();
+          return;
+        }
+        if (state.selectedSlotId) {
           selectRequirement(null);
           return;
         }
         selectProject(null);
         return;
       }
-      if (selectedSlotIdRef.current) return;
+      if (useDashboard.getState().selectedSlotId) return;
       if (!batches || !batch) return;
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
 
@@ -133,7 +139,7 @@ export function Dashboard() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [batch, batches, selectProject, selectRequirement, selectSubmission, setPortfolioOpen]);
+  }, [batch, batches, closeSetup, selectProject, selectRequirement, selectSubmission, setPortfolioOpen]);
 
   return (
     <main className="fixed inset-0 overflow-hidden">
@@ -179,7 +185,21 @@ export function Dashboard() {
             </div>
 
             <AnimatePresence>
-              {batches && batch && selectedItem ? (
+              {project && setupOpen ? (
+                <motion.div
+                  key="setup-workspace"
+                  initial={{ opacity: 0, x: 28 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{
+                    duration: reduceMotion ? 0.2 : 0.45,
+                    ease: EASE,
+                  }}
+                  className="pointer-events-none col-span-3 flex min-h-0 min-w-0"
+                >
+                  <ProjectSetupWorkspace project={project} />
+                </motion.div>
+              ) : batches && batch && selectedItem ? (
                 <motion.div
                   key="workspace"
                   initial={{ opacity: 0, x: 28 }}

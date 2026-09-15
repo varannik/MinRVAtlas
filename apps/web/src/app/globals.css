@@ -105,6 +105,27 @@ body {
   }
 }
 
+@keyframes ghg-finding-pulse {
+  0% {
+    opacity: 0.42;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.8);
+  }
+}
+
+.ghg-finding-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: ghg-finding-pulse 1.55s ease-out infinite;
+}
+
+.ghg-finding-pulse--late {
+  animation-delay: 0.75s;
+}
+
 /* ── Certify-style calculation tree ───────────────────────────── */
 
 .calc-tree {

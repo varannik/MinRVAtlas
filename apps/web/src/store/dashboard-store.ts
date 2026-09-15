@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { DEFAULT_TENANT_ID } from "@/lib/tenants";
 import type { LiveSpecMeta } from "@/lib/registries";
+import type { SetupTabId } from "@/lib/registries/isometric/setup-types";
 import type { Registry, RequirementSpec } from "@/lib/types";
 
 type RegistryFilter = Registry | "all";
@@ -15,6 +16,9 @@ interface DashboardState {
   hoveredSlotId: string | null;
   /** Requirement currently open in the floating intake popup. */
   selectedSlotId: string | null;
+  /** Project setup / PDD desk, exclusive with the requirement popup. */
+  setupOpen: boolean;
+  setupTab: SetupTabId;
   registryFilter: RegistryFilter;
   query: string;
   portfolioOpen: boolean;
@@ -33,6 +37,9 @@ interface DashboardState {
   hoverProject: (id: string | null) => void;
   hoverSlot: (id: string | null) => void;
   selectRequirement: (slotId: string | null) => void;
+  openSetup: (tab?: SetupTabId) => void;
+  closeSetup: () => void;
+  setSetupTab: (tab: SetupTabId) => void;
   setRegistryFilter: (registry: RegistryFilter) => void;
   setQuery: (query: string) => void;
   setPortfolioOpen: (open: boolean) => void;
@@ -46,6 +53,8 @@ export const useDashboard = create<DashboardState>((set) => ({
   hoveredProjectId: null,
   hoveredSlotId: null,
   selectedSlotId: null,
+  setupOpen: false,
+  setupTab: "design",
   registryFilter: "Isometric",
   query: "",
   portfolioOpen: false,
@@ -62,6 +71,8 @@ export const useDashboard = create<DashboardState>((set) => ({
       hoveredProjectId: null,
       hoveredSlotId: null,
       selectedSlotId: null,
+      setupOpen: false,
+      setupTab: "design",
       registryFilter: "Isometric",
       specProjectId: null,
       requirementSpec: null,
@@ -74,6 +85,7 @@ export const useDashboard = create<DashboardState>((set) => ({
       selectedSubmissionId: null,
       hoveredSlotId: null,
       selectedSlotId: null,
+      setupOpen: false,
       portfolioOpen: false,
     });
   },
@@ -81,7 +93,17 @@ export const useDashboard = create<DashboardState>((set) => ({
     set({ selectedSubmissionId: id, hoveredSlotId: null, selectedSlotId: null }),
   hoverProject: (id) => set({ hoveredProjectId: id }),
   hoverSlot: (id) => set({ hoveredSlotId: id }),
-  selectRequirement: (slotId) => set({ selectedSlotId: slotId, hoveredSlotId: slotId }),
+  selectRequirement: (slotId) =>
+    set({ selectedSlotId: slotId, hoveredSlotId: slotId, setupOpen: false }),
+  openSetup: (tab) =>
+    set({
+      setupOpen: true,
+      setupTab: tab ?? "design",
+      selectedSlotId: null,
+      hoveredSlotId: null,
+    }),
+  closeSetup: () => set({ setupOpen: false }),
+  setSetupTab: (tab) => set({ setupTab: tab }),
   setRegistryFilter: (registry) => set({ registryFilter: registry }),
   setQuery: (query) => set({ query }),
   setPortfolioOpen: (open) => set({ portfolioOpen: open }),

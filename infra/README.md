@@ -19,7 +19,7 @@ What `make deploy` does:
 
 1. Reads **existing** CloudFormation stacks and related resources in London.
 2. Bootstraps `CDKToolkit` in `eu-west-2` only if it is missing (Ireland’s toolkit is ignored).
-3. Deploys **one stack at a time** in order: ECR → network → security → data → compute → edge → observability → compliance → pipeline.
+3. Deploys **one stack at a time** in order: ECR → network → security → identity → data → compute → edge → observability → compliance → pipeline.
 4. Runs `cdk diff --fail`. If there is no diff, **skips**.
 5. If a stack is `CREATE_IN_PROGRESS` / `UPDATE_IN_PROGRESS`, **waits** instead of starting a second update.
 6. If a create rolled back (`ROLLBACK_COMPLETE`), deletes that empty stack and recreates it.
@@ -44,14 +44,22 @@ CONFIRM=YES APP=minrv-ew2-prod make deploy
 | `OPS_EMAIL` | SNS alarm subscription |
 | `SKIP_REGIONAL_SECURITY=1` | Do not create GuardDuty/Config/Security Hub (set automatically if they already exist) |
 | `GITHUB_CONNECTION_ARN` | Override the eu-west-2 CodeConnections ARN (must be the same region as the pipeline) |
-| `GITHUB_BRANCH` / `GITHUB_BRANCH_PROD` | Branch that starts sandbox / prod pipelines (default `main`) |
+| `COGNITO_CALLBACK_URL` | Extra hosted-UI callback (ALB DNS after first compute deploy) |
+| `COGNITO_LOGOUT_URL` | Extra hosted-UI logout URL |
 
 ## After first deploy
 
 1. In the AWS console, complete the **PENDING** GitHub connection `minrv-ew2-github` (eu-west-2) for `varannik/MinRVAtlas`.
 2. Put Isometric tokens into `minrv/ew2/{stage}/isometric` (do not copy Ireland secrets).
-3. Push to GitHub, or `make pipeline-start`. Images are `apps/web/Dockerfile` and `apps/sentinel/backend/Dockerfile`.
-4. Smoke: Next `GET /api/registry/requirements?projectId=fujairah-mineral`; Quality Console `/quality`; Sentinel `GET /api/health` via the **internal** ALB only.
+3. Identity stack creates a **new** Cognito user pool in eu-west-2 (invite-only). After it is `CREATE_COMPLETE`, invite the first admin:
+
+   ```bash
+   SEED_EMAIL=you@4401.earth make seed-cognito
+   ```
+
+   Cognito allows `http://localhost…` only. A public ALB callback must be **https** (`DOMAIN_NAME` + ACM), then set `COGNITO_CALLBACK_URL` and re-run `make deploy`. Plain `http://*.elb.amazonaws.com` is rejected.
+4. Push to GitHub, or `make pipeline-start`. Images are `apps/web/Dockerfile` and `apps/sentinel/backend/Dockerfile`.
+5. Smoke: Next `GET /api/registry/requirements?projectId=fujairah-mineral`; Quality Console `/quality`; Sentinel `GET /api/health` via the **internal** ALB only.
 
 Local Docker (`make docker-build`) does **not** deploy. `make deploy` updates CloudFormation only.
 

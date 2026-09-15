@@ -9,7 +9,7 @@ import { Construct } from "constructs";
 import { cfnStackName, resourceName } from "./config";
 import { Ew2Stack, type Ew2StackProps } from "./ew2-stack";
 import type { MinrvSecurityGroups } from "./network-stack";
-import { managedRule } from "./waf-rules";
+import { authRateLimitRule, managedRule } from "./waf-rules";
 
 export interface EdgeStackProps extends Ew2StackProps {
   vpc: ec2.IVpc;
@@ -94,6 +94,7 @@ export class EdgeStack extends Ew2Stack {
       },
       rules: [
         managedRule("AWSManagedRulesAmazonIpReputationList", 1),
+        authRateLimitRule(5),
         managedRule("AWSManagedRulesCommonRuleSet", 10, { bodyOverrides: true }),
         managedRule("AWSManagedRulesKnownBadInputsRuleSet", 20),
       ],

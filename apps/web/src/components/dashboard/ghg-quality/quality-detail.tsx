@@ -33,6 +33,12 @@ export function QualityDetail({
 }) {
   const rowIndex = finding?.rowIndex ?? selectedRowIndex;
   const cellMods = useMemo(() => {
+    if (finding?.scope === "factor") {
+      const header = finding.entityKeys[0];
+      return modifications.filter(
+        (row) => row.entityKey === header && row.rowIndex === -1,
+      );
+    }
     if (!entity || rowIndex == null) {
       return entity
         ? modifications.filter((row) => row.entityKey === entity.key)
@@ -41,10 +47,36 @@ export function QualityDetail({
     return modifications.filter(
       (row) => row.colIndex === entity.colIndex && row.rowIndex === rowIndex,
     );
-  }, [entity, modifications, rowIndex]);
+  }, [entity, finding, modifications, rowIndex]);
   const currentValue =
-    entity && rowIndex != null ? entity.values[rowIndex] : finding?.value ?? null;
-  const canEdit = Boolean(entity && rowIndex != null && (finding?.editable ?? true));
+    finding?.scope === "factor"
+      ? table.constants.find((row) => finding.entityKeys.includes(row.header))
+          ?.value ?? finding.value
+      : entity && rowIndex != null
+        ? entity.values[rowIndex]
+        : finding?.value ?? null;
+  const factor = table.constants.find((row) =>
+    finding?.scope === "factor" ? finding.entityKeys.includes(row.header) : false,
+  );
+  const formEntity =
+    factor != null
+      ? {
+          key: factor.header,
+          header: factor.header,
+          label: factor.label,
+          unit: factor.unit,
+          colIndex: factor.colIndex,
+          values: [factor.value],
+          min: factor.value,
+          max: factor.value,
+        }
+      : entity;
+  const formRow = factor != null ? 0 : rowIndex;
+  const canEdit = Boolean(
+    formEntity &&
+      (factor != null || rowIndex != null) &&
+      (finding?.editable ?? true),
+  );
   const stamp =
     finding?.timeMs ??
     (entity && rowIndex != null ? table.times[rowIndex] : null);
@@ -66,10 +98,23 @@ export function QualityDetail({
         {finding ? (
           <>
             <p className="text-[10px] tracking-[0.14em] text-mist uppercase">
-              {finding.kind}
+              {finding.scope === "factor"
+                ? "Period factor"
+                : "Why this point"}
+              {finding.ruleId ? ` · ${finding.ruleId}` : ""}
+              {finding.dimension ? ` · ${finding.dimension}` : ""}
             </p>
             <p className="text-[13px] font-semibold text-frost">{finding.title}</p>
-            <p className="text-[11px] leading-snug text-mist">{finding.message}</p>
+            <p className="text-[12px] leading-snug text-frost">{finding.reason}</p>
+            <p className="text-[10px] text-mist">
+              {finding.severity} severity
+              {finding.message ? ` · ${finding.message}` : ""}
+            </p>
+            {finding.scope === "factor" ? (
+              <p className="text-[10px] text-mist">
+                Changing this value updates every row in the CSV.
+              </p>
+            ) : null}
           </>
         ) : (
           <>
@@ -86,7 +131,7 @@ export function QualityDetail({
             ? new Date(stamp).toISOString().replace(".000Z", "Z")
             : ""}
           {currentValue != null ? ` · ${currentValue}` : ""}
-          {entity?.unit ? ` ${entity.unit}` : ""}
+          {formEntity?.unit ? ` ${formEntity.unit}` : ""}
         </p>
         {resolution ? (
           <p className="text-[10px] text-carbon-400">
@@ -96,16 +141,18 @@ export function QualityDetail({
         {cellMods.length > 0 ? <ModificationLog rows={cellMods} /> : null}
       </div>
       <div className="min-w-[18rem] flex-1 space-y-2">
-        {canEdit && entity && rowIndex != null ? (
+        {canEdit && formEntity && formRow != null ? (
           <EditForm
-            key={`${finding?.id ?? "edit"}:${rowIndex}`}
-            entity={entity}
-            rowIndex={rowIndex}
+            key={`${finding?.id ?? "edit"}:${formRow}:${formEntity.colIndex}`}
+            entity={formEntity}
+            rowIndex={formRow}
             current={currentValue}
             disabled={running}
             showApprove={Boolean(finding)}
             onApprove={onApprove}
-            onSubmit={onSubmitEdit}
+            onSubmit={(col, row, value, reason) =>
+              onSubmitEdit(col, factor != null ? -1 : row, value, reason)
+            }
           />
         ) : finding ? (
           <button

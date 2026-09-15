@@ -6,6 +6,7 @@ import { ComplianceStack } from "./compliance-stack";
 import { ComputeStack } from "./compute-stack";
 import { DataStack } from "./data-stack";
 import { EdgeStack } from "./edge-stack";
+import { IdentityStack } from "./identity-stack";
 import { NetworkStack } from "./network-stack";
 import { ObservabilityStack } from "./observability-stack";
 import { SecurityStack } from "./security-stack";
@@ -17,6 +18,7 @@ export interface MinrvStageProps extends cdk.StageProps {
 export class MinrvStage extends cdk.Stage {
   public readonly network: NetworkStack;
   public readonly security: SecurityStack;
+  public readonly identity: IdentityStack;
   public readonly data: DataStack;
   public readonly compute: ComputeStack;
   public readonly edge: EdgeStack;
@@ -29,6 +31,11 @@ export class MinrvStage extends cdk.Stage {
 
     this.network = new NetworkStack(this, "network", { env: props.env, cfg });
     this.security = new SecurityStack(this, "security", { env: props.env, cfg });
+    this.identity = new IdentityStack(this, "identity", {
+      env: props.env,
+      cfg,
+      keyArn: this.security.key.keyArn,
+    });
     this.data = new DataStack(this, "data", {
       env: props.env,
       cfg,
@@ -46,6 +53,10 @@ export class MinrvStage extends cdk.Stage {
       proxy: this.data.proxy,
       valkey: this.data.valkey,
       logsBucket: this.data.logsBucket,
+      userPoolId: this.identity.userPool.userPoolId,
+      userPoolArn: this.identity.userPool.userPoolArn,
+      userPoolClientId: this.identity.userPoolClient.userPoolClientId,
+      cognitoHostedUiHost: this.identity.hostedUiHost,
     });
     this.edge = new EdgeStack(this, "edge", {
       env: props.env,
@@ -77,8 +88,10 @@ export class MinrvStage extends cdk.Stage {
 
     this.data.addStackDependency(this.network);
     this.data.addStackDependency(this.security);
+    this.identity.addStackDependency(this.security);
     this.compute.addStackDependency(this.network);
     this.compute.addStackDependency(this.security);
+    this.compute.addStackDependency(this.identity);
     this.compute.addStackDependency(this.data);
     this.edge.addStackDependency(this.compute);
     this.observability.addStackDependency(this.edge);

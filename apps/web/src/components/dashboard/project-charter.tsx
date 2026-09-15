@@ -8,6 +8,7 @@ import {
   type ProjectDefinition,
 } from "@/lib/project-definition";
 import { useProjectDefinition } from "@/hooks/use-project-definition";
+import { useDashboard } from "@/store/dashboard-store";
 import { LcaRecipeCard } from "./lca-recipe";
 import type { Project } from "@/lib/types";
 
@@ -39,6 +40,7 @@ function stampLabel(definition: ProjectDefinition | null, loading: boolean): str
 
 function ArtifactCard({ artifact }: { artifact: DefinitionArtifact }) {
   const Icon = KIND_ICON[artifact.kind];
+  const readOnly = artifact.kind === "lca" || artifact.kind === "validation";
   return (
     <article className="rounded-xl bg-white/70 px-3 py-2.5 ring-1 ring-line/60">
       <div className="flex items-start gap-2">
@@ -48,7 +50,9 @@ function ArtifactCard({ artifact }: { artifact: DefinitionArtifact }) {
             <h4 className="text-[13px] leading-snug font-medium text-frost">
               {artifact.title}
             </h4>
-            <Lock className="size-3 shrink-0 text-mist" aria-hidden />
+            {readOnly ? (
+              <Lock className="size-3 shrink-0 text-mist" aria-hidden />
+            ) : null}
           </div>
           <p className="mt-1 text-[11px] leading-relaxed text-mist">
             {artifact.kind === "lca" && artifact.recipe
@@ -73,7 +77,7 @@ function ArtifactCard({ artifact }: { artifact: DefinitionArtifact }) {
             </a>
           ) : artifact.kind !== "lca" ? (
             <p className="mt-2 text-[10px] tracking-wide text-mist uppercase">
-              {artifact.submitted ? "Read only · Certify" : "Not filed"}
+              {artifact.submitted ? "On file · Certify" : "Not filed"}
             </p>
           ) : null}
         </div>
@@ -84,6 +88,7 @@ function ArtifactCard({ artifact }: { artifact: DefinitionArtifact }) {
 
 export function ProjectCharter({ project }: { project: Project }) {
   const { definition, loading } = useProjectDefinition(project);
+  const openSetup = useDashboard((state) => state.openSetup);
   const grouped = KIND_ORDER.map((kind) => ({
     kind,
     items: (definition?.artifacts ?? []).filter((row) => row.kind === kind),
@@ -105,9 +110,17 @@ export function ProjectCharter({ project }: { project: Project }) {
           {stampLabel(definition, loading)}
         </p>
         <p className="mt-1 text-[11px] leading-relaxed text-mist">
-          PDD, LCA template and validation live in Certify. This desk cannot
-          change them. Reporting-period files stay on the board.
+          Summary of what Certify already holds. Open setup to fetch, edit and
+          file design evidence, sites, feedstocks and field measurements.
+          Reporting-period files stay on the board.
         </p>
+        <button
+          type="button"
+          onClick={() => openSetup("design")}
+          className="mt-2 rounded-lg bg-carbon-400/15 px-3 py-1.5 text-[11px] font-semibold text-carbon-400"
+        >
+          Open setup
+        </button>
       </div>
 
       <div className="scroll-slim flex-1 space-y-4 overflow-y-auto p-3">
@@ -138,7 +151,8 @@ export function ProjectCharter({ project }: { project: Project }) {
 
       <div className="border-t border-line/70 px-4 py-2.5 text-[10px] leading-relaxed text-mist">
         Defined in Isometric Certify with this organisation’s credentials.
-        MinRV will not let you edit project design.
+        LCA templates stay read-only. Remi and Request validation remain in
+        Certify.
         {definition?.warning ? ` ${definition.warning}` : ""}
       </div>
     </aside>

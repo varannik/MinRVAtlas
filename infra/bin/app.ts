@@ -60,6 +60,10 @@ function extras(stage: "sandbox" | "prod"): Partial<StageConfig> {
     sentinelImageTag,
     enableCloudFront: edge && enableCloudFront,
     enableRegionalSecurityServices: stage === "sandbox" && !skipRegionalSecurity,
+    cognitoCallbackUrl:
+      optionalString(app, "cognitoCallbackUrl") ?? process.env.COGNITO_CALLBACK_URL,
+    cognitoLogoutUrl:
+      optionalString(app, "cognitoLogoutUrl") ?? process.env.COGNITO_LOGOUT_URL,
   };
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Boxes, Building2, ChevronDown, MapPin, ScrollText, Search, ShieldCheck } from "lucide-react";
+import { LogOut, Boxes, Building2, ChevronDown, MapPin, ScrollText, Search, ShieldCheck } from "lucide-react";
 import { Globe3DMark } from "./globe-back-button";
 import { RegistrySelect } from "./registry-select";
 import { SubmissionChain } from "./submission-chain";
@@ -14,6 +14,7 @@ import type { Project, SubmissionBatch } from "@/lib/types";
 
 function CharterBadge({ project }: { project: Project }) {
   const { definition, loading } = useProjectDefinition(project);
+  const openSetup = useDashboard((state) => state.openSetup);
   if (project.registry !== "Isometric") return null;
   const sealed = Boolean(definition?.complete);
   const label = loading
@@ -24,19 +25,17 @@ function CharterBadge({ project }: { project: Project }) {
         ? "Charter"
         : "No charter";
   return (
-    <span
-      title={
-        sealed
-          ? "Project design is on file in Certify and cannot be edited here"
-          : "Project-design files from Certify, read only"
-      }
+    <button
+      type="button"
+      onClick={() => openSetup("design")}
+      title="Open project setup — fetch, edit and file Certify design evidence"
       className={`glass flex h-12 items-center gap-1.5 rounded-2xl px-3 text-[10px] font-semibold tracking-wide ${
         sealed ? "text-carbon-400" : "text-mist"
       }`}
     >
       <ScrollText className="size-3.5" />
       {label}
-    </span>
+    </button>
   );
 }
 function SpecOriginBadge() {
@@ -226,6 +225,15 @@ export function TopBar({
           <ShieldCheck className="size-3.5 text-carbon-400" />
           Quality
         </Link>
+
+        <a
+          href="/auth/logout"
+          title="Sign out"
+          aria-label="Sign out"
+          className="glass grid h-12 w-12 place-items-center rounded-2xl text-mist transition-colors hover:text-frost"
+        >
+          <LogOut className="size-3.5" />
+        </a>
 
         <div
           className="glass hidden h-12 w-12 place-items-center rounded-2xl sm:grid"

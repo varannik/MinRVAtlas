@@ -17,6 +17,7 @@ import {
   REGION,
   appSecretName,
   cfnStackName,
+  cognitoClientSecretName,
   ecrSentinelRepo,
   ecrWebRepo,
   entraSecretName,
@@ -26,6 +27,7 @@ import {
   logGroupName,
   projectLocationsParamName,
   resourceName,
+  sessionKeySecretName,
 } from "./config";
 import { Ew2Stack, type Ew2StackProps } from "./ew2-stack";
 import type { MinrvSecurityGroups } from "./network-stack";
@@ -38,6 +40,10 @@ export interface ComputeStackProps extends Ew2StackProps {
   proxy: rds.IDatabaseProxy;
   valkey: elasticache.CfnServerlessCache;
   logsBucket: s3.IBucket;
+  userPoolId: string;
+  userPoolArn: string;
+  userPoolClientId: string;
+  cognitoHostedUiHost: string;
 }
 
 export class ComputeStack extends Ew2Stack {
@@ -86,6 +92,16 @@ export class ComputeStack extends Ew2Stack {
       this,
       "AuroraSecretRef",
       `minrv/ew2/${cfg.stageName}/aurora`,
+    );
+    const sessionSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      "SessionKeyRef",
+      sessionKeySecretName(cfg.stageName),
+    );
+    const cognitoClientSecret = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      "CognitoClientSecretRef",
+      cognitoClientSecretName(cfg.stageName),
     );
 
     this.ecsCluster = new ecs.Cluster(this, "Cluster", {
@@ -148,6 +164,11 @@ export class ComputeStack extends Ew2Stack {
       taskRole: this.webTaskRole,
     });
 
+    const redirectUri = cfg.domainName
+      ? `https://${cfg.domainName}/auth/callback`
+      : (cfg.cognitoCallbackUrl ??
+        `http://${this.publicAlb.loadBalancerDnsName}/auth/callback`);
+
     webTask.addContainer("web", {
       image: webImage,
       logging: ecs.LogDrivers.awsLogs({ logGroup: webLog, streamPrefix: "web" }),
@@ -163,6 +184,14 @@ export class ComputeStack extends Ew2Stack {
         SENTINEL_BASE_URL: `http://${this.internalAlb.loadBalancerDnsName}:8000`,
         SENTINEL_TENANT_ID: "fourfourone",
         ISOMETRIC_API_HOST: isometricHost(cfg.isometricApi),
+        DB_HOST: props.proxy.endpoint,
+        DB_PORT: "5432",
+        DB_NAME: "dmrv",
+        COGNITO_USER_POOL_ID: props.userPoolId,
+        COGNITO_CLIENT_ID: props.userPoolClientId,
+        COGNITO_DOMAIN: props.cognitoHostedUiHost,
+        COGNITO_ISSUER: `https://cognito-idp.${REGION}.amazonaws.com/${props.userPoolId}`,
+        COGNITO_REDIRECT_URI: redirectUri,
       },
       secrets: {
         ISOMETRIC_CLIENT_SECRET: ecs.Secret.fromSecretsManager(
@@ -185,6 +214,10 @@ export class ComputeStack extends Ew2Stack {
           appSecret,
           "SENTINEL_PROJECT_ID",
         ),
+        SESSION_KEY: ecs.Secret.fromSecretsManager(sessionSecret),
+        COGNITO_CLIENT_SECRET: ecs.Secret.fromSecretsManager(cognitoClientSecret),
+        DB_USER: ecs.Secret.fromSecretsManager(auroraSecret, "username"),
+        DB_PASSWORD: ecs.Secret.fromSecretsManager(auroraSecret, "password"),
       },
       essential: true,
     });
@@ -362,6 +395,7 @@ export class ComputeStack extends Ew2Stack {
     new cdk.CfnOutput(this, "PublicAlbDns", {
       value: this.publicAlb.loadBalancerDnsName,
     });
+    new cdk.CfnOutput(this, "CognitoRedirectUri", { value: redirectUri });
     new cdk.CfnOutput(this, "WebRepoUri", { value: webRepo.repositoryUri });
     new cdk.CfnOutput(this, "SentinelRepoUri", {
       value: sentinelRepo.repositoryUri,
@@ -499,11 +533,14 @@ export class ComputeStack extends Ew2Stack {
     });
     role.addToPolicy(
       new iam.PolicyStatement({
-        sid: "ReadIsometricAndApp",
+        sid: "ReadIsometricAppSessionCognitoDb",
         actions: ["secretsmanager:GetSecretValue"],
         resources: [
           `arn:aws:secretsmanager:${REGION}:${ACCOUNT}:secret:${isometricSecretName(cfg.stageName)}*`,
           `arn:aws:secretsmanager:${REGION}:${ACCOUNT}:secret:${appSecretName(cfg.stageName)}*`,
+          `arn:aws:secretsmanager:${REGION}:${ACCOUNT}:secret:${sessionKeySecretName(cfg.stageName)}*`,
+          `arn:aws:secretsmanager:${REGION}:${ACCOUNT}:secret:${cognitoClientSecretName(cfg.stageName)}*`,
+          `arn:aws:secretsmanager:${REGION}:${ACCOUNT}:secret:minrv/ew2/${cfg.stageName}/aurora*`,
         ],
       }),
     );
@@ -512,6 +549,25 @@ export class ComputeStack extends Ew2Stack {
         sid: "KmsDecrypt",
         actions: ["kms:Decrypt"],
         resources: [keyArn],
+      }),
+    );
+    role.addToPolicy(
+      new iam.PolicyStatement({
+        sid: "CognitoAdminInvite",
+        actions: [
+          "cognito-idp:AdminCreateUser",
+          "cognito-idp:AdminAddUserToGroup",
+          "cognito-idp:AdminRemoveUserFromGroup",
+          "cognito-idp:AdminDisableUser",
+          "cognito-idp:AdminEnableUser",
+          "cognito-idp:AdminGetUser",
+          "cognito-idp:AdminListGroupsForUser",
+          "cognito-idp:AdminSetUserPassword",
+          "cognito-idp:AdminUpdateUserAttributes",
+          "cognito-idp:ListUsers",
+          "cognito-idp:ListUsersInGroup",
+        ],
+        resources: [props.userPoolArn],
       }),
     );
     role.addToPolicy(

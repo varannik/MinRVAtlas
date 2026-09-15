@@ -4,6 +4,7 @@ import { create } from "zustand";
 import {
   parseGhgSeries,
   patchGhgCell,
+  patchGhgColumn,
   type GhgSeriesTable,
 } from "@/lib/ghg-csv-series";
 import type {
@@ -68,6 +69,7 @@ export type GhgQualityReviewState = {
     value: number,
     reason: string,
   ) => void;
+  editColumn: (colIndex: number, value: number, reason: string) => void;
   rememberIdentities: (next: { dqa: string; anomaly: string; registry: string }) => void;
   dropLaterResolutions: (fromStep: QualityStep) => void;
   reconcileFindings: (live: QualityFinding[]) => void;
@@ -158,6 +160,29 @@ export const useGhgQualityReview = create<GhgQualityReviewState>((set) => ({
         ],
       };
     }),
+  editColumn: (colIndex, value, reason) =>
+    set((state) => {
+      if (!state.table) return state;
+      const constant = state.table.constants.find((row) => row.colIndex === colIndex);
+      const previous = constant?.value ?? null;
+      return {
+        table: patchGhgColumn(state.table, colIndex, value),
+        modifications: [
+          ...state.modifications,
+          {
+            id: `${cellEditKey(colIndex, -1)}:${Date.now()}`,
+            colIndex,
+            rowIndex: -1,
+            entityKey: constant?.header ?? String(colIndex),
+            entityLabel: constant?.label ?? "",
+            previous,
+            value,
+            reason: reason.trim(),
+            at: new Date().toISOString(),
+          },
+        ],
+      };
+    }),
   rememberIdentities: (identities) => set({ identities }),
   dropLaterResolutions: (fromStep) =>
     set((state) => {
@@ -181,7 +206,20 @@ export const useGhgQualityReview = create<GhgQualityReviewState>((set) => ({
       if (!state.table) return { resolutions: next };
       const edited = latestModifications(state.modifications);
       for (const finding of live) {
-        if (next[finding.groupId] || finding.rowIndex == null) continue;
+        if (next[finding.groupId]) continue;
+        if (finding.scope === "factor") {
+          const header = finding.entityKeys[0];
+          if (
+            header &&
+            state.modifications.some(
+              (row) => row.entityKey === header && row.rowIndex === -1,
+            )
+          ) {
+            next[finding.groupId] = "edited";
+          }
+          continue;
+        }
+        if (finding.rowIndex == null) continue;
         for (const key of finding.entityKeys) {
           const entity = state.table.entities.find((row) => row.key === key);
           if (

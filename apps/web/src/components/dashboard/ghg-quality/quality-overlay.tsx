@@ -9,6 +9,7 @@ import { feedTemplateFromCsv } from "@/lib/ghg-csv-feed";
 import {
   findingsForStep,
   findingIdentity,
+  findingsByScope,
   isFindingResolved,
   type QualityStep,
 } from "@/lib/ghg-quality-findings";
@@ -24,6 +25,7 @@ import { useAccountingDrafts } from "@/store/accounting-draft-store";
 import { useGhgQualityReview } from "@/store/ghg-quality-review-store";
 import { usePipeline } from "@/store/pipeline-store";
 import { QualityChart } from "./quality-chart";
+import { QualityFactors } from "./quality-factors";
 import { QualityLoading } from "./quality-loading";
 import { QualityStepper } from "./quality-stepper";
 
@@ -66,6 +68,7 @@ export function GhgQualityOverlay({
   const resolve = useGhgQualityReview((state) => state.resolve);
   const approveGroups = useGhgQualityReview((state) => state.approveGroups);
   const editCell = useGhgQualityReview((state) => state.editCell);
+  const editColumn = useGhgQualityReview((state) => state.editColumn);
   const rememberIdentities = useGhgQualityReview((state) => state.rememberIdentities);
   const dropLaterResolutions = useGhgQualityReview((state) => state.dropLaterResolutions);
   const reconcileFindings = useGhgQualityReview((state) => state.reconcileFindings);
@@ -92,6 +95,18 @@ export function GhgQualityOverlay({
     }
     return cells;
   }, [modifications]);
+  const sampleFindings = useMemo(
+    () => findingsByScope(findings, "sample"),
+    [findings],
+  );
+  const factorFindings = useMemo(
+    () => findingsByScope(findings, "factor"),
+    [findings],
+  );
+  const unmappedFindings = useMemo(
+    () => findingsByScope(findings, "unmapped"),
+    [findings],
+  );
   const selected = findings.find((row) => row.id === selectedFindingId) ?? null;
   const pending = findings.filter(
     (row) => !isFindingResolved(row, resolutions, editedCells),
@@ -215,11 +230,15 @@ export function GhgQualityOverlay({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [overlayOpen, resolutions, running, focusedEntityKey]);
+  }, [overlayOpen, resolutions, running, focusedEntityKey, selected]);
 
   function requestClose() {
     if (focusedEntityKey) {
       focusEntity(null);
+      return;
+    }
+    if (selected?.scope === "factor" || selected?.scope === "unmapped") {
+      selectFinding(null);
       return;
     }
     const dirty = Boolean(
@@ -288,7 +307,11 @@ export function GhgQualityOverlay({
   ) {
     const current = useGhgQualityReview.getState().table;
     if (!current) return;
-    editCell(colIndex, rowIndex, value, reason);
+    if (rowIndex < 0) {
+      editColumn(colIndex, value, reason);
+    } else {
+      editCell(colIndex, rowIndex, value, reason);
+    }
     const selectedGroup = selected?.groupId;
     if (selectedGroup) resolve(selectedGroup, "edited");
     selectFinding(`edit:${colIndex}:${rowIndex}`);
@@ -357,7 +380,16 @@ export function GhgQualityOverlay({
                   ))
                 : null}
               {pipeline?.engines.dqa?.detail ? (
-                <span className="text-[10px] text-mist">{pipeline.engines.dqa.detail}</span>
+                <span className="text-[10px] text-mist">
+                  {pipeline.engines.dqa.detail}
+                  {step === 1
+                    ? ` · ${sampleFindings.length} sample marks · ${factorFindings.length} period factors${
+                        unmappedFindings.length
+                          ? ` · ${unmappedFindings.length} other`
+                          : ""
+                      }`
+                    : ""}
+                </span>
               ) : null}
             </div>
             <AnimatePresence mode="wait">
@@ -367,12 +399,12 @@ export function GhgQualityOverlay({
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: -40, opacity: 0 }}
                 transition={{ duration: 0.28, ease: EASE }}
-                className="flex min-h-0 min-w-0 flex-1 overflow-hidden"
+                className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
               >
                   <QualityChart
                     table={table}
                     step={step}
-                    findings={findings}
+                    findings={sampleFindings}
                     resolutions={resolutions}
                     modifications={modifications}
                     selectedId={selectedFindingId}
@@ -387,7 +419,7 @@ export function GhgQualityOverlay({
                     onFocusEntity={(key) => {
                       focusEntity(key);
                       if (key) {
-                        const first = findings.find((row) =>
+                        const first = sampleFindings.find((row) =>
                           row.entityKeys.includes(key),
                         );
                         if (first) selectFinding(first.id);
@@ -419,6 +451,28 @@ export function GhgQualityOverlay({
                       if (hit) resolve(hit.groupId, "approved");
                     }}
                   />
+                  {step === 1 && !focusedEntityKey ? (
+                    <QualityFactors
+                      table={table}
+                      findings={factorFindings}
+                      unmapped={unmappedFindings}
+                      resolutions={resolutions}
+                      modifications={modifications}
+                      selectedId={selectedFindingId}
+                      running={running}
+                      onSelect={(id) => {
+                        focusEntity(null);
+                        selectFinding(id);
+                      }}
+                      onClose={() => selectFinding(null)}
+                      onApprove={() => {
+                        if (selected) resolve(selected.groupId, "approved");
+                      }}
+                      onSubmitEdit={(col, row, value, reason) =>
+                        void submitEdit(col, row, value, reason)
+                      }
+                    />
+                  ) : null}
               </motion.div>
             </AnimatePresence>
             </>

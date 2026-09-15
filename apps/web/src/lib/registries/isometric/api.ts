@@ -36,6 +36,53 @@ export function storageLocationsPath(projectId: string): string {
   return `/projects/${projectId}/storage_locations`;
 }
 
+export function storageLocationPath(projectId: string, locationId: string): string {
+  return `/projects/${projectId}/storage_locations/${locationId}`;
+}
+
+export function storageLocationMonitoringPath(
+  projectId: string,
+  locationId: string,
+): string {
+  return `/projects/${projectId}/storage_locations/${locationId}/monitoring_requirements`;
+}
+
+export function feedstockTypesPath(): string {
+  return "/feedstock_types";
+}
+
+export function feedstockTypePath(id: string): string {
+  return `/feedstock_types/${id}`;
+}
+
+export function feedstockBatchesPath(): string {
+  return "/feedstock_batches";
+}
+
+export function feedstockTypeBatchesPath(feedstockTypeId: string): string {
+  return `/feedstock_types/${feedstockTypeId}/feedstock_batches`;
+}
+
+export function feedstockBatchPath(id: string): string {
+  return `/feedstock_batches/${id}`;
+}
+
+export function measurementLocationsPath(): string {
+  return "/measurement_locations";
+}
+
+export function measurementLocationPath(id: string): string {
+  return `/measurement_locations/${id}`;
+}
+
+export function measurementSamplesPath(): string {
+  return "/measurement_samples";
+}
+
+export function measurementSamplePath(id: string): string {
+  return `/measurement_samples/${id}`;
+}
+
 export function monitoringRequirementsPath(projectId: string): string {
   return `/projects/${projectId}/monitoring_requirements`;
 }
@@ -297,14 +344,97 @@ export interface GhgEntryTemplate {
   groups: GhgEntryTemplateComponentGroup[];
 }
 
+export type StorageMethod =
+  | "biochar_field"
+  | "biochar_landfill"
+  | "permeable_reservoir"
+  | "biomass_subsurface"
+  | "salt_cavern"
+  | "saline_aquifer"
+  | "in_situ_mineralization"
+  | "depleted_hydrocarbon_reservoir";
+
+export const STORAGE_METHOD_LABEL: Record<StorageMethod, string> = {
+  biochar_field: "Biochar field",
+  biochar_landfill: "Biochar landfill",
+  permeable_reservoir: "Permeable reservoir",
+  biomass_subsurface: "Subsurface biomass",
+  salt_cavern: "Salt cavern",
+  saline_aquifer: "Saline aquifer",
+  in_situ_mineralization: "In-situ mineralisation",
+  depleted_hydrocarbon_reservoir: "Depleted hydrocarbon reservoir",
+};
+
+export const STORAGE_METHODS = Object.keys(STORAGE_METHOD_LABEL) as StorageMethod[];
+
 export interface StorageLocation {
   id: string;
   name: string;
   description?: string | null;
   latitude?: number | null;
   longitude?: number | null;
-  storage_method?: string;
+  storage_method?: StorageMethod | string;
   project_id: string;
+  supplier_reference_id?: string | null;
+}
+
+export interface FeedstockType {
+  id: string;
+  name: string;
+  supplier_reference_id: string | null;
+}
+
+export interface FeedstockBatch {
+  id: string;
+  feedstock_type_id: string;
+  display_name: string;
+  delivery_date: string;
+  mass: ScalarQuantity | null;
+  supplier_reference_id: string | null;
+  created_at?: string;
+}
+
+export interface MeasurementLocation {
+  id: string;
+  latitude: number;
+  longitude: number;
+  supplier_reference_id: string | null;
+}
+
+export type MeasurementTypeKey =
+  | "biochar_production_batch"
+  | "biochar_soil"
+  | "pyrolysis_reactor"
+  | "ew_soil"
+  | "ew_porewater"
+  | "ew_field_biomass"
+  | "ew_mineral_feedstock"
+  | "ew_ion_exchange_resin";
+
+export const MEASUREMENT_TYPE_LABEL: Record<MeasurementTypeKey, string> = {
+  biochar_production_batch: "Biochar production batch",
+  biochar_soil: "Biochar soil",
+  pyrolysis_reactor: "Pyrolysis reactor",
+  ew_soil: "EW soil",
+  ew_porewater: "EW porewater",
+  ew_field_biomass: "EW field biomass",
+  ew_mineral_feedstock: "EW mineral feedstock",
+  ew_ion_exchange_resin: "EW ion exchange resin",
+};
+
+export interface MeasurementSampleValue {
+  datapoint_id?: string;
+  measurement_property?: { quantity_kind: string; qualifier?: string | null };
+  value?: ScalarQuantity;
+}
+
+export interface MeasurementSample {
+  id: string;
+  supplier_reference_id: string | null;
+  measured_at: string;
+  measurement_location_id: string | null;
+  production_batch_id?: string | null;
+  values: MeasurementSampleValue[];
 }
 
 export const FREQUENCY_LABEL: Record<Frequency, string> = {

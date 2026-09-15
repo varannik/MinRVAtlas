@@ -86,7 +86,7 @@ export class DataStack extends Ew2Stack {
 
     const proxySg = new ec2.SecurityGroup(this, "ProxySg", {
       vpc,
-      description: "RDS Proxy :5432 from Sentinel only",
+      description: "RDS Proxy :5432 from web and Sentinel",
       allowAllOutbound: true,
     });
     const auroraSg = new ec2.SecurityGroup(this, "AuroraSg", {
@@ -99,6 +99,7 @@ export class DataStack extends Ew2Stack {
       description: "ElastiCache Valkey :6379 from Sentinel only",
       allowAllOutbound: true,
     });
+    proxySg.addIngressRule(sgs.web, ec2.Port.tcp(5432), "Next.js to RDS Proxy");
     proxySg.addIngressRule(sgs.sentinel, ec2.Port.tcp(5432), "Sentinel to RDS Proxy");
     auroraSg.addIngressRule(proxySg, ec2.Port.tcp(5432), "Proxy to Aurora");
     valkeySg.addIngressRule(sgs.sentinel, ec2.Port.tcp(6379), "Sentinel to Valkey TLS");

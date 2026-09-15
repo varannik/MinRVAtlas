@@ -183,7 +183,7 @@ async function request<T>(
   throw lastError ?? new RegistryApiError("Request failed", 0, path);
 }
 
-async function destroy(
+export async function destroy(
   host: ApiHost,
   environment: RegistryEnvironment,
   path: string,
@@ -253,7 +253,7 @@ function statementWindow(row: GhgStatement): { start: string; end: string } | nu
   return { start, end };
 }
 
-async function collect<T>(
+export async function collect<T>(
   host: ApiHost,
   environment: RegistryEnvironment,
   path: string,
@@ -280,7 +280,7 @@ async function collect<T>(
   return nodes;
 }
 
-async function softCollect<T>(
+export async function softCollect<T>(
   host: ApiHost,
   environment: RegistryEnvironment,
   path: string,
@@ -295,7 +295,7 @@ async function softCollect<T>(
   }
 }
 
-async function mapWithLimit<T, R>(
+export async function mapWithLimit<T, R>(
   items: T[],
   limit: number,
   worker: (item: T) => Promise<R>,

@@ -1,6 +1,7 @@
 node_modules
 cdk.out
 *.js
+!lib/cognito-pre-token/index.js
 *.d.ts
 !jest.config.js
 .tsbuildinfo
