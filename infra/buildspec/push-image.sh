@@ -7,10 +7,15 @@ set -euo pipefail
 : "${ECR_REPOSITORY:?}"
 : "${CONTAINER_NAMES:?}"
 : "${DOCKERFILE:?}"
-: "${DOCKER_CONTEXT:?}"
 : "${APP_KIND:?}"
 : "${STAGE:=unknown}"
 : "${ECS_CLUSTER:=unknown}"
+
+# Docker CLI treats DOCKER_CONTEXT as a named endpoint (desktop-linux, default).
+# CodeBuild must pass a filesystem path. Read it, then drop the reserved var.
+BUILD_PATH="${BUILD_CONTEXT:-${DOCKER_CONTEXT:-}}"
+unset DOCKER_CONTEXT || true
+: "${BUILD_PATH:?}"
 
 TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:-}"
 if [[ -z "${TAG}" ]]; then
@@ -64,7 +69,7 @@ else
     --platform linux/amd64 \
     -f "${DOCKERFILE}" \
     -t "${IMAGE_TAG_URI}" \
-    "${DOCKER_CONTEXT}"
+    "${BUILD_PATH}"
   echo "=== docker push ${IMAGE_TAG_URI} ==="
   docker push "${IMAGE_TAG_URI}"
 fi

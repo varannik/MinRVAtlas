@@ -107,7 +107,7 @@ export class PipelineStack extends Ew2Stack {
         ECR_REPOSITORY: ecrWebRepo(),
         CONTAINER_NAMES: "web",
         DOCKERFILE: "apps/web/Dockerfile",
-        DOCKER_CONTEXT: "apps/web",
+        BUILD_CONTEXT: "apps/web",
         APP_KIND: "web",
       },
     });
@@ -124,7 +124,7 @@ export class PipelineStack extends Ew2Stack {
         ECR_REPOSITORY: ecrSentinelRepo(),
         CONTAINER_NAMES: "api,worker,beat",
         DOCKERFILE: "apps/sentinel/backend/Dockerfile",
-        DOCKER_CONTEXT: "apps/sentinel/backend",
+        BUILD_CONTEXT: "apps/sentinel/backend",
         APP_KIND: "sentinel",
       },
     });
