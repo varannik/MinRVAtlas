@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { sentinelJson, unwrapItems } from "@/lib/sentinel/browser";
+import { scheduleEffect } from "@/lib/schedule-effect";
 import { Banner, Button, DataTable, PageHeader } from "./ui";
 
 type AuditEvent = {
@@ -24,9 +25,11 @@ export function AuditPage() {
   }, []);
 
   useEffect(() => {
-    void load().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Failed to load audit");
-    });
+    return scheduleEffect(() =>
+      load().catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load audit");
+      }),
+    );
   }, [load]);
 
   return (

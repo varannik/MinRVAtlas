@@ -14,6 +14,7 @@ import {
   type QualityStep,
 } from "@/lib/ghg-quality-findings";
 import { tableToFile, serializeGhgTable } from "@/lib/ghg-csv-series";
+import { scheduleEffect } from "@/lib/schedule-effect";
 import type { PipelineResult } from "@/lib/sentinel/pipeline-types";
 import { pipelineKey } from "@/lib/sentinel/pipeline-types";
 import type { Project, SubmissionBatch } from "@/lib/types";
@@ -213,26 +214,7 @@ export function GhgQualityOverlay({
     ],
   );
 
-  useEffect(() => {
-    if (!overlayOpen) {
-      boot.current = false;
-      return;
-    }
-    if (boot.current) return;
-    boot.current = true;
-    void runPipeline();
-  }, [overlayOpen, runPipeline]);
-
-  useEffect(() => {
-    if (!overlayOpen) return;
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") requestClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [overlayOpen, resolutions, running, focusedEntityKey, selected]);
-
-  function requestClose() {
+  const requestClose = useCallback(() => {
     if (focusedEntityKey) {
       focusEntity(null);
       return;
@@ -248,7 +230,35 @@ export function GhgQualityOverlay({
       return;
     }
     close();
-  }
+  }, [
+    close,
+    focusEntity,
+    focusedEntityKey,
+    modifications.length,
+    resolutions,
+    running,
+    selectFinding,
+    selected,
+  ]);
+
+  useEffect(() => {
+    if (!overlayOpen) {
+      boot.current = false;
+      return;
+    }
+    if (boot.current) return;
+    boot.current = true;
+    return scheduleEffect(() => runPipeline());
+  }, [overlayOpen, runPipeline]);
+
+  useEffect(() => {
+    if (!overlayOpen) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") requestClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [overlayOpen, requestClose]);
 
   function continueOrFinish() {
     if (!canContinue || !table) return;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   defaultUnit,
@@ -98,13 +98,15 @@ function InputRow({
   const key = inputDraftKey(batchId, componentId, input.key);
   const unitDefault = defaultUnit(input.quantityKind);
   const committedDraft = committed ?? emptyInputDraft(unitDefault);
+  const committedSig = `${committedDraft.magnitude}\0${committedDraft.unit}\0${committedDraft.stddev}`;
+  const [prevCommittedSig, setPrevCommittedSig] = useState(committedSig);
   const [local, setLocal] = useState(committedDraft);
+  if (committedSig !== prevCommittedSig) {
+    setPrevCommittedSig(committedSig);
+    setLocal(committedDraft);
+  }
   const monitored = isMonitoredInput(input);
   const units = unitChoices(input.quantityKind);
-
-  useEffect(() => {
-    setLocal(committedDraft);
-  }, [committedDraft.magnitude, committedDraft.unit, committedDraft.stddev]);
 
   const dirty =
     local.magnitude !== committedDraft.magnitude ||

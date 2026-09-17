@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { sentinelJson } from "@/lib/sentinel/browser";
+import { scheduleEffect } from "@/lib/schedule-effect";
 import {
   Banner,
   Button,
@@ -42,9 +43,11 @@ export function KnowledgePage() {
   }, []);
 
   useEffect(() => {
-    void load().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Failed to load knowledge base");
-    });
+    return scheduleEffect(() =>
+      load().catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load knowledge base");
+      }),
+    );
   }, [load]);
 
   return (

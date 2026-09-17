@@ -30,17 +30,23 @@ export function SchemaPreviewPanel({
   );
   const [headers, setHeaders] = useState<string[]>([]);
   const fileMeta = useRequirementDrafts((state) => state.bySlot[draftKey]?.files);
+  const csv = getDraftFiles(draftKey).find((file) =>
+    file.name.toLowerCase().endsWith(".csv"),
+  );
+  if (!csv && headers.length > 0) {
+    setHeaders([]);
+  }
 
   useEffect(() => {
-    const csv = getDraftFiles(draftKey).find((file) =>
-      file.name.toLowerCase().endsWith(".csv"),
-    );
-    if (!csv) {
-      setHeaders([]);
-      return;
-    }
-    void csv.text().then((text) => setHeaders(parseCsvHeaders(text)));
-  }, [bindings, draftKey, fileMeta]);
+    if (!csv) return;
+    let cancelled = false;
+    void csv.text().then((text) => {
+      if (!cancelled) setHeaders(parseCsvHeaders(text));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [bindings, csv, draftKey, fileMeta]);
 
   const preview: SchemaPreview | null = headers.length
     ? previewSchema(headers, schema, bindings)

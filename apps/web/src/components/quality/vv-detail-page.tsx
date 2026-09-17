@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { sentinelJson, sentinelRequest, unwrapItems } from "@/lib/sentinel/browser";
+import { scheduleEffect } from "@/lib/schedule-effect";
 import type { VvCheckpoint, VvDocument, VvProject } from "./types";
 import {
   Banner,
@@ -37,9 +38,11 @@ export function VvDetailPage({ id }: { id: string }) {
   }, [id]);
 
   useEffect(() => {
-    void load().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Failed to load project");
-    });
+    return scheduleEffect(() =>
+      load().catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load project");
+      }),
+    );
   }, [load]);
 
   async function upload(file: File) {

@@ -903,11 +903,12 @@ function ExpandedSeries({
   const didPan = useRef(false);
   const [fitH, setFitH] = useState(180);
   const [zoom, setZoom] = useState(1);
+  const [zoomFor, setZoomFor] = useState(entity.key);
   const [panning, setPanning] = useState(false);
-
-  useEffect(() => {
+  if (entity.key !== zoomFor) {
+    setZoomFor(entity.key);
     setZoom(1);
-  }, [entity.key]);
+  }
 
   useEffect(() => {
     const node = chartBox.current;

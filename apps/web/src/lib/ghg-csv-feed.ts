@@ -1,6 +1,5 @@
 import {
   defaultUnit,
-  isMonitoredInput,
   type AccountingComponent,
   type AccountingInput,
   type AccountingTemplate,

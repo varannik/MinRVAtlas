@@ -11,7 +11,6 @@ function cubic(
   y2: number,
 ): string {
   const dx = x2 - x1;
-  const dy = y2 - y1;
   if (Math.abs(dx) < 64) {
     return `M ${x1} ${y1} L ${x2} ${y2}`;
   }

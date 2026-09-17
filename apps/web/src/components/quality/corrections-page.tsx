@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { sentinelJson } from "@/lib/sentinel/browser";
+import { scheduleEffect } from "@/lib/schedule-effect";
 import { useQuality } from "@/store/quality-store";
 import {
   Banner,
@@ -47,9 +48,11 @@ export function CorrectionsPage() {
 
   useEffect(() => {
     if (!projectId) return;
-    void load().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Failed to load pairs");
-    });
+    return scheduleEffect(() =>
+      load().catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load pairs");
+      }),
+    );
   }, [load, projectId]);
 
   async function autoPair() {

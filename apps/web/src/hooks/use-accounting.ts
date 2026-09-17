@@ -5,6 +5,7 @@ import {
   emptyAccounting,
   type AccountingSnapshot,
 } from "@/lib/accounting";
+import { scheduleEffect } from "@/lib/schedule-effect";
 import type { Project } from "@/lib/types";
 
 const cache = new Map<string, AccountingSnapshot>();
@@ -18,8 +19,19 @@ export function useAccounting(
   periodStart: string | undefined,
   periodEnd: string | undefined,
 ) {
-  const [snapshot, setSnapshot] = useState<AccountingSnapshot | null>(null);
+  const key =
+    project && periodStart && periodEnd
+      ? cacheKey(project.id, periodStart, periodEnd)
+      : null;
+  const [snapshot, setSnapshot] = useState<AccountingSnapshot | null>(() =>
+    key ? (cache.get(key) ?? null) : null,
+  );
   const [loading, setLoading] = useState(false);
+  const [seenKey, setSeenKey] = useState(key);
+  if (key !== seenKey) {
+    setSeenKey(key);
+    setSnapshot(key ? (cache.get(key) ?? null) : null);
+  }
 
   const reload = useCallback(async () => {
     if (!project || project.registry !== "Isometric" || !periodStart || !periodEnd) {
@@ -58,15 +70,9 @@ export function useAccounting(
   }, [periodEnd, periodStart, project]);
 
   useEffect(() => {
-    if (!project || !periodStart || !periodEnd) {
-      setSnapshot(null);
-      return;
-    }
-    const key = cacheKey(project.id, periodStart, periodEnd);
-    const hit = cache.get(key);
-    if (hit) setSnapshot(hit);
-    void reload();
-  }, [periodEnd, periodStart, project, reload]);
+    if (!key) return;
+    return scheduleEffect(() => reload());
+  }, [key, reload]);
 
   return { snapshot, loading: loading && !snapshot, reload };
 }

@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { scheduleEffect } from "@/lib/schedule-effect";
 import { sentinelJson, unwrapItems } from "@/lib/sentinel/browser";
-import { useQuality } from "@/store/quality-store";
 import type { ProtocolCheckpoint, ProtocolRecord } from "./types";
 import {
   Banner,
@@ -38,19 +38,24 @@ export function ProtocolsPage() {
   }, []);
 
   useEffect(() => {
-    void loadProtocols().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Failed to load protocols");
-    });
+    return scheduleEffect(() =>
+      loadProtocols().catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load protocols");
+      }),
+    );
   }, [loadProtocols]);
 
+  if (!selectedId && checkpoints.length > 0) {
+    setCheckpoints([]);
+  }
+
   useEffect(() => {
-    if (!selectedId) {
-      setCheckpoints([]);
-      return;
-    }
-    void loadCheckpoints(selectedId).catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Failed to load checkpoints");
-    });
+    if (!selectedId) return;
+    return scheduleEffect(() =>
+      loadCheckpoints(selectedId).catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load checkpoints");
+      }),
+    );
   }, [loadCheckpoints, selectedId]);
 
   return (

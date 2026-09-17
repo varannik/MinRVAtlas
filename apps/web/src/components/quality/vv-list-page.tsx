@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { sentinelJson, unwrapItems } from "@/lib/sentinel/browser";
+import { scheduleEffect } from "@/lib/schedule-effect";
 import { useQuality } from "@/store/quality-store";
 import type { VvProject } from "./types";
 import {
@@ -38,9 +39,11 @@ export function VvListPage() {
   }, [catalogProjectId]);
 
   useEffect(() => {
-    void load().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Failed to load V&V");
-    });
+    return scheduleEffect(() =>
+      load().catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load V&V");
+      }),
+    );
   }, [load]);
 
   return (

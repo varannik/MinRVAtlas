@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { sentinelJson } from "@/lib/sentinel/browser";
+import { scheduleEffect } from "@/lib/schedule-effect";
 import { useQuality } from "@/store/quality-store";
 import { Banner, Button, DataTable, PageHeader, Pill } from "./ui";
 
@@ -25,7 +26,7 @@ export function ModelsPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!projectId) {
       setModels([]);
       setThresholds({});
@@ -44,14 +45,16 @@ export function ModelsPage() {
         : [];
     setModels(list);
     setThresholds(th.thresholds ?? th);
-  }
+  }, [projectId]);
 
   useEffect(() => {
     if (!projectId) return;
-    void load().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Failed to load models");
-    });
-  }, [projectId]);
+    return scheduleEffect(() =>
+      load().catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load models");
+      }),
+    );
+  }, [load, projectId]);
 
   async function retrain(kind: "dqa" | "anomaly") {
     setBusy(true);

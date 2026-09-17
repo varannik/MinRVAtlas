@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { sentinelJson, unwrapItems } from "@/lib/sentinel/browser";
+import { scheduleEffect } from "@/lib/schedule-effect";
 import { useQuality } from "@/store/quality-store";
 import type { DqaDataset, DqaRun } from "./types";
 import { Banner, Button, DataTable, PageHeader, Pill, severityTone } from "./ui";
@@ -29,9 +30,11 @@ export function RunsPage() {
 
   useEffect(() => {
     if (!projectId) return;
-    void load().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Failed to load runs");
-    });
+    return scheduleEffect(() =>
+      load().catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load runs");
+      }),
+    );
   }, [load, projectId]);
 
   async function runLatest() {

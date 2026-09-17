@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { sentinelJson, unwrapItems } from "@/lib/sentinel/browser";
+import { scheduleEffect } from "@/lib/schedule-effect";
 import { useQuality } from "@/store/quality-store";
 import type { DqaDataset } from "./types";
 import {
@@ -51,9 +52,11 @@ export function SchedulesPage() {
 
   useEffect(() => {
     if (!projectId) return;
-    void load().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Failed to load schedules");
-    });
+    return scheduleEffect(() =>
+      load().catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Failed to load schedules");
+      }),
+    );
   }, [load, projectId]);
 
   async function toggle(row: Schedule) {
