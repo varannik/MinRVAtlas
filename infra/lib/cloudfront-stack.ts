@@ -18,8 +18,9 @@ export interface CloudFrontStackProps extends cdk.StackProps {
 }
 
 /**
- * Optional us-east-1 edge. Only instantiated when ENABLE_CLOUDFRONT=1 (prod).
- * Requires CDKToolkit in us-east-1.
+ * Optional us-east-1 edge. Instantiated when ENABLE_CLOUDFRONT=1.
+ * Requires CDKToolkit in us-east-1. Default `*.cloudfront.net` is HTTPS,
+ * which Cognito accepts as a callback without a custom domain.
  */
 export class CloudFrontStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: CloudFrontStackProps) {
@@ -92,6 +93,20 @@ export class CloudFrontStack extends cdk.Stack {
           originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         },
+        "/auth/*": {
+          origin,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        },
+        "/login": {
+          origin,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        },
       },
       webAclId: waf.attrArn,
       domainNames: props.domainName ? [props.domainName] : undefined,
@@ -119,6 +134,9 @@ export class CloudFrontStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "DistributionDomain", {
       value: distribution.distributionDomainName,
+    });
+    new cdk.CfnOutput(this, "AppUrl", {
+      value: `https://${props.domainName ?? distribution.distributionDomainName}`,
     });
     if (props.domainName) {
       new cdk.CfnOutput(this, "AliasDomain", {

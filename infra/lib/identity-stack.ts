@@ -198,6 +198,12 @@ export class IdentityStack extends Ew2Stack {
       value: this.clientSecret.secretArn,
       exportName: `${cfnStackName(cfg.stageName, "identity")}-ClientSecretArn`,
     });
+    new cdk.CfnOutput(this, "CallbackUrls", {
+      value: cognitoCallbackUrls(cfg).join(","),
+    });
+    new cdk.CfnOutput(this, "LogoutUrls", {
+      value: cognitoLogoutUrls(cfg).join(","),
+    });
   }
 }
 
@@ -233,10 +239,25 @@ export function cognitoLogoutUrls(cfg: StageConfig): string[] {
 }
 
 function assertCognitoHttpsUrl(url: string, name: string): void {
-  if (url.startsWith("http://localhost") || url.startsWith("https://")) {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`${name} is not a URL: ${url}`);
+  }
+  const host = parsed.hostname.toLowerCase();
+  const local = host === "localhost" || host === "127.0.0.1";
+  if (parsed.protocol === "http:" && local) {
+    return;
+  }
+  if (
+    parsed.protocol === "https:" &&
+    !host.endsWith(".elb.amazonaws.com") &&
+    !host.includes(".elb.")
+  ) {
     return;
   }
   throw new Error(
-    `${name} must be https://… (Cognito allows http only for localhost). Got ${url}`,
+    `${name} must be https://… on a real hostname (Cognito allows http only for localhost; ALB DNS is not valid). Got ${url}`,
   );
 }

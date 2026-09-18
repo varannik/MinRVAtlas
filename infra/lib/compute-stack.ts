@@ -166,8 +166,9 @@ export class ComputeStack extends Ew2Stack {
 
     const redirectUri = cfg.domainName
       ? `https://${cfg.domainName}/auth/callback`
-      : (cfg.cognitoCallbackUrl ??
-        `http://${this.publicAlb.loadBalancerDnsName}/auth/callback`);
+      : cfg.cognitoCallbackUrl && cfg.cognitoCallbackUrl.startsWith("https://")
+        ? cfg.cognitoCallbackUrl
+        : "http://localhost:3000/auth/callback";
 
     webTask.addContainer("web", {
       image: webImage,
@@ -676,8 +677,10 @@ export class ComputeStack extends Ew2Stack {
 }
 
 function composeDbUrl(): string {
+  // Valkey Serverless is TLS + cluster. Celery 5 requires ssl_cert_reqs on rediss://.
+  // Cluster CROSSSLOT is handled in apps/sentinel celery_app.py (hash-tag prefix).
   return [
     'export DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require";',
-    'export REDIS_URL="rediss://${VALKEY_HOST}:${VALKEY_PORT}/0";',
+    'export REDIS_URL="rediss://${VALKEY_HOST}:${VALKEY_PORT}/0?ssl_cert_reqs=CERT_NONE";',
   ].join(" ");
 }

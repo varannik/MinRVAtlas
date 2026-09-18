@@ -45,6 +45,14 @@ class Settings(BaseSettings):
     ALERT_EMAIL_FROM: str = ""
     ALERT_EMAIL_TO: str = ""
 
+    @field_validator("REDIS_URL")
+    @classmethod
+    def redis_tls_cert_reqs(cls, v: str) -> str:
+        if v.startswith("rediss://") and "ssl_cert_reqs=" not in v:
+            joiner = "&" if "?" in v else "?"
+            return f"{v}{joiner}ssl_cert_reqs=CERT_NONE"
+        return v
+
     @field_validator("SECRET_KEY")
     @classmethod
     def validate_secret_key(cls, v: str) -> str:

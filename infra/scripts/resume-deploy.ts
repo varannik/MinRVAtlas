@@ -113,12 +113,26 @@ function cdkContextArgs(): string[] {
     args.push("-c", `githubBranchProd=${process.env.GITHUB_BRANCH_PROD}`);
   }
   if (process.env.COGNITO_CALLBACK_URL) {
+    assertHttpsCallback(process.env.COGNITO_CALLBACK_URL, "COGNITO_CALLBACK_URL");
     args.push("-c", `cognitoCallbackUrl=${process.env.COGNITO_CALLBACK_URL}`);
   }
   if (process.env.COGNITO_LOGOUT_URL) {
+    assertHttpsCallback(process.env.COGNITO_LOGOUT_URL, "COGNITO_LOGOUT_URL");
     args.push("-c", `cognitoLogoutUrl=${process.env.COGNITO_LOGOUT_URL}`);
   }
   return args;
+}
+
+function assertHttpsCallback(url: string, name: string): void {
+  if (url.startsWith("http://localhost") || url.startsWith("http://127.0.0.1")) {
+    return;
+  }
+  if (url.startsWith("https://") && !url.includes(".elb.")) {
+    return;
+  }
+  throw new Error(
+    `${name} cannot be an HTTP ALB URL. Cognito only allows http for localhost. Use https://<cloudfront-or-domain>/… (got ${url})`,
+  );
 }
 
 async function describeStack(
@@ -430,8 +444,8 @@ function desiredCdkStacks(stage: StageName): string[] {
     "minrv-ew2-ecr",
     ...STACK_ORDER.map((suffix) => `minrv-ew2-${stage}-${suffix}`),
   ];
-  if (ENABLE_CLOUDFRONT && stage === "prod") {
-    names.push("minrv-ew2-prod-cloudfront");
+  if (ENABLE_CLOUDFRONT) {
+    names.push(`minrv-ew2-${stage}-cloudfront`);
   }
   return names;
 }

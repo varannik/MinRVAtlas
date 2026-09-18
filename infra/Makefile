@@ -2,7 +2,8 @@ ACCOUNT    ?= 625239230739
 REGION     ?= eu-west-2
 APP        ?= minrv-ew2-sandbox
 CONFIRM    ?=
-ENABLE_CLOUDFRONT ?= 0
+# Sandbox HTTPS URL (Cognito). Set 0 to skip us-east-1 CloudFront.
+ENABLE_CLOUDFRONT ?= 1
 AWS_PROFILE ?=
 SERVICE    ?= web
 TASK_DEFINITION ?=

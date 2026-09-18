@@ -44,8 +44,9 @@ export interface StageConfig {
   sentinelImageTag?: string;
   enableCloudFront: boolean;
   /**
-   * Extra Cognito callback (typically http://{public-alb}/auth/callback)
-   * after the ALB exists. Localhost is always registered. Set DOMAIN_NAME for HTTPS.
+   * Extra hosted-UI callback after HTTPS exists (CloudFront `https://*.cloudfront.net/auth/callback`
+   * or `https://{DOMAIN_NAME}/auth/callback`). Localhost is always registered.
+   * Never pass `http://*.elb.amazonaws.com` — Cognito rejects it and the identity stack rolls back.
    */
   cognitoCallbackUrl?: string;
   cognitoLogoutUrl?: string;

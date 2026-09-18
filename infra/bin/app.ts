@@ -46,11 +46,10 @@ const githubConnectionArn =
   registry.githubConnectionArn;
 
 function extras(stage: "sandbox" | "prod"): Partial<StageConfig> {
-  const edge = stage === "prod";
   return {
-    domainName: edge ? domainName : undefined,
-    hostedZoneId: edge ? hostedZoneId : undefined,
-    hostedZoneName: edge ? hostedZoneName : undefined,
+    domainName,
+    hostedZoneId,
+    hostedZoneName,
     opsEmail,
     githubOrg,
     githubRepo,
@@ -58,7 +57,7 @@ function extras(stage: "sandbox" | "prod"): Partial<StageConfig> {
     githubBranch: stage === "prod" ? githubBranchProd : githubBranchSandbox,
     webImageTag,
     sentinelImageTag,
-    enableCloudFront: edge && enableCloudFront,
+    enableCloudFront,
     enableRegionalSecurityServices: stage === "sandbox" && !skipRegionalSecurity,
     cognitoCallbackUrl:
       optionalString(app, "cognitoCallbackUrl") ?? process.env.COGNITO_CALLBACK_URL,

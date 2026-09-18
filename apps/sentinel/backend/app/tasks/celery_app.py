@@ -9,7 +9,11 @@ celery_app = Celery(
     backend=settings.REDIS_URL,
     include=["app.tasks.dqa_tasks"],
 )
+# Valkey Serverless is Redis-cluster. Hash-tag the prefix so Celery keys
+# land in one slot (otherwise worker dies on CROSSSLOT).
 celery_app.conf.update(
+    broker_transport_options={"global_keyprefix": "{celery}"},
+    result_backend_transport_options={"global_keyprefix": "{celery}"},
     task_acks_late=True,
     task_reject_on_worker_lost=True,
     task_soft_time_limit=300,

@@ -121,8 +121,11 @@ export function isPublicAuthPath(pathname: string): boolean {
 
 /** Keep 127.0.0.1 vs localhost on the same host the browser used. */
 export function requestOrigin(request: { headers: Headers; nextUrl: URL }): URL {
-  const host = request.headers.get("host") || request.nextUrl.host;
-  const proto = request.nextUrl.protocol.replace(/:$/, "") || "http";
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const host = forwardedHost || request.headers.get("host") || request.nextUrl.host;
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const proto =
+    forwardedProto || request.nextUrl.protocol.replace(/:$/, "") || "http";
   return new URL(`${proto}://${host}`);
 }
 
