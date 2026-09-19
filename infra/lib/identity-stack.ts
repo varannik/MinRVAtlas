@@ -145,7 +145,8 @@ export class IdentityStack extends Ew2Stack {
       generateSecret: true,
       authFlows: {
         userSrp: true,
-        userPassword: false,
+        // Landing glass form uses BFF InitiateAuth (USER_PASSWORD_AUTH), not browser OAuth.
+        userPassword: true,
         adminUserPassword: false,
         custom: false,
       },

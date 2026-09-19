@@ -114,12 +114,40 @@ export function isPublicAuthPath(pathname: string): boolean {
   return (
     pathname === "/login" ||
     pathname === "/auth/login" ||
+    pathname === "/auth/session" ||
+    pathname === "/auth/password" ||
     pathname === "/auth/callback" ||
     pathname === "/auth/logout"
   );
 }
 
-/** Keep 127.0.0.1 vs localhost on the same host the browser used. */
+function originFromUrl(value: string | undefined): string | null {
+  const raw = value?.trim();
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+}
+
+/** Browser POSTs from the landing dialog. CloudFront Origin may differ from ALB Host. */
+export function isBrowserSameOrigin(request: {
+  headers: Headers;
+  nextUrl: URL;
+}): boolean {
+  const site = request.headers.get("sec-fetch-site");
+  if (site === "same-origin") return true;
+  const origin = request.headers.get("origin");
+  if (!origin) return process.env.NODE_ENV !== "production";
+  const allowed = new Set<string>([requestOrigin(request).origin]);
+  const redirectOrigin = originFromUrl(process.env.COGNITO_REDIRECT_URI);
+  if (redirectOrigin) allowed.add(redirectOrigin);
+  const logoutOrigin = originFromUrl(process.env.COGNITO_LOGOUT_URL);
+  if (logoutOrigin) allowed.add(logoutOrigin);
+  return allowed.has(origin);
+}
+
 export function requestOrigin(request: { headers: Headers; nextUrl: URL }): URL {
   const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
   const host = forwardedHost || request.headers.get("host") || request.nextUrl.host;

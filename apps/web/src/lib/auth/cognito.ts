@@ -35,14 +35,28 @@ let verifierPoolId: string | null = null;
 export async function exchangeAuthorizationCode(
   cfg: CognitoConfig,
   code: string,
-  codeVerifier: string,
+  verifier: string,
 ): Promise<TokenResponse> {
   return postForm(cfg, {
     grant_type: "authorization_code",
     client_id: cfg.clientId,
     code,
+    code_verifier: verifier,
     redirect_uri: cfg.redirectUri,
-    code_verifier: codeVerifier,
+  });
+}
+
+export async function exchangePassword(
+  cfg: CognitoConfig,
+  username: string,
+  password: string,
+): Promise<TokenResponse> {
+  return postForm(cfg, {
+    grant_type: "password",
+    client_id: cfg.clientId,
+    username,
+    password,
+    scope: "openid email profile",
   });
 }
 

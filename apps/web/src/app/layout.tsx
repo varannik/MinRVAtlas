@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "MinRV — 44.01",
   description:
-    "MinRV is 44.01’s digital MRV control room: one operator surface connected to multiple registries.",
+    "MinRV is 44.01’s digital MRV control room: quality intelligence on project evidence through to registry submission.",
 };
 
 export const viewport: Viewport = {

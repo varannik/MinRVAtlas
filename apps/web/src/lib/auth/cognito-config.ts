@@ -49,3 +49,8 @@ function regionFromPool(userPoolId: string): string {
   const region = userPoolId.split("_")[0];
   return region || "eu-west-2";
 }
+
+export function cognitoRegion(cfg: CognitoConfig): string {
+  const fromIssuer = cfg.issuer.match(/cognito-idp\.([a-z0-9-]+)\.amazonaws\.com/);
+  return fromIssuer?.[1] || regionFromPool(cfg.userPoolId);
+}

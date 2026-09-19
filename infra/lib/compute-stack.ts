@@ -169,6 +169,11 @@ export class ComputeStack extends Ew2Stack {
       : cfg.cognitoCallbackUrl && cfg.cognitoCallbackUrl.startsWith("https://")
         ? cfg.cognitoCallbackUrl
         : "http://localhost:3000/auth/callback";
+    const logoutUrl = cfg.domainName
+      ? `https://${cfg.domainName}/login`
+      : cfg.cognitoLogoutUrl && cfg.cognitoLogoutUrl.startsWith("https://")
+        ? cfg.cognitoLogoutUrl
+        : undefined;
 
     webTask.addContainer("web", {
       image: webImage,
@@ -193,6 +198,7 @@ export class ComputeStack extends Ew2Stack {
         COGNITO_DOMAIN: props.cognitoHostedUiHost,
         COGNITO_ISSUER: `https://cognito-idp.${REGION}.amazonaws.com/${props.userPoolId}`,
         COGNITO_REDIRECT_URI: redirectUri,
+        ...(logoutUrl ? { COGNITO_LOGOUT_URL: logoutUrl } : {}),
       },
       secrets: {
         ISOMETRIC_CLIENT_SECRET: ecs.Secret.fromSecretsManager(

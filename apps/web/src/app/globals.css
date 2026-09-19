@@ -499,19 +499,78 @@ body {
   font-family: var(--font-instrument), ui-serif, "Times New Roman", serif;
 }
 
-.landing-veil {
+.landing-stage {
+  isolation: isolate;
+  background: #070808;
+}
+
+.landing-soil {
+  overflow: hidden;
+  background: linear-gradient(to bottom, #0d1802 0%, #070808 78%);
+  isolation: isolate;
+}
+
+.landing-soil-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  transform: scaleY(-1);
+  filter: grayscale(1) contrast(2.15) brightness(0.78);
+  mix-blend-mode: multiply;
+  opacity: 0.92;
+  pointer-events: none;
+}
+
+.landing-soil-tint {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, #0d1802 0%, transparent 42%, #070808 100%);
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.landing-soil-grime {
+  position: absolute;
+  inset: 0;
   background:
-    linear-gradient(
-      100deg,
-      color-mix(in oklab, #0b0b0f 78%, transparent) 0%,
-      color-mix(in oklab, #0b0b0f 28%, transparent) 42%,
-      transparent 62%
-    ),
-    linear-gradient(
-      to top,
-      color-mix(in oklab, #0b0b0f 82%, transparent) 0%,
-      transparent 36%
-    );
+    radial-gradient(110% 55% at 50% -10%, #0d1802 0%, transparent 58%),
+    radial-gradient(95% 60% at 50% 110%, #070808 0%, transparent 58%);
+  mix-blend-mode: multiply;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.landing-spline {
+  overflow: hidden;
+}
+
+.landing-spline canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  background: transparent;
+}
+
+.landing-veil {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, #0d1802 62%, transparent) 0%,
+    color-mix(in oklab, #070808 18%, transparent) 34%,
+    transparent 58%
+  );
+}
+
+.landing-sign-in {
+  background: color-mix(in oklab, #12180a 42%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-calcite) 28%, transparent);
+  backdrop-filter: blur(28px) saturate(160%);
+  box-shadow:
+    0 1px 0 color-mix(in oklab, var(--color-calcite) 18%, transparent) inset,
+    0 28px 60px color-mix(in oklab, var(--color-rock) 55%, transparent);
 }
 
 .landing-glass {
