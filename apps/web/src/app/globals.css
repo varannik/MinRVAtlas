@@ -494,3 +494,31 @@ body {
   background: #dce8b8;
   color: #3d4a1f;
 }
+
+.font-display {
+  font-family: var(--font-instrument), ui-serif, "Times New Roman", serif;
+}
+
+.landing-veil {
+  background:
+    linear-gradient(
+      100deg,
+      color-mix(in oklab, #0b0b0f 78%, transparent) 0%,
+      color-mix(in oklab, #0b0b0f 28%, transparent) 42%,
+      transparent 62%
+    ),
+    linear-gradient(
+      to top,
+      color-mix(in oklab, #0b0b0f 82%, transparent) 0%,
+      transparent 36%
+    );
+}
+
+.landing-glass {
+  background: color-mix(in oklab, #12180a 78%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-calcite) 32%, transparent);
+  backdrop-filter: blur(22px) saturate(140%);
+  box-shadow:
+    0 1px 0 color-mix(in oklab, var(--color-calcite) 16%, transparent) inset,
+    0 18px 40px color-mix(in oklab, var(--color-rock) 45%, transparent);
+}

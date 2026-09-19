@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "dMRV Atlas — Carbon Project Control Room",
+  title: "MinRV — 44.01",
   description:
-    "A 3D digital MRV dashboard for carbon market portfolios: pin projects on an interactive globe and inspect the document and data package required for submission.",
+    "MinRV is 44.01’s digital MRV control room: one operator surface connected to multiple registries.",
 };
 
 export const viewport: Viewport = {
