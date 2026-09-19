@@ -63,22 +63,6 @@ export function MinrvLanding({
       </div>
       <div className="landing-veil pointer-events-none absolute inset-0 z-[2]" />
 
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-center justify-end gap-2 px-5 py-4 sm:px-8">
-        <div className="pointer-events-auto flex items-center gap-2">
-          {cognito || devAllowed ? (
-            <button
-              type="button"
-              onClick={() => setLoginOpen(true)}
-              className="inline-flex h-8 items-center rounded-full bg-calcite px-3.5 text-[12px] font-semibold text-earth"
-            >
-              Log in
-            </button>
-          ) : (
-            <p className="text-[11px] text-calcite/70">Cognito is not configured</p>
-          )}
-        </div>
-      </header>
-
       <motion.section
         initial={reduceMotion ? false : { opacity: 0, x: -18 }}
         animate={{ opacity: loginOpen ? 0 : 1, x: loginOpen ? -24 : 0 }}
@@ -86,7 +70,7 @@ export function MinrvLanding({
         className="pointer-events-none absolute top-1/2 left-6 z-10 w-[min(38rem,86vw)] -translate-y-1/2 sm:left-10 lg:left-16"
       >
         <p className="text-[11px] font-semibold tracking-[0.36em] text-olivine uppercase">
-        From Carbon Removal to Certified Credits.
+          From Carbon Removal to Certified Credits.
         </p>
         <h1 className="font-display mt-4 text-[18vw] leading-[0.78] tracking-[-0.05em] text-calcite sm:text-[6.6rem] lg:text-[8.4rem]">
           Min<span className="italic text-olivine">RV</span>
@@ -96,13 +80,25 @@ export function MinrvLanding({
           a clear path to registry submission — across every registry we
           run.
         </p>
+        {cognito || devAllowed ? (
+          <button
+            type="button"
+            data-front="Log in"
+            data-back="Remove Co2"
+            aria-label="Log in"
+            onClick={() => setLoginOpen(true)}
+            className={`btn-flip pointer-events-auto mt-8${loginOpen ? " is-flipped" : ""}`}
+          />
+        ) : (
+          <p className="mt-8 text-[11px] text-calcite/70">Cognito is not configured</p>
+        )}
         <a
           href="https://www.4401.earth/"
           target="_blank"
           rel="noopener noreferrer"
-          className="pointer-events-auto mt-8 inline-flex items-center gap-1 text-[11px] font-medium tracking-[0.18em] text-sand/90 uppercase transition-colors hover:text-calcite"
+          className="pointer-events-auto mt-6 inline-flex items-center gap-1 text-[11px] font-medium tracking-[0.18em] text-sand/90 uppercase transition-colors hover:text-calcite"
         >
-          Digitalisation team
+          44.01 Digitalisation team
           <ArrowUpRight className="size-3.5" />
         </a>
       </motion.section>
