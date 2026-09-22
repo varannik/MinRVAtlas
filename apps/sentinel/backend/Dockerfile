@@ -30,4 +30,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 # Run Alembic migrations once before forking workers (avoids parallel DDL races).
 # Use || true so a migration failure is logged but never prevents the server starting.
-CMD ["sh", "-c", "alembic upgrade head && echo 'Migrations OK' || echo 'WARNING: alembic upgrade failed — check DB'; exec gunicorn app.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS} --timeout 120"]
+CMD ["sh", "-c", "python -c 'from app.core.alembic_runner import upgrade_head; upgrade_head()' && echo 'Migrations OK' || echo 'WARNING: alembic upgrade failed — check DB'; exec gunicorn app.main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS} --timeout 120"]

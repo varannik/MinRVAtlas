@@ -12,6 +12,7 @@ import {
   cfnStackName,
   evidenceBucketName,
   logsBucketName,
+  streamBucketName,
   resourceName,
 } from "./config";
 import { Ew2Stack, type Ew2StackProps } from "./ew2-stack";
@@ -25,6 +26,7 @@ export interface DataStackProps extends Ew2StackProps {
 
 export class DataStack extends Ew2Stack {
   public readonly evidenceBucket: s3.Bucket;
+  public readonly streamBucket: s3.Bucket;
   public readonly logsBucket: s3.Bucket;
   public readonly cluster: rds.DatabaseCluster;
   public readonly proxy: rds.DatabaseProxy;
@@ -65,6 +67,23 @@ export class DataStack extends Ew2Stack {
       removalPolicy: removal,
     });
 
+    this.streamBucket = new s3.Bucket(this, "Stream", {
+      bucketName: streamBucketName(cfg.stageName),
+      encryption: s3.BucketEncryption.KMS,
+      encryptionKey: key,
+      bucketKeyEnabled: true,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      versioned: true,
+      lifecycleRules: [
+        {
+          abortIncompleteMultipartUploadAfter: cdk.Duration.days(7),
+          noncurrentVersionExpiration: cdk.Duration.days(cfg.deletionProtection ? 365 : 90),
+        },
+      ],
+      removalPolicy: removal,
+    });
+
     this.logsBucket = new s3.Bucket(this, "Logs", {
       bucketName: logsBucketName(cfg.stageName),
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -81,6 +100,8 @@ export class DataStack extends Ew2Stack {
 
     this.exportValue(this.evidenceBucket.bucketArn);
     this.exportValue(this.evidenceBucket.bucketName);
+    this.exportValue(this.streamBucket.bucketArn);
+    this.exportValue(this.streamBucket.bucketName);
     this.exportValue(this.logsBucket.bucketArn);
     this.exportValue(this.logsBucket.bucketName);
 
@@ -201,6 +222,12 @@ export class DataStack extends Ew2Stack {
 
     new cdk.CfnOutput(this, "EvidenceBucket", {
       value: this.evidenceBucket.bucketName,
+    });
+    new cdk.CfnOutput(this, "StreamBucketName", {
+      value: this.streamBucket.bucketName,
+    });
+    new cdk.CfnOutput(this, "StreamBucketArn", {
+      value: this.streamBucket.bucketArn,
     });
     new cdk.CfnOutput(this, "LogsBucket", { value: this.logsBucket.bucketName });
     new cdk.CfnOutput(this, "AuroraClusterArn", {

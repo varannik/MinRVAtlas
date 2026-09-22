@@ -23,17 +23,31 @@ def run_migrations():
             if os.path.exists(init_sql_path):
                 with open(init_sql_path, "r") as f:
                     init_sql = f.read()
+                raw_conn = engine.raw_connection()
+                cursor = raw_conn.cursor()
                 try:
-                    # Use raw psycopg2 connection — supports multiple statements in one execute()
-                    raw_conn = engine.raw_connection()
-                    cursor = raw_conn.cursor()
-                    cursor.execute(init_sql)
+                    cursor.execute('CREATE EXTENSION IF NOT EXISTS "pgcrypto"')
                     raw_conn.commit()
-                    cursor.close()
-                    raw_conn.close()
+                except Exception as ext_err:
+                    raw_conn.rollback()
+                    logger.warning("pgcrypto extension skipped: %s", ext_err)
+                # Already attempted above; a permission error must not roll back DQA tables.
+                body = "\n".join(
+                    line
+                    for line in init_sql.splitlines()
+                    if "CREATE EXTENSION" not in line.upper()
+                )
+                try:
+                    cursor.execute(body)
+                    raw_conn.commit()
                     logger.info("init.sql executed successfully — base tables created")
                 except Exception as e:
-                    logger.warning(f"init.sql error (tables may already exist): {e}")
+                    raw_conn.rollback()
+                    logger.error("init.sql failed (DQA tables may be missing): %s", e)
+                    raise
+                finally:
+                    cursor.close()
+                    raw_conn.close()
 
             # Create V&V tables if not exist
             vv_tables = [

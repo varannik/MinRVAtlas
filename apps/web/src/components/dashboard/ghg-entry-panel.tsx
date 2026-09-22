@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { FileUp, X } from "lucide-react";
+import { CloudDownload, FileUp, X } from "lucide-react";
 import {
   defaultUnit,
   formatKgCo2e,
@@ -25,6 +25,7 @@ import { useGhgQualityReview } from "@/store/ghg-quality-review-store";
 import type { Project, SubmissionBatch } from "@/lib/types";
 import { CalculationTree } from "./calculation-tree";
 import { GhgQualityOverlay } from "./ghg-quality/quality-overlay";
+import type { StreamCoverage } from "@/lib/stream-coverage";
 
 function findComponent(
   template: AccountingTemplate,
@@ -58,11 +59,17 @@ export function GhgEntryPanel({
   const byKey = useAccountingDrafts((state) => state.byKey);
   const pipelineByKey = usePipeline((state) => state.byKey);
   const addFiles = useRequirementDrafts((state) => state.addFiles);
+  const setFiles = useRequirementDrafts((state) => state.setFiles);
   const removeFile = useRequirementDrafts((state) => state.removeFile);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [feedNotice, setFeedNotice] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"create" | null>(null);
+  const [busy, setBusy] = useState<"create" | "fetch" | null>(null);
+  const [insert, setInsert] = useState<{
+    key: string;
+    kind: "upload" | "stream" | null;
+    coverage: StreamCoverage | null;
+  }>({ key: "", kind: null, coverage: null });
   const overlayOpen = useGhgQualityReview((state) => state.overlayOpen);
   const qualityRunning = useGhgQualityReview((state) => state.running);
   const openReview = useGhgQualityReview((state) => state.open);
@@ -70,6 +77,8 @@ export function GhgEntryPanel({
   const qualitySlot = `ghg-entry:${batch.id}`;
   const draftKey = `${project.id}:${batch.id}:${qualitySlot}`;
   const files = useRequirementDrafts((state) => state.bySlot[draftKey]?.files) ?? [];
+  const sourceKind = insert.key === draftKey ? insert.kind : null;
+  const coverage = insert.key === draftKey ? insert.coverage : null;
   const pipeline: PipelineResult | undefined =
     pipelineByKey[pipelineKey(project.id, batch.id, qualitySlot)];
   const selectedEntry =
@@ -121,11 +130,55 @@ export function GhgEntryPanel({
     qualityOk &&
     monitoredMissing.length === 0 &&
     !busy &&
-    !qualityRunning;
+    !qualityRunning &&
+    !(sourceKind === "stream" && coverage != null && !coverage.complete);
 
   const exSitu = template?.groups.some((group) =>
     group.components.some((row) => isExSituMineralizationBlueprint(row.blueprintKey)),
   );
+
+  async function fetchFromStream() {
+    if (busy || qualityRunning || !batch.periodStart || !batch.periodEnd) return;
+    setBusy("fetch");
+    setError(null);
+    try {
+      const response = await fetch("/api/registry/ghg-source", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-tenant-id": tenantId,
+        },
+        body: JSON.stringify({
+          projectId: project.id,
+          periodStart: batch.periodStart,
+          periodEnd: batch.periodEnd,
+        }),
+      });
+      const payload = (await response.json()) as {
+        error?: string;
+        csv?: string;
+        filename?: string;
+        coverage?: StreamCoverage;
+      };
+      if (!response.ok || !payload.csv) {
+        setError(payload.error ?? "Stream fetch failed");
+        if (payload.coverage) {
+          setInsert({ key: draftKey, kind: "stream", coverage: payload.coverage });
+        }
+        return;
+      }
+      const file = new File([payload.csv], payload.filename ?? "stream.csv", {
+        type: "text/csv",
+      });
+      setFiles(draftKey, [file]);
+      setInsert({ key: draftKey, kind: "stream", coverage: payload.coverage ?? null });
+      setFeedNotice(null);
+    } catch {
+      setError("Stream fetch failed");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function startQuality() {
     if (!template || files.length === 0 || qualityRunning) return;
@@ -257,20 +310,32 @@ export function GhgEntryPanel({
           Sources and quality
         </h3>
         <p className="mt-1 mb-2 text-[10px] leading-relaxed text-mist">
-          Upload operator telemetry plus period accounting columns. Run quality
-          check to review DQA, anomaly, and registry rules. The calculation tree
-          fills only after that review is finished.
+          Upload a CSV, or fetch existing data from the stream store for this
+          period. Quality check is the same either way.
         </p>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="flex w-full flex-col items-center gap-1 rounded-xl bg-ink-800/60 px-4 py-4 text-center ring-1 ring-line/70 hover:bg-ink-700/80"
-        >
-          <FileUp className="size-4 text-mist" />
-          <span className="text-[12px] font-medium text-frost">
-            Upload CSV for this GHG entry
-          </span>
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex flex-col items-center gap-1 rounded-xl bg-ink-800/60 px-3 py-4 text-center ring-1 ring-line/70 hover:bg-ink-700/80"
+          >
+            <FileUp className="size-4 text-mist" />
+            <span className="text-[12px] font-medium text-frost">
+              Upload CSV for this GHG entry
+            </span>
+          </button>
+          <button
+            type="button"
+            disabled={busy !== null || qualityRunning || !batch.periodStart}
+            onClick={() => void fetchFromStream()}
+            className="flex flex-col items-center gap-1 rounded-xl bg-ink-800/60 px-3 py-4 text-center ring-1 ring-line/70 hover:bg-ink-700/80 disabled:opacity-50"
+          >
+            <CloudDownload className="size-4 text-mist" />
+            <span className="text-[12px] font-medium text-frost">
+              {busy === "fetch" ? "Fetching…" : "Fetch from stream source"}
+            </span>
+          </button>
+        </div>
         <input
           ref={fileInputRef}
           type="file"
@@ -279,7 +344,13 @@ export function GhgEntryPanel({
           className="hidden"
           onChange={(event) => {
             if (event.target.files?.length) {
-              addFiles(draftKey, Array.from(event.target.files));
+              const incoming = Array.from(event.target.files);
+              if (sourceKind === "stream") {
+                setFiles(draftKey, incoming);
+              } else {
+                addFiles(draftKey, incoming);
+              }
+              setInsert({ key: draftKey, kind: "upload", coverage: null });
               setFeedNotice(null);
               setError(null);
             }
@@ -297,7 +368,12 @@ export function GhgEntryPanel({
                 <button
                   type="button"
                   aria-label={`Remove ${file.name}`}
-                  onClick={() => removeFile(draftKey, file.name)}
+                  onClick={() => {
+                    removeFile(draftKey, file.name);
+                    if (files.length <= 1) {
+                      setInsert({ key: draftKey, kind: null, coverage: null });
+                    }
+                  }}
                   className="text-mist hover:text-frost"
                 >
                   <X className="size-3" />
@@ -306,9 +382,34 @@ export function GhgEntryPanel({
             ))}
           </ul>
         ) : null}
+        {sourceKind === "stream" && coverage ? (
+          <div className="mt-2 rounded-lg bg-off-white px-2.5 py-2 text-[10px] text-frost">
+            <p className="font-medium uppercase tracking-[0.12em] text-mist">Missing data</p>
+            {coverage.complete ? (
+              <p className="mt-1">Stream window is complete for required series and attributes.</p>
+            ) : (
+              <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                {coverage.daysMissing.map((day) => (
+                  <li key={`d-${day}`}>Missing day: {day}</li>
+                ))}
+                {coverage.seriesMissing.map((metric) => (
+                  <li key={`s-${metric}`}>Missing series: {metric}</li>
+                ))}
+                {coverage.attributesMissing.map((key) => (
+                  <li key={`a-${key}`}>Missing attribute: {key}</li>
+                ))}
+                {coverage.gaps.slice(0, 6).map((gap) => (
+                  <li key={`g-${gap.metric}`}>
+                    Cadence gaps: {gap.metric} ({gap.missingSlots} slots)
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ) : null}
         <button
           type="button"
-          disabled={files.length === 0 || qualityRunning}
+          disabled={files.length === 0 || qualityRunning || busy !== null}
           onClick={() => void startQuality()}
           className="mt-3 w-full rounded-2xl bg-carbon-400 px-4 py-4 text-[15px] font-semibold text-off-white disabled:bg-ink-700 disabled:text-mist"
         >

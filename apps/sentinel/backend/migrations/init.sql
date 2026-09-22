@@ -224,6 +224,23 @@ CREATE TABLE IF NOT EXISTS ml_models (
 );
 CREATE INDEX IF NOT EXISTS idx_ml_models_key ON ml_models(model_key);
 
+-- Must exist before anomaly_feedback (FK). Creating this after the rest of
+-- init.sql used to abort the whole script, so users/datasets never appeared.
+CREATE TABLE IF NOT EXISTS anomaly_detection_runs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    dataset_id UUID REFERENCES datasets(id) ON DELETE CASCADE,
+    project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+    result JSONB NOT NULL DEFAULT '{}'::jsonb,
+    domain VARCHAR(50) DEFAULT 'ccs',
+    model_params JSONB DEFAULT '{}'::jsonb,
+    analysed_keys JSONB DEFAULT '[]'::jsonb,
+    current_step INTEGER DEFAULT 2,
+    if_model_version VARCHAR(100),
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ── Anomaly Feedback (TP/FP labels from users) ───────────────────────────
 CREATE TABLE IF NOT EXISTS anomaly_feedback (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -40,6 +40,7 @@ export interface ComputeStackProps extends Ew2StackProps {
   proxy: rds.IDatabaseProxy;
   valkey: elasticache.CfnServerlessCache;
   logsBucket: s3.IBucket;
+  streamBucket: s3.IBucket;
   userPoolId: string;
   userPoolArn: string;
   userPoolClientId: string;
@@ -189,6 +190,7 @@ export class ComputeStack extends Ew2Stack {
         PROJECT_LOCATIONS_PARAM: projectLocationsParamName(cfg.stageName),
         SENTINEL_BASE_URL: `http://${this.internalAlb.loadBalancerDnsName}:8000`,
         SENTINEL_TENANT_ID: "fourfourone",
+        STREAM_S3_BUCKET: props.streamBucket.bucketName,
         ISOMETRIC_API_HOST: isometricHost(cfg.isometricApi),
         DB_HOST: props.proxy.endpoint,
         DB_PORT: "5432",
@@ -248,7 +250,7 @@ export class ComputeStack extends Ew2Stack {
         "sh",
         "-c",
         composeDbUrl() +
-          " alembic upgrade head || echo 'WARNING: alembic upgrade failed'; exec uvicorn app.main:app --host 0.0.0.0 --port 8000",
+          " python -c 'from app.core.alembic_runner import upgrade_head; upgrade_head()' || echo 'WARNING: alembic upgrade failed'; exec uvicorn app.main:app --host 0.0.0.0 --port 8000",
       ],
       essential: true,
     });
@@ -263,7 +265,7 @@ export class ComputeStack extends Ew2Stack {
         "sh",
         "-c",
         composeDbUrl() +
-          " exec celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2",
+          " exec celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2 --without-gossip --without-mingle --without-heartbeat",
       ],
       essential: true,
     });
@@ -603,6 +605,20 @@ export class ComputeStack extends Ew2Stack {
           `arn:aws:s3:::${evidenceBucketName(cfg.stageName)}`,
           `arn:aws:s3:::${evidenceBucketName(cfg.stageName)}/*`,
         ],
+      }),
+    );
+    role.addToPolicy(
+      new iam.PolicyStatement({
+        sid: "StreamRead",
+        actions: ["s3:ListBucket"],
+        resources: [props.streamBucket.bucketArn],
+      }),
+    );
+    role.addToPolicy(
+      new iam.PolicyStatement({
+        sid: "StreamGetObject",
+        actions: ["s3:GetObject"],
+        resources: [props.streamBucket.arnForObjects("*")],
       }),
     );
     return role;

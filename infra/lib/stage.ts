@@ -53,6 +53,7 @@ export class MinrvStage extends cdk.Stage {
       proxy: this.data.proxy,
       valkey: this.data.valkey,
       logsBucket: this.data.logsBucket,
+      streamBucket: this.data.streamBucket,
       userPoolId: this.identity.userPool.userPoolId,
       userPoolArn: this.identity.userPool.userPoolArn,
       userPoolClientId: this.identity.userPoolClient.userPoolClientId,

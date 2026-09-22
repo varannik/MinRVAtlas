@@ -70,17 +70,11 @@ async def lifespan(app: FastAPI):
     logger.info("DataSentinel DQA Platform starting up")
     from app.core.startup import create_default_admin, run_migrations
     run_migrations()   # legacy idempotent SQL (safety net for cold starts)
-    # F019: run Alembic migrations so incremental schema changes are applied
+    # F019: incremental schema. Must unshadow /app/alembic vs the library.
     try:
-        import os
+        from app.core.alembic_runner import upgrade_head
 
-        from alembic.config import Config as AlembicConfig
-
-        from alembic import command as alembic_cmd
-        alembic_cfg = AlembicConfig(
-            os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "alembic.ini"))
-        )
-        alembic_cmd.upgrade(alembic_cfg, "head")
+        upgrade_head()
         logger.info("Alembic migrations applied (or already at head)")
     except Exception as exc:
         logger.warning("Alembic upgrade skipped: %s", exc)

@@ -24,6 +24,7 @@ interface DraftState {
   get: (slotId: string) => RequirementDraft;
   setNotes: (slotId: string, notes: string) => void;
   addFiles: (slotId: string, files: File[]) => void;
+  setFiles: (slotId: string, files: File[]) => void;
   removeFile: (slotId: string, name: string) => void;
   setStage: (slotId: string, stage: DraftStage) => void;
   setBinding: (slotId: string, header: string, canonical: string) => void;
@@ -87,6 +88,22 @@ export const useRequirementDrafts = create<DraftState>((set, get) => ({
           ...emptyDraft(slotId),
           ...state.bySlot[slotId],
           files: metaFor(merged),
+          stage: isTerminalStage(state.bySlot[slotId]?.stage)
+            ? "review"
+            : (state.bySlot[slotId]?.stage ?? "intake"),
+        },
+      },
+    }));
+  },
+  setFiles: (slotId, incoming) => {
+    fileBags.set(slotId, [...incoming]);
+    set((state) => ({
+      bySlot: {
+        ...state.bySlot,
+        [slotId]: {
+          ...emptyDraft(slotId),
+          ...state.bySlot[slotId],
+          files: metaFor(incoming),
           stage: isTerminalStage(state.bySlot[slotId]?.stage)
             ? "review"
             : (state.bySlot[slotId]?.stage ?? "intake"),

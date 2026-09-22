@@ -112,6 +112,10 @@ export function evidenceBucketName(stage: StageName, account = ACCOUNT): string 
   return `${STACK_PREFIX}-${stage}-evidence-${account}`;
 }
 
+export function streamBucketName(stage: StageName, account = ACCOUNT): string {
+  return `${STACK_PREFIX}-${stage}-stream-${account}`;
+}
+
 export function logsBucketName(stage: StageName, account = ACCOUNT): string {
   return `${STACK_PREFIX}-${stage}-logs-${account}`;
 }
