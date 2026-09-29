@@ -150,8 +150,11 @@ export class ComputeStack extends Ew2Stack {
     );
     const webImage = this.containerImage(webRepo, cfg.webImageTag);
     const sentinelImage = this.containerImage(sentinelRepo, cfg.sentinelImageTag);
-    const webReady = Boolean(cfg.webImageTag);
-    const sentinelReady = Boolean(cfg.sentinelImageTag);
+    // Keep desiredCount at 0 until a real ECR tag is known (nginx placeholder
+    // does not listen on :3000). Missing tags must come from SCALE_TO_ZERO or
+    // first create — live ECS tags are pinned in bin/app.ts / resume-deploy.
+    const webReady = Boolean(cfg.webImageTag) && !cfg.scaleToZero;
+    const sentinelReady = Boolean(cfg.sentinelImageTag) && !cfg.scaleToZero;
 
     const webTask = new ecs.FargateTaskDefinition(this, "WebTask", {
       family: resourceName(cfg.stageName, "web"),

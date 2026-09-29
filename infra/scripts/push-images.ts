@@ -109,7 +109,8 @@ async function main(): Promise<void> {
   console.log(
     `\nImages in ECR as ${tag}. Production deploy is AWS CodePipeline, not this script.\n` +
       `  make pipeline-start\n` +
-      `To keep CDK compute in sync later: WEB_IMAGE_TAG=${tag} SENTINEL_IMAGE_TAG=${tag} make -C infra deploy`,
+      `Landing-zone updates pin running ECS tags automatically. Override only if needed:\n` +
+      `  WEB_IMAGE_TAG=${tag} SENTINEL_IMAGE_TAG=${tag} make -C infra deploy`,
   );
 }
 

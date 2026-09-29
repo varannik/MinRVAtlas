@@ -1,8 +1,20 @@
 /**
- * Seed the stream bucket with mock timeseries for an **existing** catalog project.
+ * Seed the stream bucket with mock timeseries for an **existing** project id.
  *
- *   make -C infra seed-stream-s3
- *   STREAM_TENANT=fourfourone STREAM_REGISTRY=isometric STREAM_PROJECT=fujairah-mineral make -C infra seed-stream-s3
+ * IDs only — not display names:
+ *   STREAM_TENANT_ID     fourfourone | verdant | helios | terrafix
+ *   STREAM_REGISTRY_ID   isometric | puro | verra | gold-standard
+ *   STREAM_PROJECT_ID    catalog id, or live Isometric Certify `prj_…`
+ *
+ * From the repo root (do not use -C infra if you already cd'd into infra/):
+ *
+ *   STREAM_TENANT_ID=fourfourone STREAM_REGISTRY_ID=isometric STREAM_PROJECT_ID=prj_… \
+ *     make seed-stream-s3
+ *
+ * From infra/:
+ *   make seed-stream-s3
+ *
+ * Aliases STREAM_TENANT / STREAM_REGISTRY / STREAM_PROJECT still work (must be ids).
  */
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -84,7 +96,19 @@ type CatalogProject = {
   name: string;
   registry: string;
   methodologyKey: string;
+  origin?: "catalog" | "isometric";
+  externalProjectId?: string;
 };
+
+type CertifyNode = {
+  id: string;
+  name: string;
+  country_code?: string;
+  description?: string | null;
+  short_description?: string | null;
+};
+
+const LIVE_ISOMETRIC_TENANT = "fourfourone";
 
 type CfnStack = {
   StackStatus?: string;
@@ -121,11 +145,47 @@ function parseQuoted(line: string): string[] {
   return out;
 }
 
+function envId(...keys: string[]): string {
+  for (const key of keys) {
+    const value = (process.env[key] ?? "").trim();
+    if (value) return value;
+  }
+  return "";
+}
+
 function loadTenants(): { id: string; name: string }[] {
   const src = fs.readFileSync(path.join(ROOT, "apps/web/src/lib/tenants.ts"), "utf8");
   const ids = [...src.matchAll(/id:\s*"([^"]+)"/g)].map((m) => m[1]);
   const names = [...src.matchAll(/name:\s*"([^"]+)"/g)].map((m) => m[1]);
   return ids.map((id, i) => ({ id, name: names[i] ?? id }));
+}
+
+function parseTenantId(raw: string, tenants: { id: string; name: string }[]): string {
+  const value = raw.trim();
+  const byId = tenants.find((row) => row.id === value);
+  if (byId) return byId.id;
+  const byName = tenants.find((row) => row.name.toLowerCase() === value.toLowerCase());
+  if (byName) {
+    throw new Error(`STREAM_TENANT_ID must be the tenant id "${byName.id}", not the name "${byName.name}"`);
+  }
+  throw new Error(`Unknown tenant id ${value}. Valid ids: ${tenants.map((row) => row.id).join(", ")}`);
+}
+
+function parseRegistryId(raw: string): string {
+  const value = raw.trim();
+  const named = Object.entries(SLUG_TO_REGISTRY).find(([, name]) => name === value);
+  if (named) {
+    throw new Error(
+      `STREAM_REGISTRY_ID must be the registry id "${named[0]}", not the name "${named[1]}"`,
+    );
+  }
+  const slug = value.toLowerCase();
+  if (SLUG_TO_REGISTRY[slug] && /^[a-z0-9-]+$/.test(slug)) {
+    return slug;
+  }
+  throw new Error(
+    `Unknown registry id ${value}. Valid ids: ${Object.keys(SLUG_TO_REGISTRY).join(", ")}`,
+  );
 }
 
 function loadProjects(): CatalogProject[] {
@@ -139,10 +199,182 @@ function loadProjects(): CatalogProject[] {
     const registry = /registry:\s*"([^"]+)"/.exec(block)?.[1];
     const methodologyKey = /methodologyKey:\s*"([^"]+)"/.exec(block)?.[1];
     if (id && tenantId && name && registry && methodologyKey) {
-      rows.push({ id, tenantId, name, registry, methodologyKey });
+      rows.push({
+        id,
+        tenantId,
+        name,
+        registry,
+        methodologyKey,
+        origin: "catalog",
+      });
     }
   }
   return rows;
+}
+
+function looksLikeFujairah(row: CertifyNode): boolean {
+  const hay = `${row.name} ${row.short_description ?? ""} ${row.description ?? ""}`.toLowerCase();
+  return hay.includes("fujairah") || hay.includes("peridotite");
+}
+
+function mapLiveIsometric(
+  tenantId: string,
+  rows: CertifyNode[],
+  catalog: CatalogProject[],
+  preferredExternalId?: string,
+): CatalogProject[] {
+  const aliasCatalog = catalog.find(
+    (row) => row.tenantId === tenantId && row.id === "fujairah-mineral",
+  );
+  const aliasRow =
+    rows.find((row) => looksLikeFujairah(row)) ??
+    (preferredExternalId ? rows.find((row) => row.id === preferredExternalId) : undefined);
+  const mapped: CatalogProject[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const aliased = Boolean(aliasCatalog && aliasRow && row.id === aliasRow.id);
+    const project: CatalogProject = aliased && aliasCatalog
+      ? {
+          ...aliasCatalog,
+          name: row.name || aliasCatalog.name,
+          origin: "isometric",
+          externalProjectId: row.id,
+        }
+      : {
+          id: row.id,
+          tenantId,
+          name: row.name,
+          registry: "Isometric",
+          methodologyKey: "isometric-insitu-mineralization",
+          origin: "isometric",
+          externalProjectId: row.id,
+        };
+    if (seen.has(project.id)) continue;
+    seen.add(project.id);
+    mapped.push(project);
+  }
+  return mapped;
+}
+
+async function isometricCredentials(stage: StageName): Promise<{
+  accessToken: string;
+  clientSecret: string;
+  preferredProjectId?: string;
+} | null> {
+  const envToken = process.env.ISOMETRIC_ACCESS_TOKEN?.trim();
+  const envSecret = process.env.ISOMETRIC_CLIENT_SECRET?.trim();
+  const envProject = process.env.ISOMETRIC_PROJECT_ID?.trim();
+  if (envToken && envSecret && envToken !== "REPLACE_ME" && envSecret !== "REPLACE_ME") {
+    return {
+      accessToken: envToken,
+      clientSecret: envSecret,
+      preferredProjectId: envProject && envProject !== "REPLACE_ME" ? envProject : undefined,
+    };
+  }
+  const data = await awsJson<{ SecretString?: string }>(
+    [
+      "secretsmanager",
+      "get-secret-value",
+      "--region",
+      REGION,
+      "--secret-id",
+      `minrv/ew2/${stage}/isometric`,
+    ],
+    { allowNotFound: true },
+  );
+  if (!data?.SecretString) return null;
+  const parsed = JSON.parse(data.SecretString) as Record<string, string>;
+  const accessToken = parsed.ISOMETRIC_ACCESS_TOKEN?.trim();
+  const clientSecret = parsed.ISOMETRIC_CLIENT_SECRET?.trim();
+  const preferredProjectId = parsed.ISOMETRIC_PROJECT_ID?.trim();
+  if (!accessToken || !clientSecret || accessToken === "REPLACE_ME" || clientSecret === "REPLACE_ME") {
+    return null;
+  }
+  return {
+    accessToken,
+    clientSecret,
+    preferredProjectId:
+      preferredProjectId && preferredProjectId !== "REPLACE_ME" ? preferredProjectId : undefined,
+  };
+}
+
+async function listCertifyProjects(creds: {
+  accessToken: string;
+  clientSecret: string;
+}): Promise<CertifyNode[]> {
+  const nodes: CertifyNode[] = [];
+  let after: string | undefined;
+  for (let page = 0; page < 20; page += 1) {
+    const url = new URL("https://api.sandbox.isometric.com/mrv/v0/projects");
+    url.searchParams.set("first", "50");
+    if (after) url.searchParams.set("after", after);
+    const response = await fetch(url, {
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${creds.accessToken}`,
+        "x-client-secret": creds.clientSecret,
+      },
+    });
+    const body = (await response.json()) as {
+      nodes?: CertifyNode[];
+      page_info?: { has_next_page?: boolean; end_cursor?: string };
+      message?: string;
+    };
+    if (!response.ok) {
+      throw new Error(
+        `Isometric GET /projects ${response.status}: ${JSON.stringify(body).slice(0, 240)}`,
+      );
+    }
+    nodes.push(...(body.nodes ?? []));
+    if (!body.page_info?.has_next_page || !body.page_info.end_cursor) break;
+    after = body.page_info.end_cursor;
+  }
+  return nodes;
+}
+
+async function isometricProjectsForTenant(
+  stage: StageName,
+  tenantId: string,
+  catalog: CatalogProject[],
+): Promise<CatalogProject[]> {
+  if (tenantId !== LIVE_ISOMETRIC_TENANT) {
+    return catalog.filter((row) => row.tenantId === tenantId && row.registry === "Isometric");
+  }
+  const creds = await isometricCredentials(stage);
+  if (!creds) {
+    throw new Error(
+      "Cannot list live Isometric projects. Set ISOMETRIC_ACCESS_TOKEN / ISOMETRIC_CLIENT_SECRET or fill minrv/ew2/{stage}/isometric.",
+    );
+  }
+  const rows = await listCertifyProjects(creds);
+  if (!rows.length) {
+    throw new Error("Isometric GET /projects returned no project ids for this organisation.");
+  }
+  return mapLiveIsometric(tenantId, rows, catalog, creds.preferredProjectId);
+}
+
+function resolveSeedProject(
+  projectId: string,
+  candidates: CatalogProject[],
+): CatalogProject {
+  const exact = candidates.find((row) => row.id === projectId);
+  if (exact) return exact;
+  const byExternal = candidates.find((row) => row.externalProjectId === projectId);
+  if (byExternal) return byExternal;
+  const byName = candidates.find((row) => row.name.toLowerCase() === projectId.toLowerCase());
+  if (byName) {
+    throw new Error(
+      `STREAM_PROJECT_ID must be the project id "${byName.id}", not the name "${byName.name}"`,
+    );
+  }
+  const valid = candidates.map((row) =>
+    row.externalProjectId && row.externalProjectId !== row.id
+      ? `${row.id} (certify ${row.externalProjectId})`
+      : row.id,
+  );
+  throw new Error(
+    `Refusing unknown project id ${projectId}. Valid ids: ${valid.join(", ") || "(none)"}`,
+  );
 }
 
 async function prompt(question: string): Promise<string> {
@@ -232,54 +464,93 @@ async function main(): Promise<void> {
   const projects = loadProjects();
   if (!projects.length) throw new Error("Could not parse catalog projects from apps/web/src/lib/projects.ts");
 
-  let tenantId = (process.env.STREAM_TENANT ?? "").trim();
-  let registrySlug = (process.env.STREAM_REGISTRY ?? "").trim().toLowerCase();
-  let projectId = (process.env.STREAM_PROJECT ?? "").trim();
-  const from = (process.env.STREAM_FROM ?? "2026-09-01").trim();
-  const to = (process.env.STREAM_TO ?? "2026-09-03").trim();
-  const pack = (process.env.STREAM_PACK ?? "pass").trim().toLowerCase();
+  let tenantRaw = envId("STREAM_TENANT_ID", "STREAM_TENANT");
+  let registryRaw = envId("STREAM_REGISTRY_ID", "STREAM_REGISTRY");
+  let projectRaw = envId("STREAM_PROJECT_ID", "STREAM_PROJECT");
+  const from = (process.env.STREAM_FROM || "2026-09-01").trim();
+  const to = (process.env.STREAM_TO || "2026-09-03").trim();
+  const pack = (process.env.STREAM_PACK || "pass").trim().toLowerCase();
+  const listOnly = process.env.STREAM_LIST === "1";
 
   if (process.stdin.isTTY) {
-    console.log("Tenants:");
-    for (const tenant of tenants) console.log(`  ${tenant.id}  ${tenant.name}`);
-    if (!tenantId) tenantId = await prompt("Tenant id: ");
+    console.log("Tenant ids:");
+    for (const tenant of tenants) console.log(`  ${tenant.id}`);
+    if (!tenantRaw) tenantRaw = await prompt("Tenant id: ");
+  }
+
+  if (!tenantRaw) {
+    throw new Error("set STREAM_TENANT_ID (tenant id, not name)");
+  }
+  const tenantId = parseTenantId(tenantRaw, tenants);
+
+  if (process.stdin.isTTY) {
     const tenantProjects = projects.filter((row) => row.tenantId === tenantId);
-    const registries = [...new Set(tenantProjects.map((row) => row.registry))];
-    console.log("Registries for this tenant:");
-    for (const registry of registries) {
-      const slug = Object.entries(SLUG_TO_REGISTRY).find(([, name]) => name === registry)?.[0];
-      console.log(`  ${slug ?? "?"}  ${registry}`);
+    const registryIds = [
+      ...new Set(
+        tenantProjects
+          .map((row) => Object.entries(SLUG_TO_REGISTRY).find(([, name]) => name === row.registry)?.[0])
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    if (tenantId === LIVE_ISOMETRIC_TENANT && !registryIds.includes("isometric")) {
+      registryIds.unshift("isometric");
     }
-    if (!registrySlug) registrySlug = (await prompt("Registry slug (isometric|puro|verra|gold-standard): ")).toLowerCase();
-    const registry = SLUG_TO_REGISTRY[registrySlug];
-    const matches = tenantProjects.filter((row) => row.registry === registry);
-    console.log("Projects:");
-    for (const row of matches) console.log(`  ${row.id}  ${row.name}`);
-    if (!projectId) projectId = await prompt("Project id: ");
+    console.log("Registry ids:");
+    for (const id of registryIds) console.log(`  ${id}`);
+    if (!registryRaw) registryRaw = await prompt("Registry id: ");
   }
 
-  if (!tenantId || !registrySlug || !projectId) {
+  if (!registryRaw) {
     throw new Error(
-      "set STREAM_TENANT, STREAM_REGISTRY, STREAM_PROJECT (must be an existing project)",
+      `set STREAM_REGISTRY_ID (registry id, not name). Valid ids: ${Object.keys(SLUG_TO_REGISTRY).join(", ")}`,
     );
   }
+  const registrySlug = parseRegistryId(registryRaw);
   const registry = SLUG_TO_REGISTRY[registrySlug];
-  if (!registry) {
-    throw new Error(`STREAM_REGISTRY must be one of: ${Object.keys(SLUG_TO_REGISTRY).join(", ")}`);
+
+  const candidates =
+    registry === "Isometric"
+      ? await isometricProjectsForTenant(stage, tenantId, projects)
+      : projects.filter((row) => row.tenantId === tenantId && row.registry === registry);
+
+  if (process.stdin.isTTY || listOnly) {
+    console.log("Project ids:");
+    for (const row of candidates) {
+      const certify =
+        row.externalProjectId && row.externalProjectId !== row.id
+          ? `  certify=${row.externalProjectId}`
+          : "";
+      console.log(`  ${row.id}${certify}`);
+    }
   }
-  const project = projects.find((row) => row.id === projectId);
-  if (!project || project.tenantId !== tenantId || project.registry !== registry) {
-    const valid = projects
-      .filter((row) => row.tenantId === tenantId && row.registry === registry)
-      .map((row) => row.id);
+
+  if (listOnly) {
+    console.log(
+      `Use STREAM_TENANT_ID=${tenantId} STREAM_REGISTRY_ID=${registrySlug} STREAM_PROJECT_ID=<id above>`,
+    );
+    return;
+  }
+
+  if (process.stdin.isTTY && !projectRaw) {
+    projectRaw = await prompt("Project id: ");
+  }
+
+  if (!projectRaw) {
+    throw new Error("set STREAM_PROJECT_ID (existing project id, not a name)");
+  }
+  const project = resolveSeedProject(projectRaw, candidates);
+  if (project.tenantId !== tenantId || project.registry !== registry) {
     throw new Error(
-      `Refusing unknown project ${tenantId}/${registrySlug}/${projectId}. Valid ids: ${valid.join(", ") || "(none)"}`,
+      `Project ${project.id} is ${project.tenantId}/${project.registry}, not ${tenantId}/${registrySlug}`,
     );
   }
 
   if (process.stdin.isTTY) {
+    const certifyNote = project.externalProjectId
+      ? ` certify=${project.externalProjectId}`
+      : "";
     const ok = await prompt(
-      `Write stream fixtures for ${tenantId} / ${registry} / ${project.id} (${project.name}) ${from}–${to}? [y/N] `,
+      `Write stream fixtures for ${tenantId} / ${registrySlug} / ${project.id}${certifyNote} ${from}–${to}? [y/N] `,
     );
     if (ok.toLowerCase() !== "y" && ok.toLowerCase() !== "yes") {
       console.log("Aborted.");
@@ -400,8 +671,13 @@ async function main(): Promise<void> {
   if (got.code !== 0) throw new Error(`GetObject ${first} failed: ${got.stderr.slice(0, 800)}`);
 
   console.log(`bucket=${bucket}`);
+  console.log(`tenant_id=${tenantId}`);
+  console.log(`registry_id=${registrySlug}`);
+  console.log(`project_id=${project.id}`);
+  if (project.externalProjectId) {
+    console.log(`certify_id=${project.externalProjectId}`);
+  }
   console.log(`prefix=${prefix}`);
-  console.log(`project=${project.name}`);
   console.log(`keys=${keyCount} observations + schema/attributes`);
   console.log(`span=${days[0]}…${days[days.length - 1]} pack=${pack}`);
 }

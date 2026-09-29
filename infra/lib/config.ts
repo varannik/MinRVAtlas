@@ -42,6 +42,11 @@ export interface StageConfig {
   githubBranch?: string;
   webImageTag?: string;
   sentinelImageTag?: string;
+  /**
+   * Force ECS desiredCount 0 even when image tags are known.
+   * Empty bootstrap only — omitting tags is no longer how you drain services.
+   */
+  scaleToZero?: boolean;
   enableCloudFront: boolean;
   /**
    * Extra hosted-UI callback after HTTPS exists (CloudFront `https://*.cloudfront.net/auth/callback`

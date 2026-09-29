@@ -39,7 +39,8 @@ CONFIRM=YES APP=minrv-ew2-prod make deploy
 | --- | --- |
 | `DOMAIN_NAME` | ACM + HTTPS on the public ALB |
 | `HOSTED_ZONE_ID` / `HOSTED_ZONE_NAME` | DNS-validated cert |
-| `WEB_IMAGE_TAG` / `SENTINEL_IMAGE_TAG` | Immutable ECR tags for a compute-stack update (services stay at desiredCount 0 until set) |
+| `WEB_IMAGE_TAG` / `SENTINEL_IMAGE_TAG` | Optional override of the Git-SHA ECR tags on a compute update. When unset, `make deploy` / `cdk synth` pin the tags from live ECS so services are **not** scaled to 0 |
+| `SCALE_TO_ZERO=1` | Force ECS `desiredCount` 0 (empty bootstrap only). Do not use this on a live environment |
 | `ENABLE_CLOUDFRONT=1` | Deploy us-east-1 CloudFront (default on in Makefile). HTTPS `*.cloudfront.net` is the public app URL |
 | `OPS_EMAIL` | SNS alarm subscription |
 | `SKIP_REGIONAL_SECURITY=1` | Do not create GuardDuty/Config/Security Hub (set automatically if they already exist) |
@@ -68,8 +69,9 @@ Do **not** delete `minrv-ew2-sandbox-identity` if it is `UPDATE_ROLLBACK_COMPLET
 Two CloudFormation passes, then the app release:
 
 ```bash
-# 1. Landing zone + CloudFront. Omit image tags so ECS stays at desiredCount 0
-#    (worker/beat will not boot until the Sentinel image has the Valkey fix).
+# 1. Landing zone + CloudFront. First create has no images yet, so ECS
+#    desiredCount stays 0 until CodePipeline pushes SHA tags (or you pass them).
+#    Later deploys pin whatever is already on the cluster — they do not drain it.
 cd infra
 ENABLE_CLOUDFRONT=1 make deploy
 
@@ -87,7 +89,7 @@ make deploy
 
 Open **`https://dxxxx.cloudfront.net`**, not the ALB. Confirm identity outputs `CallbackUrls` include localhost **and** the CloudFront URL.
 
-Then app release (`git push` / `make pipeline-start`). The Sentinel image must include the Valkey cluster prefix or worker/beat die on `CROSSSLOT` and compute gets stuck again. After images exist, either pass `WEB_IMAGE_TAG` / `SENTINEL_IMAGE_TAG` on a compute deploy or `aws ecs update-service --desired-count 1`.
+Then app release (`git push` / `make pipeline-start`). The Sentinel image must include the Valkey cluster prefix or worker/beat die on `CROSSSLOT` and compute gets stuck again. After images exist, `make deploy` pins the running SHA tags automatically. To drain the cluster on purpose: `SCALE_TO_ZERO=1 make deploy`.
 
 Local Docker (`make docker-build`) does **not** deploy. `make deploy` updates CloudFormation only.
 

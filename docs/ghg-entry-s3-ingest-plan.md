@@ -406,48 +406,45 @@ Purpose: **init the stream bucket with mock timeseries** so Fetch can be tested 
 
 On a TTY (interactive):
 
-1. Print tenants from `TENANTS` (`fourfourone`, `verdant`, `helios`, `terrafix`, …). Prompt: `Tenant id:`.
-2. Print registries that have at least one **existing** project for that tenant. Prompt: `Registry slug (isometric|puro|verra|gold-standard):`.
-3. Print matching catalog projects (`id` + name). Prompt: `Project id:`.
-4. Confirm the triple (`fourfourone` / Isometric / `fujairah-mineral`) and the S3 prefix. Prompt: `Write N day(s)? [y/N]`.
+1. Print tenant **ids** (`fourfourone`, `verdant`, `helios`, `terrafix`). Prompt: `Tenant id:`.
+2. Print registry **ids** (`isometric`, `puro`, `verra`, `gold-standard`). Prompt: `Registry id:`.
+3. For Isometric, print live Certify **project ids** (`prj_…`). Prompt: `Project id:`.
+4. Confirm the triple of ids and the S3 prefix. Prompt: `Write N day(s)? [y/N]`.
 
-Non-TTY (CI / pipes): do **not** invent defaults. Require:
+Non-TTY (CI / pipes): do **not** invent defaults. Require **ids** (not names):
 
-`STREAM_TENANT` + `STREAM_REGISTRY` + `STREAM_PROJECT`
+`STREAM_TENANT_ID` + `STREAM_REGISTRY_ID` + `STREAM_PROJECT_ID`
 
-Exit non-zero with “set STREAM_TENANT, STREAM_REGISTRY, STREAM_PROJECT (must be an existing project)” if any are missing.
+(`STREAM_TENANT` / `STREAM_REGISTRY` / `STREAM_PROJECT` still work if they are ids.)
+
+Exit non-zero if any are missing, are display names, or are not an existing catalog or live Certify id.
 
 Same style as `seed-cognito`: real eu-west-2, no LocalStack. Add to `infra/Makefile` `.PHONY` next to `seed-cognito`.
 
 ```bash
-cd infra
+# From the MinRVAtlas repo root — not from inside infra/
+STREAM_TENANT_ID=fourfourone \
+STREAM_REGISTRY_ID=isometric \
+STREAM_PROJECT_ID=prj_1KK2301BDSBXR9RM \
+STREAM_FROM=2026-09-01 STREAM_TO=2026-09-03 \
+STREAM_PACK=pass \
 make seed-stream-s3
-# TTY: answers tenant / registry / project id from the printed lists
 
-# CI / isolation (still existing catalog ids only):
-#   APP=minrv-ew2-sandbox \
-#   STREAM_TENANT=fourfourone \
-#   STREAM_REGISTRY=isometric \
-#   STREAM_PROJECT=fujairah-mineral \
-#   STREAM_FROM=2026-09-01 STREAM_TO=2026-09-03 \
-#   STREAM_PACK=pass \
-#   make seed-stream-s3
+# Already in infra/:  make seed-stream-s3   (do not add -C infra)
 
-# second existing Isometric catalog project (prefix isolation only; GHG panel v1 is in-situ):
-#   STREAM_TENANT=terrafix STREAM_REGISTRY=isometric STREAM_PROJECT=north-sea-dac \
-#   make seed-stream-s3
-# existing Puro catalog project:
-#   STREAM_TENANT=terrafix STREAM_REGISTRY=puro STREAM_PROJECT=nordic-biochar \
-#   make seed-stream-s3
+# List live ids only:
+STREAM_TENANT_ID=fourfourone STREAM_REGISTRY_ID=isometric STREAM_LIST=1 \
+make seed-stream-s3
 ```
 
 ### 6.2 Resolve against existing projects — refuse otherwise
 
 After the prompt / env:
 
-1. Map `STREAM_REGISTRY` slug → product `Registry` (`isometric` → `Isometric`). Refuse display names (`Isometric`, `puro.earth`).
-2. Load catalog `PROJECTS`. Accept only if `project.id === STREAM_PROJECT` **and** `project.tenantId === STREAM_TENANT` **and** `project.registry` matches the slug.
-3. Optional: if `STREAM_PROJECT` looks like Certify `prj_…`, accept only when `resolveOwnedProject(tenant, id)` would succeed for that tenant’s Isometric connection (live list). Still refuse random strings.
+1. Map `STREAM_REGISTRY_ID` → product `Registry` (`isometric` → `Isometric`). Refuse display names (`Isometric`, `Puro.earth`).
+2. Tenant must be a `TENANTS[].id` (`fourfourone`), not a name (`44.01`).
+3. For **Isometric**, list live Certify `GET /projects` and accept only a returned `prj_…` (or the dashboard alias id of one of those rows). Catalog slug `fujairah-mineral` is **not** a Certify id unless the UI aliases a live row to it.
+4. Other registries: catalog `project.id` only, matching tenant + registry.
 4. If the triple does not match: print the valid ids for that tenant+registry and **exit 1**. Never mkdir a prefix for a project the product does not know.
 
 Do not fall back to `fujairah-mineral` when the operator types a typo.

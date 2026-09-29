@@ -24,6 +24,7 @@ import {
   VPC_CIDR,
   type StageName,
 } from "../lib/config";
+import { resolveLiveImageTags } from "../lib/live-image-tags";
 import { awsJson, isTransient, run, runWithRetry, sleep } from "./aws";
 
 const INFRA_DIR = `${__dirname}/..`;
@@ -77,10 +78,45 @@ function stageFromApp(): StageName {
   return "sandbox";
 }
 
+function pinLiveImageTags(): void {
+  if (process.env.SCALE_TO_ZERO === "1") {
+    console.log(
+      "SCALE_TO_ZERO=1 — ECS desiredCount will be 0; not pinning live image tags",
+    );
+    return;
+  }
+  const live = resolveLiveImageTags(stageFromApp());
+  if (!process.env.WEB_IMAGE_TAG && live.webImageTag) {
+    process.env.WEB_IMAGE_TAG = live.webImageTag;
+    console.log(`Pinned WEB_IMAGE_TAG=${live.webImageTag} from live ECS`);
+  }
+  if (!process.env.SENTINEL_IMAGE_TAG && live.sentinelImageTag) {
+    process.env.SENTINEL_IMAGE_TAG = live.sentinelImageTag;
+    console.log(
+      `Pinned SENTINEL_IMAGE_TAG=${live.sentinelImageTag} from live ECS`,
+    );
+  }
+  if (process.env.WEB_IMAGE_TAG && process.env.SENTINEL_IMAGE_TAG) {
+    return;
+  }
+  const missing = [
+    !process.env.WEB_IMAGE_TAG ? "WEB_IMAGE_TAG" : "",
+    !process.env.SENTINEL_IMAGE_TAG ? "SENTINEL_IMAGE_TAG" : "",
+  ].filter(Boolean);
+  if (missing.length) {
+    console.log(
+      `No live ECS image tag for ${missing.join(" and ")} — compute stays at desiredCount 0 until tags exist or you pass them`,
+    );
+  }
+}
+
 function cdkContextArgs(): string[] {
   const args: string[] = [];
   if (ENABLE_CLOUDFRONT) {
     args.push("-c", "enableCloudFront=true");
+  }
+  if (process.env.SCALE_TO_ZERO === "1") {
+    args.push("-c", "scaleToZero=true");
   }
   if (process.env.WEB_IMAGE_TAG) {
     args.push("-c", `webImageTag=${process.env.WEB_IMAGE_TAG}`);
@@ -523,7 +559,29 @@ async function deleteRollbackComplete(name: string, region = REGION): Promise<vo
   throw new Error(`Timed out deleting ${name}`);
 }
 
+async function assertComputeKeepsImageTags(cfnName: string): Promise<void> {
+  if (!cfnName.endsWith("-compute") || process.env.SCALE_TO_ZERO === "1") {
+    return;
+  }
+  const stack = await describeStack(cfnName, REGION);
+  if (!stack) {
+    return;
+  }
+  const live = resolveLiveImageTags(stageFromApp());
+  if (
+    (live.webImageTag && !process.env.WEB_IMAGE_TAG) ||
+    (live.sentinelImageTag && !process.env.SENTINEL_IMAGE_TAG)
+  ) {
+    throw new Error(
+      `Refusing to update ${cfnName} without WEB_IMAGE_TAG and SENTINEL_IMAGE_TAG. ` +
+        `Omitting them previously set ECS desiredCount to 0 (ALB 503). ` +
+        `Pass the running Git-SHA tags, or SCALE_TO_ZERO=1 only for empty bootstrap.`,
+    );
+  }
+}
+
 async function deployOne(artifactId: string, cfnName: string, region: string): Promise<"skip" | "deployed"> {
+  await assertComputeKeepsImageTags(cfnName);
   let stack = await describeStack(cfnName, region);
   if (stack && IN_PROGRESS.has(stack.StackStatus)) {
     stack = await waitForStack(cfnName, region);
@@ -616,6 +674,7 @@ async function cmdBootstrap(): Promise<void> {
 }
 
 async function cmdDiff(): Promise<void> {
+  pinLiveImageTags();
   const stage = stageFromApp();
   const listed = await cdkList();
   for (const name of desiredCdkStacks(stage)) {
@@ -634,6 +693,7 @@ async function cmdDeploy(): Promise<void> {
     throw new Error("Prod deploy requires CONFIRM=YES");
   }
 
+  pinLiveImageTags();
   const inv = await inventory();
   printInventory(inv);
 
@@ -696,6 +756,7 @@ async function cmdDestroy(): Promise<void> {
   if (stage === "prod" && CONFIRM !== "YES") {
     throw new Error("Prod destroy requires CONFIRM=YES");
   }
+  pinLiveImageTags();
   const listed = await cdkList();
   const wanted = desiredCdkStacks(stage).slice().reverse();
   for (const name of wanted) {

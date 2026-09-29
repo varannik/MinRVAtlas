@@ -10,7 +10,21 @@ TASK_DEFINITION ?=
 SINCE      ?= 1h
 ROOT       := $(abspath ..)
 IMAGE_TAG  ?= $(shell git -C $(ROOT) rev-parse HEAD 2>/dev/null || echo local)
+WEB_IMAGE_TAG ?=
+SENTINEL_IMAGE_TAG ?=
+# 1 = force ECS desiredCount 0 (empty bootstrap only). Default: pin live tags.
+SCALE_TO_ZERO ?=
 WEB_REPO   ?= minrv-ew2-web
+STREAM_TENANT_ID ?=
+STREAM_REGISTRY_ID ?=
+STREAM_PROJECT_ID ?=
+STREAM_TENANT ?=
+STREAM_REGISTRY ?=
+STREAM_PROJECT ?=
+STREAM_FROM ?=
+STREAM_TO ?=
+STREAM_PACK ?=
+STREAM_LIST ?=
 SENTINEL_REPO ?= minrv-ew2-sentinel
 ECR_REGISTRY ?= $(ACCOUNT).dkr.ecr.$(REGION).amazonaws.com
 
@@ -29,9 +43,31 @@ else
 export AWS_PROFILE
 endif
 
+ifeq ($(WEB_IMAGE_TAG),)
+unexport WEB_IMAGE_TAG
+else
+export WEB_IMAGE_TAG
+endif
+
+ifeq ($(SENTINEL_IMAGE_TAG),)
+unexport SENTINEL_IMAGE_TAG
+else
+export SENTINEL_IMAGE_TAG
+endif
+
+ifeq ($(SCALE_TO_ZERO),)
+unexport SCALE_TO_ZERO
+else
+export SCALE_TO_ZERO
+endif
+
+export STREAM_TENANT_ID STREAM_REGISTRY_ID STREAM_PROJECT_ID
+export STREAM_TENANT STREAM_REGISTRY STREAM_PROJECT
+export STREAM_FROM STREAM_TO STREAM_PACK STREAM_LIST
+
 .PHONY: deps bootstrap status inventory synth diff deploy destroy push-images \
 	ci docker-build docker-push pipeline pipeline-start pipeline-status \
-	ecs-status logs rollback identity seed-cognito seed-stream-s3
+	ecs-status logs rollback identity seed-cognito create-cognito-user seed-stream-s3
 
 deps:
 	npm install
@@ -52,6 +88,9 @@ diff:
 	npx ts-node --prefer-ts-exts scripts/resume-deploy.ts diff
 
 # CloudFormation landing zone only. Does not start CodePipeline.
+# Pins WEB_IMAGE_TAG / SENTINEL_IMAGE_TAG from live ECS when unset, so a
+# compute update cannot set desiredCount 0 (ALB 503). Override with explicit
+# tags, or SCALE_TO_ZERO=1 for empty bootstrap only.
 deploy:
 	npx ts-node --prefer-ts-exts scripts/resume-deploy.ts deploy
 
@@ -100,6 +139,14 @@ rollback: identity
 seed-cognito:
 	npx ts-node --prefer-ts-exts scripts/seed-cognito.ts
 
-# After minrv-ew2-{stage}-data has StreamBucketName. Asks tenant / registry / existing project id.
+# Ask for an email username and a role. Creates the Cognito user and prints the password.
+create-cognito-user:
+	npx ts-node --prefer-ts-exts scripts/create-cognito-user.ts
+
+# After minrv-ew2-{stage}-data has StreamBucketName.
+# From repo root: make seed-stream-s3
+# From this directory: make seed-stream-s3  (never make -C infra … here)
+# IDs only: STREAM_TENANT_ID STREAM_REGISTRY_ID STREAM_PROJECT_ID
+# STREAM_LIST=1 prints live ids and writes nothing.
 seed-stream-s3:
 	npx ts-node --prefer-ts-exts scripts/seed-stream-s3.ts

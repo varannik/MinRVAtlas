@@ -96,11 +96,11 @@ ECR does **not** know which tags ECS currently references. Do not drop the count
 
 CPU, memory, security groups, IAM roles, secrets, env, ports, health checks, and ALB target groups stay on the compute stack. The pipeline only changes the **image** on a new task-definition revision.
 
-If `desiredCount` is still `0` (compute was never given `WEB_IMAGE_TAG` / `SENTINEL_IMAGE_TAG`), a pipeline deploy updates the task definition but starts **no tasks**. Scale by setting those tags on a compute deploy, or `aws ecs update-service --desired-count`.
+If `desiredCount` is still `0` on **first** compute create (no ECR SHA tags yet), a pipeline deploy updates the task definition but starts **no tasks**. Scale with a compute deploy after tags exist (`make deploy` pins live tags), or `aws ecs update-service --desired-count`. Do **not** run `make deploy` with `SCALE_TO_ZERO=1` on a live cluster.
 
 ### CDK drift
 
-After a pipeline deploy, `cdk diff` on compute may show a different image than the last CloudFormation template (nginx placeholder or an older tag). The next **compute** stack update without `WEB_IMAGE_TAG` / `SENTINEL_IMAGE_TAG` matching the running SHA can revert images or set `desiredCount` back to 0. When changing compute infrastructure, pass the currently running Git SHA tags.
+After a pipeline deploy, `cdk diff` on compute may show a different image than the last CloudFormation template (nginx placeholder or an older tag). `make deploy` / `cdk synth` now pin `WEB_IMAGE_TAG` / `SENTINEL_IMAGE_TAG` from the live ECS task definitions when you omit them, so a landing-zone update cannot scale `desiredCount` back to 0 or revert to nginx. Override with explicit SHA tags, or `SCALE_TO_ZERO=1` only for empty bootstrap.
 
 ## 6. Rollback
 
@@ -150,9 +150,10 @@ CodeBuild prints commit SHA, image URI, digest, ECR repository, ECS cluster, and
 | Source action fails | GitHub App not authorized for `varannik/MinRVAtlas`, or wrong branch (`GITHUB_BRANCH`). |
 | Build fails on tests | Web: `tsc` / `eslint`. Sentinel: `pytest` under `ENVIRONMENT=test`. Fix code; do not skip. |
 | `Image tag already exists` then skip | Expected for immutable tags when sandbox and prod build the same SHA. |
-| Deploy succeeds, 0 running tasks | `desiredCount` is 0 — see §5. |
+| Deploy succeeds, 0 running tasks | `desiredCount` is 0 — first create before images, or `SCALE_TO_ZERO=1`. See §5. |
 | Deploy fails then old tasks return | Circuit breaker rollback — inspect `make ecs-status` events and `/minrv/ew2/{stage}/…` logs. |
-| `cdk deploy` compute after pipeline | Pass matching `WEB_IMAGE_TAG` / `SENTINEL_IMAGE_TAG` (§5 drift). |
+| `cdk deploy` compute after pipeline | Live ECS SHA tags are pinned automatically; pass overrides only when you intend to change the image. |
+| `make deploy` refused without image tags | Live ECS already has SHA images but they could not be pinned. Pass `WEB_IMAGE_TAG` / `SENTINEL_IMAGE_TAG`, or `SCALE_TO_ZERO=1` only for empty bootstrap. |
 | CloudFront still shows old HTML | Default cache is disabled; `/_next/static/*` is hashed. Do not invalidate `/*` on Sentinel deploys. HTML issues are almost never a backend image problem. |
 
 ## 10. Makefile commands
@@ -172,7 +173,7 @@ make rollback           # previous (or TASK_DEFINITION=) ECS task-definition rev
 make deploy             # CDK landing zone only (not an application release)
 ```
 
-Useful variables: `APP` (`minrv-ew2-sandbox` \| `minrv-ew2-prod`), `AWS_PROFILE`, `AWS_REGION`, `IMAGE_TAG`, `SERVICE`, `TASK_DEFINITION`, `SINCE`, `GITHUB_CONNECTION_ARN`.
+Useful variables: `APP` (`minrv-ew2-sandbox` \| `minrv-ew2-prod`), `AWS_PROFILE`, `AWS_REGION`, `IMAGE_TAG`, `WEB_IMAGE_TAG`, `SENTINEL_IMAGE_TAG`, `SCALE_TO_ZERO`, `SERVICE`, `TASK_DEFINITION`, `SINCE`, `GITHUB_CONNECTION_ARN`.
 
 `make deploy` / `make pipeline-start` call `aws sts get-caller-identity` and refuse the wrong account.
 

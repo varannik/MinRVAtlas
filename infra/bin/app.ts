@@ -6,6 +6,7 @@ import {
   sandboxConfig,
   type StageConfig,
 } from "../lib/config";
+import { resolveLiveImageTags } from "../lib/live-image-tags";
 import { PipelineStack } from "../lib/pipeline-stack";
 import { RegistryStack } from "../lib/registry-stack";
 import { MinrvStage } from "../lib/stage";
@@ -29,9 +30,26 @@ const githubBranchProd =
   optionalString(app, "githubBranchProd") ??
   process.env.GITHUB_BRANCH_PROD ??
   "main";
-const webImageTag = optionalString(app, "webImageTag") ?? process.env.WEB_IMAGE_TAG;
-const sentinelImageTag =
+const scaleToZero =
+  app.node.tryGetContext("scaleToZero") === true ||
+  app.node.tryGetContext("scaleToZero") === "true" ||
+  process.env.SCALE_TO_ZERO === "1";
+const webImageTagOverride =
+  optionalString(app, "webImageTag") ?? process.env.WEB_IMAGE_TAG;
+const sentinelImageTagOverride =
   optionalString(app, "sentinelImageTag") ?? process.env.SENTINEL_IMAGE_TAG;
+const liveSandbox = scaleToZero ? {} : resolveLiveImageTags("sandbox");
+const liveProd = scaleToZero ? {} : resolveLiveImageTags("prod");
+if (liveSandbox.webImageTag || liveSandbox.sentinelImageTag) {
+  console.log(
+    `[minrv] live ECS tags sandbox: web=${liveSandbox.webImageTag ?? "(none)"} sentinel=${liveSandbox.sentinelImageTag ?? "(none)"}`,
+  );
+}
+if (liveProd.webImageTag || liveProd.sentinelImageTag) {
+  console.log(
+    `[minrv] live ECS tags prod: web=${liveProd.webImageTag ?? "(none)"} sentinel=${liveProd.sentinelImageTag ?? "(none)"}`,
+  );
+}
 
 const skipRegionalSecurity =
   app.node.tryGetContext("skipRegionalSecurity") === true ||
@@ -55,8 +73,13 @@ function extras(stage: "sandbox" | "prod"): Partial<StageConfig> {
     githubRepo,
     githubConnectionArn,
     githubBranch: stage === "prod" ? githubBranchProd : githubBranchSandbox,
-    webImageTag,
-    sentinelImageTag,
+    webImageTag:
+      webImageTagOverride ??
+      (stage === "prod" ? liveProd.webImageTag : liveSandbox.webImageTag),
+    sentinelImageTag:
+      sentinelImageTagOverride ??
+      (stage === "prod" ? liveProd.sentinelImageTag : liveSandbox.sentinelImageTag),
+    scaleToZero,
     enableCloudFront,
     enableRegionalSecurityServices: stage === "sandbox" && !skipRegionalSecurity,
     cognitoCallbackUrl:
