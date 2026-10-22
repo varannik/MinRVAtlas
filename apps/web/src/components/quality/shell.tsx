@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Boxes, Globe2 } from "lucide-react";
+import { Boxes, Globe2, Landmark } from "lucide-react";
 
 import {
   bindQualityProject,
@@ -149,8 +149,15 @@ export function QualityShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
         <Link
-          href="/"
+          href="/ledger?tab=overview&registry=isometric"
           className="flex items-center gap-2 border-t border-line px-4 py-3 text-xs text-mist hover:text-frost"
+        >
+          <Landmark className="size-3.5" />
+          Ledger
+        </Link>
+        <Link
+          href="/"
+          className="flex items-center gap-2 px-4 py-3 text-xs text-mist hover:text-frost"
         >
           <Globe2 className="size-3.5" />
           Control room
