@@ -101,8 +101,6 @@ export class SecurityStack extends Ew2Stack {
           ISOMETRIC_CLIENT_SECRET: "REPLACE_ME",
           ISOMETRIC_ACCESS_TOKEN: "REPLACE_ME",
           ISOMETRIC_PROJECT_ID: "REPLACE_ME",
-          ISOMETRIC_ORGANISATION_ID: "",
-          ISOMETRIC_SUPPLIER_ID: "",
         }),
         generateStringKey: "_init",
         excludePunctuation: true,

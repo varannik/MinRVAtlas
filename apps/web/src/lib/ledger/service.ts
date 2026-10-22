@@ -57,16 +57,21 @@ type LedgerContext = {
   environment: RegistryEnvironment;
   credentials: OrgCredentials;
   organisationId: string;
-  supplierId: string;
+  supplierId: string | null;
 };
 
 type PageQuery = { first: number; after: string | null };
 
-function present(value: string | undefined): string | null {
-  const trimmed = value?.trim();
-  if (!trimmed || trimmed === "REPLACE_ME") return null;
-  return trimmed;
-}
+const EMPTY_PAGE = {
+  nodes: [],
+  totalCount: 0,
+  pageInfo: {
+    hasNextPage: false,
+    endCursor: null,
+    hasPreviousPage: false,
+    startCursor: null,
+  },
+};
 
 function requireSession(session: SessionPayload | null): SessionPayload {
   if (!session) {
@@ -99,28 +104,39 @@ export async function readConnection(): Promise<LedgerConnection> {
   const session = await ledgerSession();
   const connection = connectionFor(session);
   const credentials = connection ? resolveOrgCredentials(connection) : null;
-  const organisationId = present(process.env.ISOMETRIC_ORGANISATION_ID);
-  const supplierId = present(process.env.ISOMETRIC_SUPPLIER_ID);
   const dates = credentials
     ? credentialWindow(credentials.accessToken, process.env.ISOMETRIC_CREDENTIAL_ISSUED_AT)
     : { issuedAt: null, expiresAt: null };
   const expiresAtMs = dates.expiresAt ? new Date(dates.expiresAt).getTime() : Number.NaN;
   const connected = Boolean(connection && credentials);
+  let organisationReady = false;
+  let supplierReady = false;
+  let message = connected ? null : "Isometric credentials are not configured for this workspace.";
+  if (connection && credentials) {
+    try {
+      const caller = await isometric.readCallerIdentity(connection.environment, credentials);
+      organisationReady = true;
+      supplierReady = Boolean(caller.supplierId);
+    } catch (error) {
+      message =
+        error instanceof LedgerFailure
+          ? error.message
+          : "The Isometric connection could not be read.";
+    }
+  }
   return {
     registry: "isometric",
     connected,
     environment: connection?.environment ?? null,
-    canWrite: connected && canWrite(session),
-    capabilities: connected ? [...ISOMETRIC_CAPABILITIES] : [],
-    organisationReady: Boolean(organisationId && isometricId("org", organisationId)),
-    supplierReady: Boolean(supplierId && isometricId("spl", supplierId)),
+    canWrite: connected && organisationReady && canWrite(session),
+    capabilities: connected && organisationReady ? [...ISOMETRIC_CAPABILITIES] : [],
+    organisationReady,
+    supplierReady,
     credentialIssuedAt: dates.issuedAt,
     credentialExpiresAt: dates.expiresAt,
     credentialExpiresSoon:
       Number.isFinite(expiresAtMs) && expiresAtMs - Date.now() < 60 * 24 * 60 * 60 * 1000,
-    message: connected
-      ? null
-      : "Isometric credentials are not configured for this workspace.",
+    message,
   };
 }
 
@@ -135,29 +151,25 @@ async function context(): Promise<LedgerContext> {
       "Isometric credentials are not configured for this workspace.",
     );
   }
-  const organisationId = present(process.env.ISOMETRIC_ORGANISATION_ID);
-  const supplierId = present(process.env.ISOMETRIC_SUPPLIER_ID);
-  if (!organisationId || !isometricId("org", organisationId)) {
-    throw new LedgerFailure(
-      422,
-      "credentials_incomplete",
-      "ISOMETRIC_ORGANISATION_ID is missing from the Isometric secret.",
-    );
-  }
-  if (!supplierId || !isometricId("spl", supplierId)) {
-    throw new LedgerFailure(
-      422,
-      "credentials_incomplete",
-      "ISOMETRIC_SUPPLIER_ID is missing from the Isometric secret.",
-    );
-  }
+  const caller = await isometric.readCallerIdentity(connection.environment, credentials);
   return {
     session,
     environment: connection.environment,
     credentials,
-    organisationId,
-    supplierId,
+    organisationId: caller.organisationId,
+    supplierId: caller.supplierId,
   };
+}
+
+function requireSupplier(ctx: LedgerContext): string {
+  if (!ctx.supplierId) {
+    throw new LedgerFailure(
+      422,
+      "not_connected",
+      "This Isometric connection is not a supplier, so this action is unavailable.",
+    );
+  }
+  return ctx.supplierId;
 }
 
 function requireIsometric(registry: string): "isometric" {
@@ -274,7 +286,7 @@ export async function readSummary(url: URL): Promise<LedgerSummary> {
 
   let isometricBalance: NormalizedCreditBalance | null = null;
   let isometricMessage = connection.message;
-  if (connection.connected && connection.organisationReady && connection.supplierReady) {
+  if (connection.connected && connection.organisationReady) {
     try {
       const ctx = await context();
       isometricBalance = await isometric.readBalance(
@@ -289,9 +301,8 @@ export async function readSummary(url: URL): Promise<LedgerSummary> {
           ? error.message
           : "The Isometric balance could not be read.";
     }
-  } else if (connection.connected) {
-    isometricMessage =
-      "ISOMETRIC_ORGANISATION_ID and ISOMETRIC_SUPPLIER_ID must both be set before inventory can be read.";
+  } else if (connection.connected && !isometricMessage) {
+    isometricMessage = "The Isometric organisation for this connection could not be read.";
   }
 
   const isometricEntry = {
@@ -355,6 +366,7 @@ export async function readBeneficiaries(url: URL): Promise<Page<NormalizedOrgani
 
 export async function readDeliveries(url: URL): Promise<Page<NormalizedTransaction>> {
   const ctx = await context();
+  if (!ctx.supplierId) return EMPTY_PAGE;
   return isometric.readDeliveries(
     ctx.environment,
     ctx.credentials,
@@ -518,7 +530,7 @@ export async function transfer(request: Request): Promise<MutationResult> {
   const result = await isometric.createTransfer(ctx.environment, ctx.credentials, {
     from_organisation_id: ctx.organisationId,
     to_organisation_id: toOrganisationId,
-    supplier_id: ctx.supplierId,
+    supplier_id: requireSupplier(ctx),
     notes,
     credit_batch_quantities: lines,
   });
@@ -566,7 +578,7 @@ export async function retire(request: Request): Promise<MutationResult> {
   const result = await isometric.createRetirement(ctx.environment, ctx.credentials, {
     owner_organisation_id: ctx.organisationId,
     beneficiary_organisation_id: requestedBeneficiary,
-    supplier_id: ctx.supplierId,
+    supplier_id: requireSupplier(ctx),
     retirement_purposes: purposes as RetirementPurpose[],
     notes,
     credit_batch_quantities: lines,

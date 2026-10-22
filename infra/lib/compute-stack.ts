@@ -218,14 +218,6 @@ export class ComputeStack extends Ew2Stack {
           isometricSecret,
           "ISOMETRIC_PROJECT_ID",
         ),
-        ISOMETRIC_ORGANISATION_ID: ecs.Secret.fromSecretsManager(
-          isometricSecret,
-          "ISOMETRIC_ORGANISATION_ID",
-        ),
-        ISOMETRIC_SUPPLIER_ID: ecs.Secret.fromSecretsManager(
-          isometricSecret,
-          "ISOMETRIC_SUPPLIER_ID",
-        ),
         SENTINEL_SERVICE_TOKEN: ecs.Secret.fromSecretsManager(
           appSecret,
           "SENTINEL_SERVICE_TOKEN",

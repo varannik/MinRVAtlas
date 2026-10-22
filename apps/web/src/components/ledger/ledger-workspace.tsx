@@ -132,10 +132,9 @@ export function LedgerWorkspace() {
             <p className="text-sm text-mist">Opening the ledger…</p>
           ) : !connection.connected ? (
             <Banner kind="info">{connection.message}</Banner>
-          ) : !connection.organisationReady || !connection.supplierReady ? (
+          ) : !connection.organisationReady ? (
             <Banner kind="info">
-              Isometric is connected, but the organisation id and supplier id are missing from the
-              platform secret. Inventory and changes stay hidden until both are set.
+              {connection.message ?? "The Isometric connection could not be read."}
             </Banner>
           ) : (
             <>

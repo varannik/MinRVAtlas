@@ -3,6 +3,7 @@ import "server-only";
 import { REGISTRY_BASE_URL } from "@/lib/registries/isometric/api";
 import type { OrgCredentials, RegistryEnvironment } from "@/lib/registries/types";
 import { LedgerFailure } from "@/lib/ledger/errors";
+import { isometricId } from "@/lib/ledger/validate";
 import type {
   CreditBatchStatus,
   MutationResult,
@@ -103,6 +104,9 @@ async function registryRequest(
     }
     if (response.status === 422) {
       throw new LedgerFailure(422, "registry_validation", message);
+    }
+    if (response.status === 403) {
+      throw new LedgerFailure(403, "registry_forbidden", message);
     }
     throw new LedgerFailure(
       502,
@@ -281,6 +285,47 @@ function mutation(value: unknown): MutationResult {
     throw new LedgerFailure(502, "registry_error", "The registry did not return a transaction id.");
   }
   return { id, url: text(row.url) };
+}
+
+const callerCache = new Map<
+  string,
+  { at: number; organisationId: string; supplierId: string | null }
+>();
+
+/** Organisation and supplier for the access token already used by the Isometric connection. */
+export async function readCallerIdentity(
+  environment: RegistryEnvironment,
+  credentials: OrgCredentials,
+): Promise<{ organisationId: string; supplierId: string | null }> {
+  const cacheKey = `${environment}:${credentials.accessToken.slice(-16)}`;
+  const cached = callerCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < 5 * 60 * 1000) {
+    return { organisationId: cached.organisationId, supplierId: cached.supplierId };
+  }
+
+  const orgBody = await registryRequest(environment, credentials, "/organisation");
+  const org = organisation(orgBody);
+  if (!org || !isometricId("org", org.id)) {
+    throw new LedgerFailure(
+      502,
+      "registry_error",
+      "The registry did not return the organisation for this Isometric connection.",
+    );
+  }
+
+  let supplierId: string | null = null;
+  try {
+    const supplierBody = await registryRequest(environment, credentials, "/supplier");
+    const supplier = text(asRecord(supplierBody, "supplier").id);
+    if (supplier && isometricId("spl", supplier)) supplierId = supplier;
+  } catch (error) {
+    if (!(error instanceof LedgerFailure) || (error.status !== 404 && error.status !== 403)) {
+      throw error;
+    }
+  }
+
+  callerCache.set(cacheKey, { at: Date.now(), organisationId: org.id, supplierId });
+  return { organisationId: org.id, supplierId };
 }
 
 export async function readBalance(
