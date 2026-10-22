@@ -98,7 +98,10 @@ export function LedgerWorkspace() {
         </label>
         <nav className="ml-auto flex items-center gap-3 text-xs text-mist">
           <Link href="/" className="hover:text-frost">
-            Control room
+            Back to map
+          </Link>
+          <Link href="/manual" className="hover:text-frost">
+            Guide
           </Link>
           <Link href="/quality" className="hover:text-frost">
             Quality

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Landmark, LogOut, Boxes, Building2, ChevronDown, MapPin, ScrollText, Search, ShieldCheck } from "lucide-react";
+import { BookOpen, Landmark, LogOut, Boxes, Building2, ChevronDown, MapPin, ScrollText, Search, ShieldCheck } from "lucide-react";
 import { Globe3DMark } from "./globe-back-button";
 import { RegistrySelect } from "./registry-select";
 import { SubmissionChain } from "./submission-chain";
@@ -218,6 +218,13 @@ export function TopBar({
 
       {/* Right cluster */}
       <div className="relative z-10 ml-auto flex h-12 items-center gap-3">
+        <Link
+          href="/manual"
+          className="glass flex h-12 items-center gap-2 rounded-2xl px-3 text-xs font-medium text-mist transition-colors hover:text-frost sm:px-4"
+        >
+          <BookOpen className="size-3.5 text-carbon-400" />
+          Guide
+        </Link>
         <Link
           href="/ledger?tab=overview&registry=isometric"
           className="glass hidden h-12 items-center gap-2 rounded-2xl px-4 text-xs font-medium text-mist transition-colors hover:text-frost sm:flex"
