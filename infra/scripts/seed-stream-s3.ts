@@ -8,7 +8,7 @@
  *
  * From the repo root (do not use -C infra if you already cd'd into infra/):
  *
- *   STREAM_TENANT_ID=fourfourone STREAM_REGISTRY_ID=isometric STREAM_PROJECT_ID=prj_… \
+ *   STREAM_TENANT_ID=fourfourone STREAM_REGISTRY_ID=puro STREAM_PROJECT_ID=fujairah-mineral \
  *     make seed-stream-s3
  *
  * From infra/:
@@ -73,6 +73,11 @@ const OPERATOR_TO_METRIC: Record<string, string> = {
   ENERGY_PER_TONNE: "ENERGY_PER_TONNE_kWht",
   INGESTION_LATENCY: "INGESTION_LATENCY_sec",
 };
+
+const INSITU_METHODOLOGY_KEYS = [
+  "isometric-insitu-mineralization",
+  "puro-geologically-stored-carbon",
+];
 
 const INSITU_SERIES = [
   "WHP_WELL_A_bar",
@@ -223,8 +228,13 @@ function mapLiveIsometric(
   catalog: CatalogProject[],
   preferredExternalId?: string,
 ): CatalogProject[] {
+  // Only an Isometric catalog row may stand in for a Certify project
+  // (Fujairah moved to Puro.earth). Mirrors apps/web project-map.ts.
   const aliasCatalog = catalog.find(
-    (row) => row.tenantId === tenantId && row.id === "fujairah-mineral",
+    (row) =>
+      row.tenantId === tenantId &&
+      row.id === "fujairah-mineral" &&
+      row.registry === "Isometric",
   );
   const aliasRow =
     rows.find((row) => looksLikeFujairah(row)) ??
@@ -599,16 +609,17 @@ async function main(): Promise<void> {
     delete attrValues.GRID_EMISSION_FACTOR_kg_per_kWh;
   }
 
-  const isometric = registry === "Isometric";
+  // In-situ storage under Isometric or Puro (mirrors apps/web stream-schema.ts).
+  const insitu = INSITU_METHODOLOGY_KEYS.includes(project.methodologyKey);
   const schema = {
     schemaVersion: 1,
     kind: "timeseries",
     timezone: "UTC",
-    cadence: isometric ? "PT2M" : "PT1H",
+    cadence: insitu ? "PT2M" : "PT1H",
     registry,
     methodologyKey: project.methodologyKey,
-    requiredSeries: isometric ? INSITU_SERIES : [],
-    requiredAttributes: isometric ? GHG_ACCOUNTING_HEADERS : [],
+    requiredSeries: insitu ? INSITU_SERIES : [],
+    requiredAttributes: insitu ? GHG_ACCOUNTING_HEADERS : [],
   };
   const prefix = `${tenantId}/${registrySlug}/${project.id}/`;
   await putObject(bucket, `${prefix}_schema.json`, `${JSON.stringify(schema, null, 2)}\n`, "application/json");

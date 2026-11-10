@@ -11,54 +11,35 @@ export interface ViewportBox {
   factor: number;
 }
 
-/** Portfolio rail plus its gutters. */
+/** Project rail (left) plus its gutters. */
 export const RAIL_PX = 372;
+/** Portfolio overview (right) plus its gutters. */
+export const OVERVIEW_PX = 372;
 /** Submission panel plus its gutters. */
 export const PANEL_PX = 470;
-
-export const TILE_WIDTH = 1.72;
-export const TILE_HEIGHT = 0.86;
-export const TILE_ROW_GAP = 1.0;
-export const TILE_COUNT = 4;
-
-/**
- * The tile column is yawed toward the camera, so its near edge lands further
- * right on screen than its world x suggests. The gutter absorbs that.
- */
-const EDGE_GUTTER = 0.52;
-const COLUMN_CLEARANCE = 0.38;
-
-export function tileFit(v: ViewportBox): number {
-  const needed = (TILE_COUNT - 1) * TILE_ROW_GAP + TILE_HEIGHT;
-  return THREE.MathUtils.clamp(
-    Math.min(1, (v.height - 1.0) / needed),
-    0.5,
-    1,
-  );
-}
-
-export function tileColumnX(v: ViewportBox, fit: number): number {
-  return v.width / 2 - (TILE_WIDTH * fit) / 2 - EDGE_GUTTER;
-}
+/** Top bar and bottom switcher. */
+const TOP_PX = 76;
+const BOTTOM_PX = 72;
 
 export interface GlobeBand {
   center: number;
+  centerY: number;
   right: number;
   radius: number;
 }
 
-/** The free band between the portfolio rail and the KPI column. */
+/** The free band between the project rail and the overview panel. */
 export function globeBand(v: ViewportBox): GlobeBand {
-  const fit = tileFit(v);
-  const columnLeft = tileColumnX(v, fit) - (TILE_WIDTH * fit) / 2;
-  const left = -v.width / 2 + RAIL_PX / v.factor + 0.2;
-  const right = columnLeft - COLUMN_CLEARANCE;
+  const left = -v.width / 2 + RAIL_PX / v.factor;
+  const right = v.width / 2 - OVERVIEW_PX / v.factor;
+  const top = v.height / 2 - TOP_PX / v.factor;
+  const bottom = -v.height / 2 + BOTTOM_PX / v.factor;
   const radius = THREE.MathUtils.clamp(
-    Math.min((right - left) / 2, v.height / 2 - 0.45),
+    Math.min((right - left) / 2 - 0.15, (top - bottom) / 2 - 0.2),
     0.65,
     2.7,
   );
-  return { center: (left + right) / 2, right, radius };
+  return { center: (left + right) / 2, centerY: (top + bottom) / 2, right, radius };
 }
 
 /** Receded board: smaller, further back, parked on the left. */

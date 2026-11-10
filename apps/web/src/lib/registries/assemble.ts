@@ -14,7 +14,14 @@ export function assembleSpec(
 ): RequirementSpec {
   const methodology = methodologies[project.methodologyKey];
 
-  const groups: SpecGroup[] = [...rulebook.core];
+  const groups: SpecGroup[] = rulebook.core
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) => !item.onlyFor || item.onlyFor.includes(project.methodologyKey),
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
   if (project.afolu && rulebook.permanence) {
     groups.push(rulebook.permanence);
   }

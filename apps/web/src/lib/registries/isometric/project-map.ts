@@ -26,6 +26,7 @@ function asLiveProject(tenantId: string, row: CertifyProject): Project {
     developer: "Isometric organisation",
     hectares: 0,
     creditsIssued: 0,
+    creditsRetired: 0,
     annualForecast: 0,
     vintage: new Date().getUTCFullYear(),
     sensors: 0,
@@ -64,9 +65,13 @@ export function mapCertifyProjects(
   rows: CertifyProject[],
   preferredExternalId?: string | null,
 ): Project[] {
+  // Only an Isometric catalog row may stand in for a Certify project.
+  // Fujairah moved to Puro, so its Certify row now lists as its own project.
   const catalog = PROJECTS.find(
     (project) =>
-      project.tenantId === tenantId && project.id === "fujairah-mineral",
+      project.tenantId === tenantId &&
+      project.id === "fujairah-mineral" &&
+      project.registry === "Isometric",
   );
   const aliasRow =
     rows.find((row) => looksLikeFujairah(row)) ??

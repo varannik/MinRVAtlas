@@ -9,7 +9,7 @@ const CONTENTS: { id: string; label: string }[] = [
   { id: "who", label: "Who uses which screen" },
   { id: "map", label: "The map" },
   { id: "numbers", label: "Numbers on the map" },
-  { id: "portfolio", label: "The portfolio list" },
+  { id: "portfolio", label: "The project list" },
   { id: "create-isometric", label: "Creating an Isometric project" },
   { id: "puro", label: "Puro.earth" },
   { id: "open", label: "Opening a project" },
@@ -88,7 +88,8 @@ export function UserManual() {
               Isometric the capture pathway is called BiCRS) and for direct air
               capture (DAC), including geological storage such as in-situ
               mineralisation. The worked example on the map is Fujairah
-              Peridotite Mineralisation.
+              Peridotite Mineralisation, registered with Puro.earth under
+              Geologically Stored Carbon.
             </p>
             <details className="mt-6 rounded-2xl bg-white px-4 py-3 ring-1 ring-line lg:hidden">
               <summary className="cursor-pointer text-[12px] font-semibold tracking-[0.14em] text-mist uppercase">
@@ -127,7 +128,7 @@ export function UserManual() {
                   <Row q="How do I move around, and what is each control for?" href="#map" />
                   <Row q="Why can I not see every registry at once?" href="#map" />
                   <Row q="What do the numbers beside the globe mean, including periods in flight?" href="#numbers" />
-                  <Row q="What does “periods” mean on a project, and what is the progress bar?" href="#portfolio" />
+                  <Row q="What is the progress bar on each project?" href="#portfolio" />
                   <Row q="How do I create a new project?" href="#create-isometric" />
                   <Row q="I do not have an Isometric sandbox login." href="#create-isometric" />
                   <Row q="How do I create a Puro project?" href="#puro" />
@@ -175,13 +176,13 @@ export function UserManual() {
                 name="Map"
                 href="/"
                 who="Project developers, commercial, and technical reviewers."
-                detail="Find a project, read its design summary, and file the current reporting period. The button in the top bar is labelled dMRV Atlas until a project is open. After a project is open, that same button shows the project name and returns you to the map."
+                detail="Find a project, read its design summary, and file the current reporting period. The top-left card shows the tenant and who is signed in. After a project is open, it shows the project name and returns you to the map."
               />
               <Place
                 name="Quality"
                 href="/quality"
                 who="Technical and digital MRV staff who configure checks."
-                detail="Rules, document checkpoints, datasets, and run history. Open it from Quality in the top bar. Return with Back to map at the bottom of the Quality menu, or with this guide’s Back to map link."
+                detail="Rules, document checkpoints, datasets, and run history. Open it from Quality in the switcher at the bottom of the screen, and return with Atlas in the same switcher."
               />
               <Place
                 name="Ledger"
@@ -239,32 +240,35 @@ export function UserManual() {
 
           <Section id="map" title="The map">
             <p>
-              The globe is the portfolio. Drag to turn it. Click a pin to open
-              that project. The search in the centre matches project name,
-              country, or methodology.
+              The map has three parts: the project list on the left, the globe
+              in the middle, and the overview on the right. Drag the globe to
+              turn it. Click a project in the list, or its pin, to focus it:
+              the globe turns to the pin and the overview shows that project’s
+              figures. Open project, or a double-click on the row, opens its
+              workspace. The search at the top matches project name, country,
+              or methodology.
             </p>
             <h3 className="mt-6 text-base font-semibold">What each control is for</h3>
             <ul className="mt-3 list-disc space-y-2 pl-5 text-[15px] leading-relaxed text-mist">
               <li>
-                <strong className="font-medium text-frost">dMRV Atlas</strong> opens
-                the portfolio drawer, the list of projects. Click the shaded area,
-                or press Escape, to close it.
+                <strong className="font-medium text-frost">The top-left card</strong>{" "}
+                shows the tenant name, its tenant id, and the signed-in user.
               </li>
               <li>
                 <strong className="font-medium text-frost">Registry menu</strong>{" "}
-                (Isometric or Puro.earth) filters that list. The map opens on
-                Isometric, because that is the registry this workspace can read
-                live. There is no combined “all registries” view. Verra and Gold
-                Standard are not connected, so cookstove and forestry projects
-                from those programmes do not appear for 44.01.
+                (Isometric or Puro.earth) filters the list, the pins, and the
+                overview totals. There is no combined “all registries” view.
+                Verra and Gold Standard are not connected, so cookstove and
+                forestry projects from those programmes do not appear for 44.01.
               </li>
               <li>
                 <strong className="font-medium text-frost">Search</strong> narrows
                 the same list and the pins.
               </li>
               <li>
-                <strong className="font-medium text-frost">Guide, Ledger, Quality</strong>{" "}
-                leave the map. They do not change the selected project.
+                <strong className="font-medium text-frost">Atlas, Quality, Ledger</strong>{" "}
+                at the bottom of the screen switch workspace. They do not change
+                the selected project. Guide is at the top right.
               </li>
               <li>
                 <strong className="font-medium text-frost">The pulsing dot</strong>{" "}
@@ -273,50 +277,41 @@ export function UserManual() {
             </ul>
             <p>
               Choosing Puro.earth does not create a Puro account. It shows Puro
-              projects already in this workspace. For 44.01 that list is empty
-              until a facility is connected. Switch the menu back to Isometric
-              to see Fujairah and any other Certify project the connection can
-              read.
+              projects already in this workspace. For 44.01 that list holds
+              Fujairah Peridotite Mineralisation. Switch the menu to Isometric
+              to see the Certify projects the connection can read.
             </p>
           </Section>
 
           <Section id="numbers" title="Numbers on the map">
             <p>
-              Four tiles sit beside the globe while you are on the map. They
-              sum the projects in the current registry filter, so switching
-              from Isometric to Puro.earth changes the totals. Opening a
-              project hides the tiles. That project’s own figures are on its
-              row in the portfolio list and, once credits exist, on the ledger.
+              The overview on the right sums the projects in the current
+              registry filter, so switching from Isometric to Puro.earth
+              changes the totals. Focus a project and it shows that project’s
+              own figures instead; the cross returns to the totals.
             </p>
             <dl className="mt-4 space-y-4">
+              <Def term="Projects" meaning="How many projects are in the current filter, with a count by status." />
               <Def
-                term="Credits issued to date"
-                meaning="Tonnes the registry has already issued on the projects in view, in tCO₂e. This is the issuance total."
+                term="Forecast removals"
+                meaning="Expected removals over each project’s whole crediting period, in tCO₂e: the yearly forecast times the crediting years. The yearly figure is shown underneath. It is a forecast, not a credit."
               />
               <Def
-                term="Forecast annual removals"
-                meaning="The expected yearly removal on those same projects, in tCO₂e per year. It is a forecast, not a credit."
+                term="Credits issued"
+                meaning="Tonnes the registry has already issued, in tCO₂e, and their share of the forecast."
               />
               <Def
-                term="Live sensor streams"
-                meaning="A count of metering devices recorded on the project. It tells a technician how much instrumentation is attached. It is not an issuance figure, and a project developer can ignore it when the question is how many credits exist."
-              />
-              <Def
-                term="Periods in flight"
-                meaning="How many reporting windows are still open. A reporting window is one monitoring period: the stretch of operations you will put on a single GHG statement. “In flight” means that window is not yet issued. It is not the crediting period. The crediting period is the multi-year span the registry grants, often several years, inside which those windows sit."
+                term="Credits retired"
+                meaning="Issued tonnes that have been retired, and their share of what was issued. These are catalogue figures until the registry feed supplies them; Ledger shows live retirements."
               />
             </dl>
-            <p>
-              Retired tonnes are not on these tiles. Open Ledger, then Retire
-              or Activity, for tonnes that have been retired. The portfolio
-              header shows how many projects are in the current filter.
-            </p>
           </Section>
 
           <Section id="portfolio" title="The portfolio list">
             <p>
-              Open dMRV Atlas. Each row is one project on one registry. A
-              project never belongs to two registries.
+              The list on the left is always open on the map. Each row is one
+              project on one registry. A project never belongs to two
+              registries.
             </p>
             <ul className="mt-3 list-disc space-y-2 pl-5 text-[15px] leading-relaxed text-mist">
               <li>
@@ -335,19 +330,9 @@ export function UserManual() {
                 list did not load.
               </li>
               <li>
-                <strong className="font-medium text-frost">“3 periods”</strong>{" "}
-                means three reporting windows (monitoring periods), not a
-                three-year crediting period. The crediting period is agreed in
-                the registry and is not this count.
-              </li>
-              <li>
                 <strong className="font-medium text-frost">The bar and the percentage</strong>{" "}
-                are how much of the latest open window’s requirement list is
-                ready. They are not forecast versus issued versus retired.
-              </li>
-              <li>
-                <strong className="font-medium text-frost">“6.4k issued”</strong>{" "}
-                is credits already issued on that project.
+                are credits issued against the forecast for the whole crediting
+                period, for example “6.4k issued of 360k forecast”.
               </li>
             </ul>
             <p>
@@ -371,8 +356,8 @@ export function UserManual() {
               project that is already on the map. The sandbox is a practice
               copy of Certify. Its keys sit on the MinRV server for the 44.01
               organisation. Your browser never holds them. Signing in to MinRV
-              is enough to open Fujairah, read the charter, and work a period
-              on that connection.
+              is enough to open a Certify project on the map, read its ledger,
+              and work a period on that connection.
             </p>
             <p>
               You do need a Certify user, granted by Isometric, if the project
@@ -401,7 +386,7 @@ export function UserManual() {
               </li>
               <li>Create the project, then add the storage site (the formation, not a field).</li>
               <li>
-                Return to MinRV. Open the project from the portfolio or its pin.
+                Return to MinRV. Focus the project in the list or on its pin, then Open project.
                 Continue in Project setup, below.
               </li>
             </ol>
@@ -439,55 +424,71 @@ export function UserManual() {
 
           <Section id="open" title="Opening a project">
             <p>
-              Click the row, or the pin. The map stays behind two panels. Read
-              them as two jobs.
+              Click the row, or the pin. The globe stays in the middle, turned
+              to the project’s pin, and two dashed flows leave the pin for two
+              matching summary cards. Each card is a door: click it to go to
+              the detail.
             </p>
             <ol className="mt-3 list-decimal space-y-2 pl-5 text-[15px] leading-relaxed text-mist">
               <li>
-                <strong className="font-medium text-frost">Left: Project charter.</strong>{" "}
-                The design, filed once. The stamp says whether Certify already
-                holds it: “Charter not on file”, “Definition in progress”, or
-                “Definition sealed”. Open setup is the button that files design
-                evidence. Reporting-period files do not belong in this column.
+                <strong className="font-medium text-frost">Left: Removal ledger.</strong>{" "}
+                Net removed, and how much of it is issued, in review with the
+                registry or verifier, or not yet in any block. Click it to open
+                the ledger page: the chain of blocks (each block is one batch for
+                the registry, and blocks never overlap) and the timeline of net
+                removal per day. Grey hatching means the net cannot be worked out
+                yet (for example a lab result is not back); orange hatching means
+                no stream rows that day.
               </li>
               <li>
-                <strong className="font-medium text-frost">Centre: the period desk.</strong>{" "}
-                One reporting window. The large percentage is that window’s
-                readiness, not the life of the project. The code at the top is
-                the window’s id. The ribbon across the top of the screen is the
-                chain of windows. Click another block, or use the left and right
-                arrow keys, to move along it.
+                <strong className="font-medium text-frost">Right: Site pulse.</strong>{" "}
+                CO₂ stored on the last reported day with its 30-day trend, and the
+                site’s two lead sensors. Click it to open the 3D chain of the site.
               </li>
             </ol>
             <p>
-              To leave the project, click the project name at the top left (it
-              shows a small globe) or press Escape. That returns you to the map.
-              Escape also closes setup, a requirement, and the portfolio, in
-              that order, before it leaves the project.
+              A <strong className="font-medium text-frost">Sample data</strong> badge means
+              the project has no rows in the stream bucket yet and the numbers
+              are generated so the screen can be tried out. They are not the
+              project’s data.
             </p>
-            <h3 className="mt-6 text-base font-semibold">How to review without reading everything</h3>
+            <h3 className="mt-6 text-base font-semibold">Batching a period for the registry (ledger page)</h3>
             <ol className="mt-3 list-decimal space-y-2 pl-5 text-[15px] leading-relaxed text-mist">
-              <li>Read the charter stamp. If the design is incomplete, stay on the left and open setup. Ignore the centre until the design exists.</li>
-              <li>If the design is in progress or sealed, the centre is the current window’s carbon accounting. You are on the second clock.</li>
               <li>
-                The centre has four tabs. Use one of them:
-                <ul className="mt-2 list-disc space-y-1 pl-5">
-                  <li><strong className="font-medium text-frost">GHG entry data</strong> — this window’s measured numbers, and the quality check on that file.</li>
-                  <li><strong className="font-medium text-frost">GHG statements</strong> — the folder for the window, plus the list of monitoring files still due.</li>
-                  <li><strong className="font-medium text-frost">Project emissions</strong> — one-off construction and end-of-life emissions. Read-only. They are created on the LCA in Certify.</li>
-                  <li><strong className="font-medium text-frost">LCA</strong> — the recipe Certify holds. Read-only. You do not upload this month’s CSV here.</li>
-                </ul>
+                Drag across unclaimed days on the timeline, click a month, or use
+                Next month / Next quarter. The drag stops at the neighbouring
+                blocks.
               </li>
+              <li>
+                Read the data checks under the timeline: missing inputs, days
+                with no stream rows, and days far from their fortnight.
+              </li>
+              <li>
+                Open the <strong className="font-medium text-frost">calculation tree</strong>. The
+                credited number sits on the left; each equation fans out into its
+                terms until every branch ends in a value from the data. A red
+                dashed branch has no data for the window, and the panel on the
+                right says what to supply.
+              </li>
+              <li>Create the draft block. Its Filing desk holds the requirements, GHG entries and statement for that window.</li>
             </ol>
             <p>
-              The charter badge in the top bar (Defined, Charter, or No charter)
-              opens setup directly. It appears only for Isometric projects.
+              On the ledger page, click a block to see where it is in the
+              registry’s process and what the registry or verifier raised.
+              Stage, at the top left, goes back to the globe. Escape closes the
+              calculation tree, then the selected block, then the ledger page;
+              on the globe it leaves the project.
+            </p>
+            <p>
+              The <strong className="font-medium text-frost">Setup</strong> button in the
+              top bar opens Certify project setup. It appears only for Isometric
+              projects.
             </p>
           </Section>
 
           <Section id="setup" title="Project setup">
             <p>
-              Open setup from the charter, or from the charter badge. The strip
+              Open setup from the Setup button in the top bar. The strip
               at the top is the validation clock: Draft, Pre-screen, VVB Review,
               Validated. After VVB review the design locks.
             </p>
@@ -647,8 +648,8 @@ export function UserManual() {
               <li>Export from Reports when someone outside the console needs the result.</li>
             </ol>
             <p>
-              Back to map is at the bottom of the Quality menu. User guide is
-              directly above it.
+              Atlas in the switcher at the bottom of the screen returns to the
+              map. User guide is at the bottom of the Quality menu.
             </p>
           </Section>
 
@@ -656,7 +657,7 @@ export function UserManual() {
             <p>
               The protocol and the storage module are chosen in Certify when
               the project is created. Protocol Manager does not make that
-              choice, and changing a row here does not retarget Fujairah from
+              choice, and changing a row here does not retarget a project from
               DAC to something else.
             </p>
             <p>
@@ -773,8 +774,8 @@ export function UserManual() {
               <li>Confirm the supplier agreement and who holds the Certify login. If that is not you, ask the operator to create the project in the connected organisation.</li>
               <li>In Certify, create the project on DAC or BiCRS, and add the storage module the site uses.</li>
               <li>Add the storage site.</li>
-              <li>On the MinRV map, set the registry menu to Isometric and open the project from dMRV Atlas.</li>
-              <li>Read the charter. Open setup. File design evidence on each row. Stop at pre-screen until the design is complete.</li>
+              <li>On the MinRV map, set the registry menu to Isometric, focus the project in the list, and choose Open project.</li>
+              <li>Open Setup from the top bar. File design evidence on each row. Stop at pre-screen until the design is complete.</li>
               <li>In Certify, finish the LCA and project emissions, clear the data checks, and convert operations into a GHG entry template. Request validation there when every design row is ready. The verifier’s visit is Certify’s process.</li>
               <li>Operate the plant. Keep monitoring files and the period’s measured inputs as they happen.</li>
               <li>In MinRV, select the reporting window. File each due monitoring requirement from GHG statements. File the GHG entry from GHG entry data. Create the GHG statement.</li>
@@ -789,7 +790,7 @@ export function UserManual() {
               <li>Give you a personal sandbox password. The connection is organisational.</li>
               <li>Register a Puro facility, file a Puro output report, or retire a CORC.</li>
               <li>Show Isometric and Puro on one map. The menu filters to one registry.</li>
-              <li>Show retired tonnes on the globe tiles. Retirement is on the ledger.</li>
+              <li>Read retired tonnes live from the registry on the map overview. The ledger has live retirements.</li>
               <li>Delete a V&V pack, or version a knowledge-base edit.</li>
               <li>Hide biochar, cookstove, and avoided-deforestation libraries from Protocol Manager and the knowledge base. Leave them unselected. The operating pathways in this guide are BioCCS (BiCRS), DAC, and the storage module on the project.</li>
               <li>Run Remi, the public comment, or Request validation. Those remain in Certify.</li>

@@ -4,20 +4,16 @@ import { useMemo, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { GlobeCluster } from "./globe-cluster";
-import { KpiTiles } from "./kpi-tiles";
 import { SubmissionBoard } from "./submission-board";
-import type { TileContent } from "./panel-texture";
-import { BRAND, FILL } from "@/lib/brand";
-import { formatCompact } from "@/lib/format";
+import { BRAND } from "@/lib/brand";
 import { getSubmissions } from "@/lib/submissions";
 import { overlayBatches } from "@/lib/sentinel/overlay";
 import { periodsFor, usePeriodStore } from "@/store/period-store";
 import { useRegistrySubmit } from "@/store/registry-submit-store";
-import {
-  useResolvedProject,
-  useVisibleProjects,
-} from "@/hooks/use-visible-projects";
+import { useResolvedProject } from "@/hooks/use-visible-projects";
+import { useStageMode } from "@/hooks/use-stage-mode";
 import { useDashboard } from "@/store/dashboard-store";
+import { useStage } from "@/store/stage-store";
 import { usePipeline } from "@/store/pipeline-store";
 
 /** Dims the world map without touching the board, which sits in front of it. */
@@ -57,7 +53,6 @@ function BackdropScrim({
 }
 
 export function DmrvScene() {
-  const projects = useVisibleProjects();
   const selectedProjectId = useDashboard((state) => state.selectedProjectId);
   const selectedSubmissionId = useDashboard(
     (state) => state.selectedSubmissionId,
@@ -68,6 +63,13 @@ export function DmrvScene() {
   const submitByKey = useRegistrySubmit((state) => state.byKey);
   const periodMap = usePeriodStore((state) => state.byProject);
   const selected = useResolvedProject(selectedProjectId);
+  // The full-screen 3D chain covers the globe; stop drawing it meanwhile.
+  const siteOpen = useDashboard((state) => state.siteOpen);
+  // On the stage the globe is the centrepiece, so nothing dims it.
+  const stage = useStageMode();
+  // The ledger page and calculation tree cover the stage completely.
+  const pageOpen = useStage((state) => state.ledgerOpen || Boolean(state.calc));
+  const covered = stage && pageOpen;
 
   const spec =
     selected && specProjectId === selected.id ? requirementSpec : null;
@@ -82,45 +84,9 @@ export function DmrvScene() {
     );
   }, [periodMap, pipelineByKey, selected, spec, submitByKey]);
 
-  const tiles = useMemo<TileContent[]>(() => {
-    const issued = projects.reduce((sum, p) => sum + p.creditsIssued, 0);
-    const forecast = projects.reduce((sum, p) => sum + p.annualForecast, 0);
-    const sensors = projects.reduce((sum, p) => sum + p.sensors, 0);
-    const openBatches = projects.reduce((sum, p) => {
-      const chain = getSubmissions(p);
-      return sum + chain.filter((batch) => batch.status !== "issued").length;
-    }, 0);
-
-    return [
-      {
-        label: "Credits issued to date",
-        value: formatCompact(issued),
-        unit: "tCO₂e",
-        accent: FILL.complete,
-      },
-      {
-        label: "Forecast annual removals",
-        value: formatCompact(forecast),
-        unit: "tCO₂e / yr",
-        accent: BRAND.serpentine,
-      },
-      {
-        label: "Live sensor streams",
-        value: formatCompact(sensors),
-        unit: "devices",
-        accent: BRAND.sand,
-      },
-      {
-        label: "Periods in flight",
-        value: `${openBatches}`,
-        unit: "reporting windows",
-        accent: BRAND.canyon,
-      },
-    ];
-  }, [projects]);
-
   return (
     <Canvas
+      frameloop={siteOpen || covered ? "never" : "always"}
       camera={{ position: [0, 0.35, 6.2], fov: 45 }}
       dpr={[1, 2]}
       gl={{ antialias: true, powerPreference: "high-performance" }}
@@ -141,9 +107,8 @@ export function DmrvScene() {
       />
 
       <GlobeCluster />
-      <BackdropScrim active={Boolean(selected)} deep={false} />
+      <BackdropScrim active={Boolean(selected) && !stage} deep={false} />
       <SubmissionBoard batches={batches} focusedId={selectedSubmissionId} />
-      <KpiTiles tiles={tiles} visible={!selected} />
     </Canvas>
   );
 }

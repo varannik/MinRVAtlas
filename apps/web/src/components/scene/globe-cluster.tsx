@@ -6,8 +6,10 @@ import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import ThreeGlobe from "three-globe";
 import { STATUS_META } from "@/lib/projects";
+import { isStageMode, useStageMode } from "@/hooks/use-stage-mode";
 import { useVisibleProjects } from "@/hooks/use-visible-projects";
 import { useDashboard } from "@/store/dashboard-store";
+import { stageAnchors } from "../stage/stage-anchors";
 import { dragState } from "./drag-state";
 import { globeBand } from "./layout";
 import type { Project } from "@/lib/types";
@@ -17,9 +19,22 @@ const GLOBE_SCALE = 0.02;
 const BASE_RADIUS = 2;
 const UP = new THREE.Vector3(0, 1, 0);
 
-// When a project is open the globe becomes a large, distant backdrop behind the scrim.
+// When a project's desk is open the globe becomes a large, distant backdrop behind the scrim.
 const BACKDROP_SCALE = 3.1;
 const BACKDROP_Z = -11;
+
+// On the project stage the pin sits above the globe's centre so its stick reads.
+const STAGE_PITCH_OFFSET = 0.18;
+// Share of the free band the stage globe fills, leaving air around it.
+const STAGE_FILL = 0.84;
+// Head of a selected pin, in three-globe units above the surface.
+const PIN_HEAD = 10;
+// After a drag on the stage, turn back to the pin after this long.
+const STAGE_RETURN_S = 2.6;
+
+const _head = new THREE.Vector3();
+const _center = new THREE.Vector3();
+const _toCamera = new THREE.Vector3();
 
 function toRgb(hex: string): [number, number, number] {
   const value = hex.replace("#", "");
@@ -61,7 +76,7 @@ function Pin({
 }: PinProps) {
   const headRef = useRef<THREE.Mesh>(null);
   const stickRef = useRef<THREE.Mesh>(null);
-  const selectProject = useDashboard((state) => state.selectProject);
+  const focusProject = useDashboard((state) => state.focusProject);
   const hoverProject = useDashboard((state) => state.hoverProject);
   const color = STATUS_META[project.status].color;
   const active = selected || hovered;
@@ -111,7 +126,7 @@ function Pin({
           onClick={(event) => {
             event.stopPropagation();
             if (dragState.moved) return;
-            selectProject(project.id);
+            focusProject(selected ? null : project.id);
           }}
         >
           <sphereGeometry args={[5.5, 12, 12]} />
@@ -144,7 +159,7 @@ function Pin({
           center
           style={{ pointerEvents: "none" }}
         >
-          <div className="glass -translate-y-2 rounded-xl px-3 py-2 whitespace-nowrap shadow-2xl">
+          <div className="glass -translate-y-[calc(50%+22px)] rounded-xl px-3 py-2 whitespace-nowrap shadow-2xl">
             <div className="text-[11px] font-semibold tracking-wide text-frost">
               {project.name}
             </div>
@@ -165,15 +180,21 @@ function Pin({
 export function GlobeCluster() {
   const outerRef = useRef<THREE.Group>(null);
   const spinRef = useRef<THREE.Group>(null);
+  const innerRef = useRef<THREE.Group>(null);
   const target = useRef({ yaw: 0, pitch: -0.12 });
   const manual = useRef(false);
+  const lastDrag = useRef(0);
   const zoom = useRef(1);
 
-  const { gl, viewport } = useThree();
+  const { gl, viewport, camera, size, clock } = useThree();
   const projects = useVisibleProjects();
   const selectedProjectId = useDashboard((state) => state.selectedProjectId);
+  const focusedProjectId = useDashboard((state) => state.focusedProjectId);
   const hoveredProjectId = useDashboard((state) => state.hoveredProjectId);
-  const backdrop = Boolean(selectedProjectId);
+  const stage = useStageMode();
+  const backdrop = Boolean(selectedProjectId) && !stage;
+  // The project the globe faces: the open one, else the focused one.
+  const facingId = selectedProjectId ?? focusedProjectId;
 
   const globe = useMemo(() => {
     const instance = new ThreeGlobe({ animateIn: false });
@@ -251,7 +272,7 @@ export function GlobeCluster() {
 
   useEffect(() => {
     manual.current = false;
-  }, [selectedProjectId, tenantId]);
+  }, [facingId, tenantId]);
 
   useEffect(() => {
     const element = gl.domElement;
@@ -273,9 +294,11 @@ export function GlobeCluster() {
       lastX = event.clientX;
       lastY = event.clientY;
       if (Math.abs(dx) + Math.abs(dy) > 2) dragState.moved = true;
-      // The backdrop globe stays locked on the open project.
-      if (useDashboard.getState().selectedProjectId) return;
+      // The backdrop globe stays locked on the open project; the stage globe
+      // can be turned and springs back to the pin.
+      if (useDashboard.getState().selectedProjectId && !isStageMode()) return;
       manual.current = true;
+      lastDrag.current = clock.elapsedTime;
       target.current.yaw += dx * 0.005;
       target.current.pitch = THREE.MathUtils.clamp(
         target.current.pitch + dy * 0.005,
@@ -309,7 +332,7 @@ export function GlobeCluster() {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [gl]);
+  }, [clock, gl]);
 
   useFrame((_, delta) => {
     const step = Math.min(delta, 0.1);
@@ -317,14 +340,16 @@ export function GlobeCluster() {
     const outer = outerRef.current;
     if (!spin || !outer) return;
 
-    const selected = projects.find(
-      (project) => project.id === selectedProjectId,
-    );
+    const selected = projects.find((project) => project.id === facingId);
+
+    if (manual.current && stage && clock.elapsedTime - lastDrag.current > STAGE_RETURN_S) {
+      manual.current = false;
+    }
 
     if (!manual.current) {
       if (selected) {
         target.current.yaw = -selected.lng * THREE.MathUtils.DEG2RAD;
-        target.current.pitch = selected.lat * THREE.MathUtils.DEG2RAD;
+        target.current.pitch = (selected.lat * THREE.MathUtils.DEG2RAD) - (stage ? STAGE_PITCH_OFFSET : 0);
       } else if (projects.length > 0 && projects.length <= 3) {
         // A small portfolio should face the pin, not hide it on the far side
         // of a spinning globe.
@@ -372,12 +397,21 @@ export function GlobeCluster() {
     // Fit the sphere into the band the DOM panels leave free.
     const band = globeBand(viewport);
     const radius = Math.min(band.radius * zoom.current, viewport.height / 2 - 0.4);
-    const targetX = backdrop
-      ? 0
-      : Math.min(band.center, band.right - radius);
-    const targetY = backdrop ? 0.1 : -0.05;
+    let targetX = backdrop ? 0 : band.center;
+    let targetY = backdrop ? 0.1 : band.centerY;
     const targetZ = backdrop ? BACKDROP_Z : 0;
-    const targetScale = backdrop ? BACKDROP_SCALE : radius / BASE_RADIUS;
+    let targetScale = backdrop ? BACKDROP_SCALE : radius / BASE_RADIUS;
+
+    const gap = stageAnchors.band;
+    if (stage && gap.valid) {
+      const factor = viewport.factor;
+      const widthPx = gap.right - gap.left;
+      const heightPx = gap.bottom - gap.top;
+      const stageRadius = THREE.MathUtils.clamp((Math.min(widthPx / 2 - 36, heightPx / 2 - 70) * STAGE_FILL) / factor, 0.55, 2.5);
+      targetX = ((gap.left + gap.right) / 2 - size.width / 2) / factor;
+      targetY = camera.position.y + (size.height / 2 - (gap.top + gap.bottom) / 2) / factor - stageRadius * 0.08;
+      targetScale = stageRadius / BASE_RADIUS;
+    }
 
     outer.position.x = THREE.MathUtils.damp(outer.position.x, targetX, 3, step);
     outer.position.y = THREE.MathUtils.damp(outer.position.y, targetY, 3, step);
@@ -385,12 +419,37 @@ export function GlobeCluster() {
     outer.scale.setScalar(
       THREE.MathUtils.damp(outer.scale.x, targetScale, 3, step),
     );
+
+    // Where the open pin's head lands on screen, for the stage's flows.
+    const pinAnchor = stageAnchors.pin;
+    const pin = stage ? pins.find((row) => row.project.id === selectedProjectId) : null;
+    const inner = innerRef.current;
+    if (!pin || !inner) {
+      pinAnchor.visible = false;
+      return;
+    }
+    _head.copy(pin.position).addScaledVector(pin.position.clone().normalize(), PIN_HEAD);
+    inner.localToWorld(_head);
+    outer.getWorldPosition(_center);
+    _toCamera.copy(camera.position).sub(_head);
+    const facing = _head.clone().sub(_center).dot(_toCamera) > 0;
+    _head.project(camera);
+    pinAnchor.x = ((_head.x + 1) / 2) * size.width;
+    pinAnchor.y = ((1 - _head.y) / 2) * size.height;
+    pinAnchor.visible = facing && Math.abs(_head.x) < 1 && Math.abs(_head.y) < 1;
   });
+
+  useEffect(
+    () => () => {
+      stageAnchors.pin.visible = false;
+    },
+    [],
+  );
 
   return (
     <group ref={outerRef} scale={0.001}>
       <group ref={spinRef}>
-        <group scale={GLOBE_SCALE}>
+        <group ref={innerRef} scale={GLOBE_SCALE}>
           <primitive object={globe} />
           {pins.map(({ project, position, quaternion }) => (
             <Pin
@@ -398,10 +457,10 @@ export function GlobeCluster() {
               project={project}
               position={position}
               quaternion={quaternion}
-              selected={project.id === selectedProjectId}
+              selected={project.id === facingId}
               hovered={project.id === hoveredProjectId}
-              interactive={!backdrop}
-              fade={backdrop ? 0.4 : 1}
+              interactive={!selectedProjectId}
+              fade={backdrop ? 0.4 : stage && project.id !== selectedProjectId ? 0.3 : 1}
             />
           ))}
         </group>

@@ -18,10 +18,16 @@ interface DashboardState {
   selectedSlotId: string | null;
   /** Project setup / PDD desk, exclusive with the requirement popup. */
   setupOpen: boolean;
+  /** Full-screen 3D model of the selected project's site. */
+  siteOpen: boolean;
   setupTab: SetupTabId;
   registryFilter: RegistryFilter;
   query: string;
-  portfolioOpen: boolean;
+  /**
+   * Project highlighted on the map: the globe turns to it and the overview
+   * shows its figures. Opening it (selectedProjectId) enters the workspace.
+   */
+  focusedProjectId: string | null;
   /** Requirements in force for the selected project, and where they came from. */
   specProjectId: string | null;
   requirementSpec: RequirementSpec | null;
@@ -39,11 +45,12 @@ interface DashboardState {
   selectRequirement: (slotId: string | null) => void;
   openSetup: (tab?: SetupTabId) => void;
   closeSetup: () => void;
+  openSite: () => void;
+  closeSite: () => void;
   setSetupTab: (tab: SetupTabId) => void;
   setRegistryFilter: (registry: RegistryFilter) => void;
   setQuery: (query: string) => void;
-  setPortfolioOpen: (open: boolean) => void;
-  togglePortfolio: () => void;
+  focusProject: (id: string | null) => void;
 }
 
 export const useDashboard = create<DashboardState>((set) => ({
@@ -54,10 +61,11 @@ export const useDashboard = create<DashboardState>((set) => ({
   hoveredSlotId: null,
   selectedSlotId: null,
   setupOpen: false,
+  siteOpen: false,
   setupTab: "design",
   registryFilter: "Isometric",
   query: "",
-  portfolioOpen: false,
+  focusedProjectId: null,
   specProjectId: null,
   requirementSpec: null,
   specMeta: null,
@@ -72,22 +80,25 @@ export const useDashboard = create<DashboardState>((set) => ({
       hoveredSlotId: null,
       selectedSlotId: null,
       setupOpen: false,
+      siteOpen: false,
       setupTab: "design",
       registryFilter: "Isometric",
       specProjectId: null,
       requirementSpec: null,
       specMeta: null,
-      portfolioOpen: false,
+      focusedProjectId: null,
     }),
   selectProject: (id) => {
-    set({
+    set((state) => ({
       selectedProjectId: id,
+      // Leaving the workspace keeps the project focused on the map.
+      focusedProjectId: id ?? state.selectedProjectId ?? state.focusedProjectId,
       selectedSubmissionId: null,
       hoveredSlotId: null,
       selectedSlotId: null,
       setupOpen: false,
-      portfolioOpen: false,
-    });
+      siteOpen: false,
+    }));
   },
   selectSubmission: (id) =>
     set({ selectedSubmissionId: id, hoveredSlotId: null, selectedSlotId: null }),
@@ -103,10 +114,11 @@ export const useDashboard = create<DashboardState>((set) => ({
       hoveredSlotId: null,
     }),
   closeSetup: () => set({ setupOpen: false }),
+  openSite: () => set({ siteOpen: true, setupOpen: false, selectedSlotId: null }),
+  closeSite: () => set({ siteOpen: false }),
   setSetupTab: (tab) => set({ setupTab: tab }),
-  setRegistryFilter: (registry) => set({ registryFilter: registry }),
+  // A new registry filter can hide the focused project, so clear it.
+  setRegistryFilter: (registry) => set({ registryFilter: registry, focusedProjectId: null }),
   setQuery: (query) => set({ query }),
-  setPortfolioOpen: (open) => set({ portfolioOpen: open }),
-  togglePortfolio: () =>
-    set((state) => ({ portfolioOpen: !state.portfolioOpen })),
+  focusProject: (id) => set({ focusedProjectId: id }),
 }));

@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, FileText, FlaskConical, Landmark, Lock, MapPinned, ScrollText, ShieldCheck } from "lucide-react";
+import { Box, ExternalLink, FileText, FlaskConical, Landmark, Lock, MapPinned, ScrollText, ShieldCheck } from "lucide-react";
 import {
   DEFINITION_KIND_LABEL,
   type DefinitionArtifact,
@@ -9,6 +9,7 @@ import {
 } from "@/lib/project-definition";
 import { useProjectDefinition } from "@/hooks/use-project-definition";
 import { useDashboard } from "@/store/dashboard-store";
+import { siteLayoutFor } from "@/lib/site-layouts";
 import { LcaRecipeCard } from "./lca-recipe";
 import type { Project } from "@/lib/types";
 
@@ -89,6 +90,8 @@ function ArtifactCard({ artifact }: { artifact: DefinitionArtifact }) {
 export function ProjectCharter({ project }: { project: Project }) {
   const { definition, loading } = useProjectDefinition(project);
   const openSetup = useDashboard((state) => state.openSetup);
+  const openSite = useDashboard((state) => state.openSite);
+  const hasSite = Boolean(siteLayoutFor(project.id));
   const grouped = KIND_ORDER.map((kind) => ({
     kind,
     items: (definition?.artifacts ?? []).filter((row) => row.kind === kind),
@@ -114,13 +117,25 @@ export function ProjectCharter({ project }: { project: Project }) {
           file design evidence, sites, feedstocks and field measurements.
           Reporting-period files stay on the board.
         </p>
-        <button
-          type="button"
-          onClick={() => openSetup("design")}
-          className="mt-2 rounded-lg bg-carbon-400/15 px-3 py-1.5 text-[11px] font-semibold text-carbon-400"
-        >
-          Open setup
-        </button>
+        <div className="mt-2 flex gap-1.5">
+          <button
+            type="button"
+            onClick={() => openSetup("design")}
+            className="rounded-lg bg-carbon-400/15 px-3 py-1.5 text-[11px] font-semibold text-carbon-400"
+          >
+            Open setup
+          </button>
+          {hasSite ? (
+            <button
+              type="button"
+              onClick={openSite}
+              className="flex items-center gap-1.5 rounded-lg bg-rock px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-earth"
+            >
+              <Box className="size-3.5" />
+              3D chain
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="scroll-slim flex-1 space-y-4 overflow-y-auto p-3">

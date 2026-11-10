@@ -1,6 +1,7 @@
 import { getProject } from "@/lib/projects";
 import { getRequirementSpec } from "@/lib/registries";
 import { bindMethodologySlot } from "@/lib/slot-schema";
+import { isInsituMethodology } from "@/lib/stream-schema";
 import type { ItemKind } from "@/lib/types";
 import {
   evaluateInsituMineralization,
@@ -58,14 +59,11 @@ function cadenceForSlot(
 export function evaluateRegistryRules(input: RegistryRulesInput): Step3Evaluation {
   const project = getProject(input.catalogProjectId);
   if (!project) return skipped("Unknown project");
-  if (project.registry !== "Isometric") {
+  // Keyed on methodology, not registry: in-situ storage runs the same maths
+  // under Isometric or Puro. Never routed through Sentinel’s Puro stub.
+  if (!isInsituMethodology(project.methodologyKey)) {
     return skipped(
-      `No Step-3 adapter for ${project.registry}. Not using Sentinel’s Puro stub.`,
-    );
-  }
-  if (project.methodologyKey !== "isometric-insitu-mineralization") {
-    return skipped(
-      `No Step-3 checks for methodology ${project.methodologyKey}`,
+      `No Step-3 checks for ${project.registry} methodology ${project.methodologyKey}`,
     );
   }
   const bound = bindMethodologySlot(input.slotId, input.label);

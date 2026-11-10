@@ -11,6 +11,7 @@ import { BuyPanel } from "./buy-panel";
 import { ledgerRequest } from "./client";
 import { DeliverPanel } from "./deliver-panel";
 import { OverviewPanel } from "./overview-panel";
+import { AppSwitcher } from "../nav/app-switcher";
 import { RetirePanel } from "./retire-panel";
 import { TransferPanel } from "./transfer-panel";
 import { Banner } from "./ui";
@@ -97,14 +98,8 @@ export function LedgerWorkspace() {
           </select>
         </label>
         <nav className="ml-auto flex items-center gap-3 text-xs text-mist">
-          <Link href="/" className="hover:text-frost">
-            Back to map
-          </Link>
           <Link href="/manual" className="hover:text-frost">
             Guide
-          </Link>
-          <Link href="/quality" className="hover:text-frost">
-            Quality
           </Link>
           <a href="/auth/logout" className="hover:text-frost">
             Sign out
@@ -129,7 +124,7 @@ export function LedgerWorkspace() {
             );
           })}
         </nav>
-        <main className="scroll-slim min-w-0 flex-1 overflow-auto p-6">
+        <main className="scroll-slim min-w-0 flex-1 overflow-auto p-6 pb-24">
           {error ? <Banner kind="error">{error}</Banner> : null}
           {!connection ? (
             <p className="text-sm text-mist">Opening the ledger…</p>
@@ -165,6 +160,7 @@ export function LedgerWorkspace() {
           )}
         </main>
       </div>
+      <AppSwitcher active="ledger" />
     </div>
   );
 }

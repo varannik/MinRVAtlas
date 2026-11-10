@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { BookOpen, Boxes, Globe2, Landmark } from "lucide-react";
+import { BookOpen, Boxes } from "lucide-react";
 
 import {
   bindQualityProject,
@@ -16,6 +16,7 @@ import {
 } from "@/store/quality-store";
 import { isQualityNavActive, QUALITY_NAV } from "./nav";
 import { Banner } from "./ui";
+import { AppSwitcher } from "../nav/app-switcher";
 
 export function QualityShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -155,20 +156,6 @@ export function QualityShell({ children }: { children: ReactNode }) {
           <BookOpen className="size-3.5" />
           User guide
         </Link>
-        <Link
-          href="/ledger?tab=overview&registry=isometric"
-          className="flex items-center gap-2 px-4 py-3 text-xs text-mist hover:text-frost"
-        >
-          <Landmark className="size-3.5" />
-          Ledger
-        </Link>
-        <Link
-          href="/"
-          className="flex items-center gap-2 px-4 py-3 text-xs text-mist hover:text-frost"
-        >
-          <Globe2 className="size-3.5" />
-          Back to map
-        </Link>
         <a
           href="/auth/logout"
           className="px-4 pb-3 text-[11px] text-mist hover:text-frost"
@@ -213,7 +200,7 @@ export function QualityShell({ children }: { children: ReactNode }) {
             </span>
           )}
         </header>
-        <main className="scroll-slim min-h-0 flex-1 overflow-auto p-6">
+        <main className="scroll-slim min-h-0 flex-1 overflow-auto p-6 pb-24">
           {bindError ? <Banner kind="error">{bindError}</Banner> : null}
           {projects.length === 0 && loaded && !loadError ? (
             <Banner kind="info">
@@ -230,6 +217,7 @@ export function QualityShell({ children }: { children: ReactNode }) {
           {ready ? children : null}
         </main>
       </div>
+      <AppSwitcher active="quality" />
     </div>
   );
 }

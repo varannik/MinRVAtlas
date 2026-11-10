@@ -63,6 +63,8 @@ export interface SpecItem {
   mandatory: boolean;
   /** How often the registry expects it, where the registry states a cadence. */
   cadence?: string;
+  /** Rulebook items only: methodology keys this item applies to. Omit for all. */
+  onlyFor?: string[];
   /** Present only when the requirement came from a live registry read. */
   evidence?: SpecEvidence[];
 }
@@ -150,6 +152,8 @@ export interface Project {
   developer: string;
   hectares: number;
   creditsIssued: number;
+  /** Credits retired to date (catalogue figure until a registry feed supplies it). */
+  creditsRetired: number;
   annualForecast: number;
   vintage: number;
   sensors: number;

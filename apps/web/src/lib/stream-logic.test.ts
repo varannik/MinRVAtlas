@@ -12,22 +12,24 @@ import {
 
 describe("stream prefix", () => {
   it("scopes tenant, registry, and project", () => {
-    const fujairah = catalogProject("fourfourone", "Isometric", "fujairah-mineral");
+    const fujairah = catalogProject("fourfourone", "Puro.earth", "fujairah-mineral");
     assert.ok(fujairah);
+    assert.equal(catalogProject("fourfourone", "Isometric", "fujairah-mineral"), null);
     assert.equal(registrySlug("Isometric"), "isometric");
+    assert.equal(registrySlug("Puro.earth"), "puro");
     assert.equal(
-      sourcePrefix("fourfourone", "Isometric", "fujairah-mineral"),
-      "fourfourone/isometric/fujairah-mineral/",
+      sourcePrefix("fourfourone", "Puro.earth", "fujairah-mineral"),
+      "fourfourone/puro/fujairah-mineral/",
     );
     assert.equal(
-      catalogProject("terrafix", "Isometric", "fujairah-mineral"),
+      catalogProject("terrafix", "Puro.earth", "fujairah-mineral"),
       null,
     );
     assert.equal(catalogProject("fourfourone", "Isometric", "north-sea-dac"), null);
   });
 
   it("rejects keys outside the prefix", () => {
-    const prefix = sourcePrefix("fourfourone", "Isometric", "fujairah-mineral");
+    const prefix = sourcePrefix("fourfourone", "Puro.earth", "fujairah-mineral");
     assert.equal(dtFromKey(`${prefix}dt=2026-09-01/observations.csv`), "2026-09-01");
     assert.throws(() =>
       assertKeyInPrefix("terrafix/isometric/north-sea-dac/dt=2026-09-01/observations.csv", prefix),

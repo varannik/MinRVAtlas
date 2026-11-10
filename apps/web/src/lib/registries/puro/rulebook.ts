@@ -9,6 +9,7 @@ export const RULEBOOK: RegistryRulebook = {
   sources: [
     "Puro Standard General Rules 4.3 (Sections 2.3.2, 3.2)",
     "Puro Biochar Methodology, Edition 2025 (Sections 3.1, 5)",
+    "Puro Geologically Stored Carbon methodology (edition to confirm)",
   ],
   core: [
     {
@@ -43,6 +44,7 @@ export const RULEBOOK: RegistryRulebook = {
             "Data and method used to calculate the dry mass of biochar produced and sold.",
           reference: "Biochar Methodology 2025 §5.3.1(ii)",
           mandatory: true,
+          onlyFor: ["puro-biochar"],
         },
         {
           id: "info-system",

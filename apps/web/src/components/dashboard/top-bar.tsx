@@ -1,40 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, Landmark, LogOut, Boxes, Building2, ChevronDown, MapPin, ScrollText, Search, ShieldCheck } from "lucide-react";
+import { ArrowLeft, BookOpen, LogOut, Building2, MapPin, Search, Settings2 } from "lucide-react";
 import { Globe3DMark } from "./globe-back-button";
 import { RegistrySelect } from "./registry-select";
 import { SubmissionChain } from "./submission-chain";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { useProjectDefinition } from "@/hooks/use-project-definition";
 import { earliestAllowedPeriodStart } from "@/lib/period-desk";
 import { latestDesignDate } from "@/lib/project-definition";
 import { getTenant } from "@/lib/tenants";
 import { useDashboard } from "@/store/dashboard-store";
+import { useStage } from "@/store/stage-store";
 import type { Project, SubmissionBatch } from "@/lib/types";
 
-function CharterBadge({ project }: { project: Project }) {
+/** Way into Certify project setup (design, sites, feedstocks, measurements). */
+function SetupButton({ project }: { project: Project }) {
   const { definition, loading } = useProjectDefinition(project);
   const openSetup = useDashboard((state) => state.openSetup);
   if (project.registry !== "Isometric") return null;
   const sealed = Boolean(definition?.complete);
-  const label = loading
-    ? "Charter"
-    : sealed
-      ? "Defined"
-      : definition?.flags.hasPdd || definition?.flags.hasLca
-        ? "Charter"
-        : "No charter";
+  const status = loading ? "Reading Certify…" : sealed ? "Design complete" : "Design incomplete";
   return (
     <button
       type="button"
       onClick={() => openSetup("design")}
-      title="Open project setup — fetch, edit and file Certify design evidence"
-      className={`glass flex h-12 items-center gap-1.5 rounded-2xl px-3 text-[10px] font-semibold tracking-wide ${
-        sealed ? "text-carbon-400" : "text-mist"
-      }`}
+      title={`Project setup — ${status}`}
+      className="glass flex h-12 items-center gap-1.5 rounded-2xl px-3 text-[11px] font-semibold text-frost hover:text-carbon-400"
     >
-      <ScrollText className="size-3.5" />
-      {label}
+      <Settings2 className="size-3.5" />
+      Setup
+      {!loading ? <span className={`size-1.5 rounded-full ${sealed ? "bg-carbon-400" : "bg-canyon"}`} aria-hidden /> : null}
     </button>
   );
 }
@@ -58,13 +54,12 @@ function SpecOriginBadge() {
   );
 }
 
-/* ── Atlas box (left) ───────────────────────────────────────────── */
+/* ── Identity box (left) ────────────────────────────────────────── */
 
 function TenantMark({ project }: { project?: Project | null }) {
   const tenantId = useDashboard((state) => state.tenantId);
   const tenant = getTenant(tenantId);
-  const open = useDashboard((state) => state.portfolioOpen);
-  const togglePortfolio = useDashboard((state) => state.togglePortfolio);
+  const user = useCurrentUser();
   const selectProject = useDashboard((state) => state.selectProject);
 
   /* ── Project-selected state ── */
@@ -99,46 +94,45 @@ function TenantMark({ project }: { project?: Project | null }) {
     );
   }
 
-  /* ── Map state (default) ── */
+  /* ── Map state (default): who is signed in, for which tenant ── */
+  const initials = (user?.name ?? user?.email ?? "?")
+    .split(/[\s@.]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
   return (
-    <button
-      type="button"
-      aria-expanded={open}
-      aria-controls="portfolio-drawer"
-      onClick={togglePortfolio}
-      className={`glass flex h-12 items-center gap-2.5 rounded-2xl px-3 text-left transition-shadow ${
-        open ? "ring-2 ring-carbon-400/40" : ""
-      }`}
-    >
+    <div className="glass flex h-12 items-center gap-2.5 rounded-2xl pr-3 pl-1.5">
       <span
-        className="grid size-8 shrink-0 place-items-center rounded-xl ring-1"
+        className="grid size-9 shrink-0 place-items-center rounded-xl text-[11px] font-bold"
         style={{
           background: `${tenant.accent}1f`,
           color: tenant.accent,
           boxShadow: `inset 0 0 0 1px ${tenant.accent}33`,
         }}
+        aria-hidden
       >
-        <Boxes className="size-4" />
+        {tenant.short}
       </span>
-
       <div className="leading-tight">
-        <div className="text-[13px] font-semibold tracking-tight">dMRV Atlas</div>
-        <div className="mt-px flex items-center gap-1.5 text-mist">
-          <Building2 className="size-3" />
-          <span className="text-[11px] font-medium text-frost">{tenant.name}</span>
-          <span
-            className="rounded-full px-1.5 py-px text-[9px] font-semibold"
-            style={{ background: `${tenant.accent}1f`, color: tenant.accent }}
-          >
-            {tenant.plan}
+        <div className="flex items-center gap-1.5">
+          <Building2 className="size-3 text-mist" />
+          <span className="text-[13px] font-semibold tracking-tight">{tenant.name}</span>
+          <code className="rounded bg-ink-700 px-1 py-px text-[9.5px] font-semibold text-mist" title="Tenant id">
+            {tenant.id}
+          </code>
+        </div>
+        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-mist">
+          <span className="grid size-4 place-items-center rounded-full bg-ink-700 text-[8px] font-bold text-frost">
+            {initials}
           </span>
+          <span className="max-w-52 truncate font-medium text-frost" title={user?.email}>
+            {user ? (user.name ?? user.email) : "Signing in…"}
+          </span>
+          {user?.role ? <span className="text-[10px]">· {user.role}</span> : null}
         </div>
       </div>
-
-      <ChevronDown
-        className={`size-3.5 shrink-0 text-mist transition-transform ${open ? "rotate-180" : ""}`}
-      />
-    </button>
+    </div>
   );
 }
 
@@ -177,13 +171,19 @@ export function TopBar({
   project,
   batches,
   activeBatchId,
+  stageMode = false,
+  onBackToStage,
 }: {
   project?: Project | null;
   batches?: SubmissionBatch[] | null;
   activeBatchId?: string | null;
+  /** The project stage is showing; it has its own block chain. */
+  stageMode?: boolean;
+  onBackToStage?: () => void;
 }) {
   const query = useDashboard((state) => state.query);
   const setQuery = useDashboard((state) => state.setQuery);
+  const deskOpen = useStage((state) => state.deskOpen);
   const onMap = !project;
 
   return (
@@ -191,7 +191,18 @@ export function TopBar({
       {/* Left cluster */}
       <div className="relative z-10 flex h-12 items-center gap-3">
         <TenantMark project={project} />
-        {project ? <CharterBadge project={project} /> : null}
+        {project && deskOpen && onBackToStage ? (
+          <button
+            type="button"
+            onClick={onBackToStage}
+            title="Back to the removal ledger"
+            className="glass flex h-12 items-center gap-1.5 rounded-2xl px-3 text-[11px] font-semibold text-frost hover:text-carbon-400"
+          >
+            <ArrowLeft className="size-3.5" />
+            Ledger
+          </button>
+        ) : null}
+        {project ? <SetupButton project={project} /> : null}
         {onMap ? <RegistrySelect /> : null}
       </div>
 
@@ -208,7 +219,7 @@ export function TopBar({
             />
           </label>
         </div>
-      ) : project ? (
+      ) : project && !stageMode ? (
         <PeriodRibbon
           project={project}
           batches={batches ?? []}
@@ -225,21 +236,6 @@ export function TopBar({
           <BookOpen className="size-3.5 text-carbon-400" />
           Guide
         </Link>
-        <Link
-          href="/ledger?tab=overview&registry=isometric"
-          className="glass hidden h-12 items-center gap-2 rounded-2xl px-4 text-xs font-medium text-mist transition-colors hover:text-frost sm:flex"
-        >
-          <Landmark className="size-3.5 text-carbon-400" />
-          Ledger
-        </Link>
-        <Link
-          href="/quality"
-          className="glass hidden h-12 items-center gap-2 rounded-2xl px-4 text-xs font-medium text-mist transition-colors hover:text-frost sm:flex"
-        >
-          <ShieldCheck className="size-3.5 text-carbon-400" />
-          Quality
-        </Link>
-
         <a
           href="/auth/logout"
           title="Sign out"

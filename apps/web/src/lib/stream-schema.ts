@@ -16,6 +16,20 @@ export const MAX_ASSEMBLED_CSV_BYTES = 50 * 1024 * 1024;
 
 const SKIP_SERIES = new Set(["timestamp_utc", "operational_state", "batch_id"]);
 
+/**
+ * In-situ mineralisation storage, under either registry: Isometric's module
+ * or Puro's Geologically Stored Carbon (Fujairah). Both carry the same
+ * injection telemetry and the same Step-3 checks.
+ */
+export const INSITU_METHODOLOGY_KEYS = [
+  "isometric-insitu-mineralization",
+  "puro-geologically-stored-carbon",
+] as const;
+
+export function isInsituMethodology(methodologyKey: string): boolean {
+  return (INSITU_METHODOLOGY_KEYS as readonly string[]).includes(methodologyKey);
+}
+
 export const INSITU_REQUIRED_SERIES = DQA_CANONICAL.filter(
   (name) => !SKIP_SERIES.has(name),
 );
@@ -98,16 +112,16 @@ export function cadenceSeconds(cadence: string): number | null {
 }
 
 export function requiredFor(project: Project): StreamContract {
-  const isometric = project.registry === "Isometric";
+  const insitu = isInsituMethodology(project.methodologyKey);
   return {
     schemaVersion: 1,
     kind: "timeseries",
     timezone: "UTC",
-    cadence: isometric ? "PT2M" : "PT1H",
+    cadence: insitu ? "PT2M" : "PT1H",
     registry: project.registry,
     methodologyKey: project.methodologyKey,
-    requiredSeries: isometric ? [...INSITU_REQUIRED_SERIES] : [],
-    requiredAttributes: isometric ? [...GHG_ACCOUNTING_HEADERS] : [],
+    requiredSeries: insitu ? [...INSITU_REQUIRED_SERIES] : [],
+    requiredAttributes: insitu ? [...GHG_ACCOUNTING_HEADERS] : [],
   };
 }
 
