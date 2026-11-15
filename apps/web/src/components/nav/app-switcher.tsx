@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { Globe2, Landmark, ShieldCheck, type LucideIcon } from "lucide-react";
+import { BrainCircuit, Globe2, Landmark, type LucideIcon } from "lucide-react";
 
-type Section = "atlas" | "quality" | "ledger";
+type Section = "atlas" | "cortex" | "ledger";
 
 const SECTIONS: { id: Section; label: string; href: string; icon: LucideIcon }[] = [
   { id: "atlas", label: "Atlas", href: "/", icon: Globe2 },
-  { id: "quality", label: "Quality", href: "/quality", icon: ShieldCheck },
+  { id: "cortex", label: "Cortex", href: "/cortex", icon: BrainCircuit },
   { id: "ledger", label: "Ledger", href: "/ledger?tab=overview&registry=isometric", icon: Landmark },
 ];
 

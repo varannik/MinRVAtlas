@@ -1,0 +1,26 @@
+"use client";
+
+import dynamic from "next/dynamic";
+
+/**
+ * Cortex is a client-only 3D workspace whose staged items live in this
+ * browser, so it skips server rendering entirely.
+ */
+const CortexWorkspace = dynamic(
+  () => import("./cortex-workspace").then((mod) => mod.CortexWorkspace),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="fixed inset-0 grid place-items-center bg-[#7E6AD2]">
+        <div className="flex items-center gap-3 text-xs tracking-[0.2em] text-white/80 uppercase">
+          <span className="size-2 animate-pulse rounded-full bg-white" />
+          Waking Cortex
+        </div>
+      </div>
+    ),
+  },
+);
+
+export function CortexEntry() {
+  return <CortexWorkspace />;
+}

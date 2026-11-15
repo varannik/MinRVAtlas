@@ -217,7 +217,7 @@ export function QualityShell({ children }: { children: ReactNode }) {
           {ready ? children : null}
         </main>
       </div>
-      <AppSwitcher active="quality" />
+      <AppSwitcher active="cortex" />
     </div>
   );
 }
