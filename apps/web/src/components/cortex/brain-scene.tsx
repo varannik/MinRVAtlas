@@ -13,6 +13,17 @@ import {
   type Capability,
 } from "@/lib/cortex/capabilities";
 import { useCortex } from "@/store/cortex-store";
+import {
+  CORE_FRAGMENT,
+  CORE_VERTEX,
+  DOT_FRAGMENT,
+  DOT_VERTEX,
+  HALO_FRAGMENT,
+  HALO_VERTEX,
+  LINE_FRAGMENT,
+  LINE_VERTEX,
+  buildFilaments,
+} from "./brain-parts";
 
 const CORE_RADIUS = 1;
 const SHELL_RADIUS = 3;
@@ -31,16 +42,6 @@ type Control = {
 function wrapAngle(angle: number): number {
   const twoPi = Math.PI * 2;
   return ((((angle + Math.PI) % twoPi) + twoPi) % twoPi) - Math.PI;
-}
-
-function mulberry32(seed: number) {
-  let state = seed;
-  return () => {
-    state = (state + 0x6d2b79f5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 // ── Backdrop ────────────────────────────────────────────────────────────────
@@ -76,109 +77,6 @@ function Backdrop() {
 }
 
 // ── Core ────────────────────────────────────────────────────────────────────
-
-const CORE_VERTEX = /* glsl */ `
-  varying vec3 vObj;
-  varying vec3 vNormalW;
-  varying vec3 vViewDir;
-  void main() {
-    vObj = position;
-    vec4 world = modelMatrix * vec4(position, 1.0);
-    vNormalW = normalize(mat3(modelMatrix) * normal);
-    vViewDir = normalize(cameraPosition - world.xyz);
-    gl_Position = projectionMatrix * viewMatrix * world;
-  }
-`;
-
-const CORE_FRAGMENT = /* glsl */ `
-  uniform float uTime;
-  uniform float uPulse;
-  uniform vec3 uCellA;
-  uniform vec3 uCellB;
-  uniform vec3 uWall;
-  uniform vec3 uRim;
-  varying vec3 vObj;
-  varying vec3 vNormalW;
-  varying vec3 vViewDir;
-
-  vec3 hash3(vec3 p) {
-    p = vec3(
-      dot(p, vec3(127.1, 311.7, 74.7)),
-      dot(p, vec3(269.5, 183.3, 246.1)),
-      dot(p, vec3(113.5, 271.9, 124.6))
-    );
-    return fract(sin(p) * 43758.5453123);
-  }
-
-  // x: distance to nearest cell, y: to second nearest, z: nearest cell id.
-  vec3 worley(vec3 p) {
-    vec3 cell = floor(p);
-    vec3 local = fract(p);
-    float f1 = 8.0;
-    float f2 = 8.0;
-    float id = 0.0;
-    for (int x = -1; x <= 1; x++) {
-      for (int y = -1; y <= 1; y++) {
-        for (int z = -1; z <= 1; z++) {
-          vec3 g = vec3(float(x), float(y), float(z));
-          vec3 h = hash3(cell + g);
-          vec3 o = 0.5 + 0.38 * sin(uTime * 0.32 + 6.2831 * h);
-          vec3 r = g + o - local;
-          float d = dot(r, r);
-          if (d < f1) {
-            f2 = f1;
-            f1 = d;
-            id = h.x;
-          } else if (d < f2) {
-            f2 = d;
-          }
-        }
-      }
-    }
-    return vec3(sqrt(f1), sqrt(f2), id);
-  }
-
-  void main() {
-    vec3 p = normalize(vObj) * 4.4;
-    vec3 w = worley(p);
-    float edge = w.y - w.x;
-    float wall = 1.0 - smoothstep(0.03, 0.17, edge);
-    float dome = 1.0 - smoothstep(0.0, 0.75, w.x);
-
-    vec3 cell = mix(uCellA, uCellB, w.z);
-    cell *= 0.72 + 0.42 * dome;
-    vec3 colour = mix(cell, uWall, wall);
-
-    vec3 n = normalize(vNormalW);
-    vec3 v = normalize(vViewDir);
-    vec3 l = normalize(vec3(-0.45, 0.7, 0.6));
-    float spec = pow(max(dot(reflect(-l, n), v), 0.0), 28.0) * (1.0 - wall);
-    float fresnel = pow(1.0 - max(dot(n, v), 0.0), 2.2);
-
-    colour += spec * 0.55;
-    colour = mix(colour, uRim, fresnel * 0.7);
-    colour += uRim * fresnel * (0.12 + 0.4 * uPulse);
-    gl_FragColor = vec4(colour, 1.0);
-  }
-`;
-
-const HALO_VERTEX = /* glsl */ `
-  varying vec3 vNormal;
-  void main() {
-    vNormal = normalize(normalMatrix * normal);
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-
-const HALO_FRAGMENT = /* glsl */ `
-  uniform vec3 uColor;
-  uniform float uStrength;
-  varying vec3 vNormal;
-  void main() {
-    float intensity = pow(clamp(0.74 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 0.0, 1.0), 3.0);
-    gl_FragColor = vec4(uColor, intensity * uStrength);
-  }
-`;
 
 function Core() {
   const meshRef = useRef<THREE.Mesh>(null);
@@ -265,99 +163,9 @@ function Core() {
 
 // ── Filaments and shell ─────────────────────────────────────────────────────
 
-const LINE_VERTEX = /* glsl */ `
-  attribute float aT;
-  varying float vT;
-  void main() {
-    vT = aT;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-
-const LINE_FRAGMENT = /* glsl */ `
-  uniform float uOpacity;
-  varying float vT;
-  void main() {
-    float alpha = mix(0.3, 0.2, smoothstep(0.0, 1.0, vT)) * uOpacity;
-    gl_FragColor = vec4(vec3(1.0), alpha);
-  }
-`;
-
-const DOT_VERTEX = /* glsl */ `
-  uniform float uSize;
-  uniform float uPixelRatio;
-  void main() {
-    vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = uSize * uPixelRatio * (9.0 / -mv.z);
-    gl_Position = projectionMatrix * mv;
-  }
-`;
-
-const DOT_FRAGMENT = /* glsl */ `
-  uniform float uOpacity;
-  void main() {
-    float d = length(gl_PointCoord - 0.5);
-    float alpha = smoothstep(0.5, 0.12, d) * uOpacity;
-    gl_FragColor = vec4(vec3(1.0), alpha);
-  }
-`;
-
-function buildFilaments() {
-  const random = mulberry32(4401);
-  const linePositions: number[] = [];
-  const lineT: number[] = [];
-  const dotPositions: number[] = [];
-
-  const jitter = new THREE.Vector3();
-  const start = new THREE.Vector3();
-  const direction = new THREE.Vector3();
-
-  for (let latDeg = -78; latDeg <= 78; latDeg += 12) {
-    const lat = THREE.MathUtils.degToRad(latDeg);
-    const count = Math.max(8, Math.round(52 * Math.cos(lat)));
-    const phase = ((latDeg + 78) / 12) % 2 === 0 ? 0 : Math.PI / count;
-    for (let i = 0; i < count; i++) {
-      const lon = (i / count) * Math.PI * 2 + phase;
-      direction.set(
-        Math.sin(lon) * Math.cos(lat),
-        Math.sin(lat),
-        Math.cos(lon) * Math.cos(lat),
-      );
-      const tip = direction.clone().multiplyScalar(SHELL_RADIUS);
-      dotPositions.push(tip.x, tip.y, tip.z);
-
-      // Paired dots, as on a printed dial.
-      if (random() < 0.55) {
-        const twin = lon + 0.03;
-        dotPositions.push(
-          Math.sin(twin) * Math.cos(lat) * SHELL_RADIUS,
-          Math.sin(lat) * SHELL_RADIUS,
-          Math.cos(twin) * Math.cos(lat) * SHELL_RADIUS,
-        );
-      }
-
-      if (random() < 0.74) {
-        jitter.set(random() * 2 - 1, random() * 2 - 1, random() * 2 - 1).multiplyScalar(0.95);
-        start.copy(direction).add(jitter).normalize().multiplyScalar(CORE_RADIUS * 0.96);
-        linePositions.push(start.x, start.y, start.z, tip.x, tip.y, tip.z);
-        lineT.push(0, 1);
-      }
-    }
-  }
-
-  const lines = new THREE.BufferGeometry();
-  lines.setAttribute("position", new THREE.Float32BufferAttribute(linePositions, 3));
-  lines.setAttribute("aT", new THREE.Float32BufferAttribute(lineT, 1));
-
-  const dots = new THREE.BufferGeometry();
-  dots.setAttribute("position", new THREE.Float32BufferAttribute(dotPositions, 3));
-
-  return { lines, dots };
-}
-
 function Filaments() {
   const dim = useCortex((state) => state.selected !== null && state.selected !== "core");
-  const { lines, dots } = useMemo(() => buildFilaments(), []);
+  const { lines, dots } = useMemo(() => buildFilaments(CORE_RADIUS, SHELL_RADIUS), []);
   const lineMaterialRef = useRef<THREE.ShaderMaterial>(null);
   const dotMaterialRef = useRef<THREE.ShaderMaterial>(null);
 

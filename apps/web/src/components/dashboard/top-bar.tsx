@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, BookOpen, LogOut, Building2, MapPin, Search, Settings2 } from "lucide-react";
+import { ArrowLeft, BookOpen, LogOut, Building2, MapPin, Route, Search, Settings2 } from "lucide-react";
 import { Globe3DMark } from "./globe-back-button";
 import { RegistrySelect } from "./registry-select";
 import { SubmissionChain } from "./submission-chain";
@@ -34,6 +34,22 @@ function SetupButton({ project }: { project: Project }) {
     </button>
   );
 }
+/** Way into the project journey (Puro path: validation once, then every period). */
+function JourneyButton({ project }: { project: Project }) {
+  if (project.registry !== "Puro.earth") return null;
+  return (
+    <Link
+      href={`/journey?project=${encodeURIComponent(project.id)}`}
+      title="Where this project is on its Puro journey"
+      className="glass flex h-12 items-center gap-1.5 rounded-2xl px-3 text-[11px] font-semibold text-frost hover:text-carbon-400"
+    >
+      <Route className="size-3.5" />
+      Journey
+      <span className="size-1.5 rounded-full bg-canyon" aria-hidden />
+    </Link>
+  );
+}
+
 function SpecOriginBadge() {
   const meta = useDashboard((state) => state.specMeta);
   if (!meta) return null;
@@ -203,6 +219,7 @@ export function TopBar({
           </button>
         ) : null}
         {project ? <SetupButton project={project} /> : null}
+        {project ? <JourneyButton project={project} /> : null}
         {onMap ? <RegistrySelect /> : null}
       </div>
 

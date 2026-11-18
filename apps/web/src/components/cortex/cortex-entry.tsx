@@ -21,6 +21,6 @@ const CortexWorkspace = dynamic(
   },
 );
 
-export function CortexEntry() {
-  return <CortexWorkspace />;
+export function CortexEntry({ pin = null, back = null }: { pin?: string | null; back?: string | null }) {
+  return <CortexWorkspace pin={pin} back={back} />;
 }

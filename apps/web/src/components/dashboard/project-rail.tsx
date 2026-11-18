@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ArrowRight, MapPin, Plug } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, MapPin, Plug, Plus } from "lucide-react";
 import { STATUS_META } from "@/lib/projects";
 import { formatCompact } from "@/lib/format";
 import { issuedShare, lifetimeForecast } from "@/lib/portfolio-metrics";
@@ -28,11 +29,19 @@ export function ProjectRail() {
 
   return (
     <aside className="glass pointer-events-auto flex h-full w-80 max-w-[86vw] flex-col overflow-hidden rounded-2xl">
-      <div className="flex items-baseline justify-between border-b border-line/70 px-4 py-3">
-        <h2 className="text-xs font-semibold tracking-[0.14em] text-mist uppercase">Projects</h2>
-        <span className="tabular text-xs text-mist">
-          {projects.length} project{projects.length === 1 ? "" : "s"}
-        </span>
+      <div className="flex items-center justify-between gap-2 border-b border-line/70 px-4 py-2.5">
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-xs font-semibold tracking-[0.14em] text-mist uppercase">Projects</h2>
+          <span className="tabular text-xs text-mist">{projects.length}</span>
+        </div>
+        <Link
+          href="/journey?project=new"
+          title="Start a project and let Cortex walk you through setup"
+          className="flex items-center gap-1 rounded-lg bg-rock px-2.5 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-shale"
+        >
+          <Plus className="size-3.5" />
+          New project
+        </Link>
       </div>
 
       <div ref={list} className="scroll-slim flex-1 overflow-y-auto p-2">

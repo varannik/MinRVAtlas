@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import {
@@ -87,15 +89,17 @@ function CapabilityRail({ hidden }: { hidden: boolean }) {
   );
 }
 
-export function CortexWorkspace() {
+export function CortexWorkspace({ pin = null, back = null }: { pin?: string | null; back?: string | null }) {
   const selected = useCortex((state) => state.selected);
   const staged = useCortex((state) => state.staged);
   const select = useCortex((state) => state.select);
   const hover = useCortex((state) => state.hover);
   const reduce = useReducedMotion();
-  // Read ?pin= once so a link can land on a capability. The URL is not kept in
-  // sync: rewriting it makes the App Router remount the page and drop the selection.
-  const [initialPin] = useState(() => new URLSearchParams(window.location.search).get("pin"));
+  // ?pin= (passed in by the page) lands on a capability once. The URL is not kept
+  // in sync: rewriting it makes the App Router remount the page and drop the selection.
+  const [initialPin] = useState(pin);
+  // Opened from a project journey: offer the way back. Only journey paths are allowed.
+  const backTo = back && /^\/journey(\?|$)/.test(back) ? back : null;
 
   useEffect(() => {
     if (initialPin === "core") select("core");
@@ -127,6 +131,15 @@ export function CortexWorkspace() {
       <BrainScene />
 
       <header className="pointer-events-none fixed top-5 left-5 z-30 max-w-[min(22rem,calc(100vw-2.5rem))] lg:top-6 lg:left-6">
+        {backTo ? (
+          <Link
+            href={backTo}
+            className="pointer-events-auto mb-3 inline-flex items-center gap-1.5 rounded-full bg-white/18 px-3 py-1.5 text-[12px] font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/28 focus-visible:outline-2 focus-visible:outline-white"
+          >
+            <ArrowLeft className="size-3.5" />
+            Back to journey
+          </Link>
+        ) : null}
         <p className="text-[10.5px] font-semibold tracking-[0.2em] text-white/70 uppercase">
           MinRV · AI data expert
         </p>
