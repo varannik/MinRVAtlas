@@ -68,7 +68,7 @@ export STREAM_FROM STREAM_TO STREAM_PACK STREAM_LIST
 .PHONY: deps bootstrap status inventory synth diff deploy destroy push-images \
 	ci docker-build docker-push pipeline pipeline-start pipeline-status \
 	ecs-status logs rollback identity seed-cognito create-cognito-user seed-stream-s3 \
-	seed-cortex cortex-whoami
+	seed-cortex cortex-whoami cortex-search
 
 deps:
 	npm install
@@ -154,6 +154,11 @@ seed-cortex: identity
 # interceptor's audit lines. CORTEX_TEST_EMAIL=… (asks for the password).
 cortex-whoami: identity
 	npx ts-node --prefer-ts-exts scripts/cortex-whoami.ts
+
+# Knowledge check: known-answer questions through knowledge___search for a
+# project (GOLDEN=… picks the set; CORTEX_SEARCH="…" asks one question instead).
+cortex-search: identity
+	npx ts-node --prefer-ts-exts scripts/cortex-search.ts
 
 # After minrv-ew2-{stage}-data has StreamBucketName.
 # From repo root: make seed-stream-s3

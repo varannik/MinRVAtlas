@@ -10,6 +10,7 @@ only way to read the knowledge base.
 import json
 import logging
 import os
+import time
 
 import access
 import tenancy
@@ -19,6 +20,33 @@ log.setLevel(logging.INFO)
 
 _client = None
 MAX_RESULTS = 10
+# The knowledge cluster pauses after 5 idle minutes and takes about 15 seconds to
+# resume; Retrieve fails until then. Waits between attempts, in seconds.
+RESUME_WAITS = (5, 5, 10, 10)
+
+
+class Resuming(Exception):
+    """The knowledge database is still waking up after the waits ran out."""
+
+
+def resuming(error):
+    """True for Bedrock's error while the Aurora vector store resumes from auto-pause."""
+    code = (getattr(error, "response", None) or {}).get("Error", {}).get("Code")
+    return code == "ValidationException" and "auto-paused" in str(error)
+
+
+def retrieve(call, waits=RESUME_WAITS, sleep=time.sleep, **kwargs):
+    """call(**kwargs), retried while the knowledge database resumes."""
+    for wait in (*waits, None):
+        try:
+            return call(**kwargs)
+        except Exception as error:  # botocore ClientError; not imported so tests need no AWS libs
+            if not resuming(error):
+                raise
+            if wait is None:
+                raise Resuming() from error
+            log.info(json.dumps({"cortex_knowledge": "database_resuming", "retry_in_s": wait}))
+            sleep(wait)
 
 
 def client():
@@ -41,17 +69,21 @@ def search(event, caller):
         return {"error": "Ask a question to search for."}
     top_k = max(1, min(int(event.get("top_k") or 5), MAX_RESULTS))
     project = tenancy.project(caller["tenant_id"], caller.get("project_id"))
-    response = client().retrieve(
-        knowledgeBaseId=os.environ["KNOWLEDGE_BASE_ID"],
-        retrievalQuery={"text": query},
-        retrievalConfiguration={
-            "vectorSearchConfiguration": {
-                "numberOfResults": top_k,
-                "overrideSearchType": "HYBRID",
-                "filter": access.retrieval_filter(caller, project),
-            }
-        },
-    )
+    try:
+        response = retrieve(
+            client().retrieve,
+            knowledgeBaseId=os.environ["KNOWLEDGE_BASE_ID"],
+            retrievalQuery={"text": query},
+            retrievalConfiguration={
+                "vectorSearchConfiguration": {
+                    "numberOfResults": top_k,
+                    "overrideSearchType": "HYBRID",
+                    "filter": access.retrieval_filter(caller, project),
+                }
+            },
+        )
+    except Resuming:
+        return {"error": "The knowledge store is waking up after being idle. Try again in a few seconds."}
     results, dropped = [], 0
     for item in response.get("retrievalResults", []):
         metadata = item.get("metadata") or {}

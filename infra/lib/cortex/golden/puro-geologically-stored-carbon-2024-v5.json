@@ -1,0 +1,28 @@
+{
+  "description": "Known answers from Puro Geologically Stored Carbon, Edition 2024 v. 5 (approved 23 April 2026). Clause numbers and wording from research_notes/Puro and Isometric supplier onboarding/puro_gsc_documents.md.",
+  "registry": "puro",
+  "methodology": "puro-geologically-stored-carbon",
+  "edition": "2024-v5",
+  "project_id": "fujairah-mineral",
+  "document": "Geologically_Stored_Carbon_2024_5.pdf",
+  "questions": [
+    {
+      "clause": "2.2.2",
+      "page": 13,
+      "question": "How long is the crediting period for a geological storage project, and can it be renewed?",
+      "expect": ["15 years"]
+    },
+    {
+      "clause": "3.2.1",
+      "question": "For how long must the injected CO2 stream be stored in the reservoir?",
+      "expect": ["1,000 years", "1000 years", "1 000 years", "thousand years"]
+    },
+    {
+      "clause": "4.3.1",
+      "page": 30,
+      "question": "How is the number of CORCs calculated for a monitoring period?",
+      "expect": ["overall number of CORCs", "Cstored"],
+      "note": "Plain text extraction loses the equation's subscript letters (\"Cstored− Eproject− Elekge− Ereversl\"), so expect the clause's own words. On 19 Nov 2026 search returned the section intro on p.29 (Figure 3) instead of this clause: a parsing and clause-chunking gap, not a test to relax."
+    }
+  ]
+}

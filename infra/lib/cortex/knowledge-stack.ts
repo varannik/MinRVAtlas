@@ -433,6 +433,15 @@ export class CortexKnowledgeStack extends Ew2Stack {
       backoffRate: 1.5,
       maxAttempts: 20,
     });
+    // With knowledgeMinAcu 0 the knowledge cluster pauses after 5 idle minutes, and
+    // Bedrock refuses the job with a ValidationException ("resuming after being
+    // auto-paused") until it is back, about 15 seconds later.
+    startIndex.addRetry({
+      errors: ["BedrockAgent.ValidationException"],
+      interval: cdk.Duration.seconds(15),
+      backoffRate: 2,
+      maxAttempts: 4,
+    });
     const announce = (id: string, detailType: string, detailPath: string) =>
       new tasks.EventBridgePutEvents(this, id, {
         entries: [
@@ -489,7 +498,8 @@ export class CortexKnowledgeStack extends Ew2Stack {
       runtime: PYTHON,
       handler: "knowledge_tool.handler",
       code,
-      timeout: cdk.Duration.seconds(30),
+      // Room to wait out the knowledge cluster resuming from auto-pause (knowledge_tool.py).
+      timeout: cdk.Duration.seconds(60),
       memorySize: 256,
       logGroup: fnLog("Search"),
       environment: {
