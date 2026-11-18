@@ -89,14 +89,23 @@ function extras(stage: "sandbox" | "prod"): Partial<StageConfig> {
   };
 }
 
+/** Cortex agent image: no AgentCore Runtime is created until a tag is given. */
+const cortexAgentImageTag =
+  optionalString(app, "cortexAgentImageTag") ?? process.env.CORTEX_AGENT_IMAGE_TAG;
+function withCortex(cfg: StageConfig): StageConfig {
+  return cortexAgentImageTag
+    ? { ...cfg, cortex: { ...cfg.cortex, agentImageTag: cortexAgentImageTag } }
+    : cfg;
+}
+
 new MinrvStage(app, "minrv-ew2-sandbox", {
   env: ENV_EW2,
-  cfg: sandboxConfig(extras("sandbox")),
+  cfg: withCortex(sandboxConfig(extras("sandbox"))),
 });
 
 new MinrvStage(app, "minrv-ew2-prod", {
   env: ENV_EW2,
-  cfg: prodConfig(extras("prod")),
+  cfg: withCortex(prodConfig(extras("prod"))),
 });
 
 const sandboxPipeline = new PipelineStack(app, "minrv-ew2-sandbox-pipeline", {

@@ -20,8 +20,10 @@
 import {
   ACCOUNT,
   REGION,
-  STACK_ORDER,
   VPC_CIDR,
+  prodConfig,
+  sandboxConfig,
+  stackOrder,
   type StageName,
 } from "../lib/config";
 import { resolveLiveImageTags } from "../lib/live-image-tags";
@@ -476,9 +478,10 @@ async function ensureBootstrap(region: string): Promise<void> {
 }
 
 function desiredCdkStacks(stage: StageName): string[] {
+  const cfg = stage === "prod" ? prodConfig() : sandboxConfig();
   const names = [
     "minrv-ew2-ecr",
-    ...STACK_ORDER.map((suffix) => `minrv-ew2-${stage}-${suffix}`),
+    ...stackOrder(cfg).map((suffix) => `minrv-ew2-${stage}-${suffix}`),
   ];
   if (ENABLE_CLOUDFRONT) {
     names.push(`minrv-ew2-${stage}-cloudfront`);

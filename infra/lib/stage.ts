@@ -4,6 +4,10 @@ import { ENV_EDGE, type StageConfig } from "./config";
 import { CloudFrontStack } from "./cloudfront-stack";
 import { ComplianceStack } from "./compliance-stack";
 import { ComputeStack } from "./compute-stack";
+import { CortexAgentStack } from "./cortex/agent-stack";
+import { CortexCoreStack } from "./cortex/core-stack";
+import { CortexGraphStack } from "./cortex/graph-stack";
+import { CortexKnowledgeStack } from "./cortex/knowledge-stack";
 import { DataStack } from "./data-stack";
 import { EdgeStack } from "./edge-stack";
 import { IdentityStack } from "./identity-stack";
@@ -24,6 +28,12 @@ export class MinrvStage extends cdk.Stage {
   public readonly edge: EdgeStack;
   public readonly observability: ObservabilityStack;
   public readonly compliance: ComplianceStack;
+  public readonly cortex?: {
+    core: CortexCoreStack;
+    knowledge: CortexKnowledgeStack;
+    graph?: CortexGraphStack;
+    agent: CortexAgentStack;
+  };
 
   constructor(scope: Construct, id: string, props: MinrvStageProps) {
     super(scope, id, props);
@@ -99,6 +109,10 @@ export class MinrvStage extends cdk.Stage {
     this.observability.addStackDependency(this.compute);
     this.compliance.addStackDependency(this.data);
 
+    if (cfg.cortex.enabled) {
+      this.cortex = this.createCortex(props);
+    }
+
     if (cfg.enableCloudFront) {
       const cloudfront = new CloudFrontStack(this, "cloudfront", {
         env: ENV_EDGE,
@@ -111,5 +125,53 @@ export class MinrvStage extends cdk.Stage {
       cloudfront.addStackDependency(this.edge);
       cloudfront.addStackDependency(this.compute);
     }
+  }
+
+  /** Cortex stacks (see the Cortex AWS Blueprint): core, knowledge, graph, agent. */
+  private createCortex(props: MinrvStageProps): NonNullable<MinrvStage["cortex"]> {
+    const { cfg, env } = props;
+    const keyArn = this.security.key.keyArn;
+    const vpc = this.network.vpc;
+
+    const core = new CortexCoreStack(this, "cortex-core", { env, cfg, keyArn });
+    core.addStackDependency(this.security);
+
+    const knowledge = new CortexKnowledgeStack(this, "cortex-knowledge", {
+      env,
+      cfg,
+      vpc,
+      keyArn,
+      tenancyTable: core.tenancyTable,
+      checkpointsTable: core.checkpointsTable,
+      eventBus: core.eventBus,
+    });
+    knowledge.addStackDependency(this.network);
+    knowledge.addStackDependency(core);
+
+    const graph = cfg.cortex.graph
+      ? new CortexGraphStack(this, "cortex-graph", { env, cfg, vpc, keyArn })
+      : undefined;
+    graph?.addStackDependency(this.network);
+    graph?.addStackDependency(this.security);
+
+    const agent = new CortexAgentStack(this, "cortex-agent", {
+      env,
+      cfg,
+      userPool: this.identity.userPool,
+      clients: [this.identity.userPoolClient, this.identity.mcpClient],
+      tenancyTable: core.tenancyTable,
+      checkpointsTable: core.checkpointsTable,
+      eventBus: core.eventBus,
+      tenantSessionRole: knowledge.tenantSessionRole,
+      searchFn: knowledge.searchFn,
+      traceFn: graph?.traceFn,
+    });
+    agent.addStackDependency(this.identity);
+    agent.addStackDependency(knowledge);
+    if (graph) {
+      agent.addStackDependency(graph);
+    }
+
+    return { core, knowledge, graph, agent };
   }
 }

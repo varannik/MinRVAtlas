@@ -55,3 +55,7 @@ shots/
 *.tsbuildinfo
 next-env.d.ts
 apps/web/next-env.d.ts
+
+# python
+__pycache__/
+*.pyc

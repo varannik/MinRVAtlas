@@ -12,6 +12,45 @@ export const STACK_PREFIX = "minrv-ew2";
 export type StageName = "sandbox" | "prod";
 export type IsometricApi = "sandbox" | "production";
 
+/**
+ * Cortex: knowledge base, MCP tool gateway, approval-workflow state and the
+ * evidence graph (see the Cortex AWS Blueprint). Tenant isolation is enforced
+ * at the gateway, in IAM (session tags), in the bucket policies and in Postgres
+ * row-level security, so a mistake in one layer is caught by the next.
+ */
+export interface CortexConfig {
+  /** Create the Cortex stacks for this stage at all. */
+  enabled: boolean;
+  /** Knowledge Aurora (Serverless v2, Data API). 0 lets an idle cluster pause. */
+  knowledgeMinAcu: number;
+  knowledgeMaxAcu: number;
+  /** Neptune Database (serverless) for the live evidence graph. Billed while it exists. */
+  graph: boolean;
+  graphMinNcu: number;
+  graphMaxNcu: number;
+  /** Neptune Analytics for cross-project analytics (blueprint phase 5). Billed every hour it exists. */
+  graphAnalytics: boolean;
+  /** Neptune Analytics memory in m-NCU. */
+  graphAnalyticsMemory: number;
+  /** AgentCore Policy on the gateway: LOG_ONLY until the policies are proven, then ENFORCE. */
+  policyMode: "LOG_ONLY" | "ENFORCE";
+  /** Cortex agent image tag in ECR. No AgentCore Runtime is created until one is pushed. */
+  agentImageTag?: string;
+  /** LangGraph checkpoints older than this are removed by DynamoDB TTL. */
+  checkpointTtlDays: number;
+  /** AgentCore Memory event expiry (conversation only, never knowledge). */
+  memoryExpiryDays: number;
+  /** EventBridge archive retention; the graph and index are rebuilt from it. */
+  eventArchiveDays: number;
+}
+
+/**
+ * Tenant and project ids. Lowercase letters, digits and hyphens only: no "#",
+ * "/" or "_", so they can sit inside DynamoDB keys, S3 prefixes and LangGraph
+ * thread ids ("{tenant}#{project}#…") without one id ever matching another's prefix.
+ */
+export const TENANT_ID_PATTERN = "^[a-z0-9][a-z0-9-]{1,39}$";
+
 export interface StageConfig {
   stageName: StageName;
   isometricApi: IsometricApi;
@@ -55,6 +94,7 @@ export interface StageConfig {
    */
   cognitoCallbackUrl?: string;
   cognitoLogoutUrl?: string;
+  cortex: CortexConfig;
 }
 
 export const ENV_EW2: cdk.Environment = { account: ACCOUNT, region: REGION };
@@ -133,6 +173,23 @@ export function ecrSentinelRepo(): string {
   return `${STACK_PREFIX}-sentinel`;
 }
 
+export function ecrCortexAgentRepo(): string {
+  return `${STACK_PREFIX}-cortex-agent`;
+}
+
+/** Cortex buckets: `intake` (uploads, scanned) and `knowledge` (approved, indexed). */
+export function cortexBucketName(
+  stage: StageName,
+  kind: "intake" | "knowledge",
+  account = ACCOUNT,
+): string {
+  return `${STACK_PREFIX}-${stage}-cortex-${kind}-${account}`;
+}
+
+/** Titan Text Embeddings V2 runs in-region in London; 1024 dimensions. */
+export const CORTEX_EMBEDDING_MODEL = "amazon.titan-embed-text-v2:0";
+export const CORTEX_EMBEDDING_DIMENSIONS = 1024;
+
 export const STACK_ORDER = [
   "network",
   "security",
@@ -146,6 +203,27 @@ export const STACK_ORDER = [
 ] as const;
 
 export type StackSuffix = (typeof STACK_ORDER)[number];
+
+export const CORTEX_STACKS = [
+  "cortex-core",
+  "cortex-knowledge",
+  "cortex-graph",
+  "cortex-agent",
+] as const;
+
+export type CortexStackSuffix = (typeof CORTEX_STACKS)[number];
+
+/** Deploy order for a stage: Cortex stacks go after compliance, before the pipeline. */
+export function stackOrder(cfg: StageConfig): string[] {
+  const cortex = cfg.cortex.enabled
+    ? CORTEX_STACKS.filter((suffix) => suffix !== "cortex-graph" || cfg.cortex.graph)
+    : [];
+  return [
+    ...STACK_ORDER.filter((suffix) => suffix !== "pipeline"),
+    ...cortex,
+    "pipeline",
+  ];
+}
 
 export function sandboxConfig(overrides: Partial<StageConfig> = {}): StageConfig {
   return {
@@ -169,6 +247,20 @@ export function sandboxConfig(overrides: Partial<StageConfig> = {}): StageConfig
     githubRepo: "MinRVAtlas",
     githubBranch: "main",
     enableCloudFront: false,
+    cortex: {
+      enabled: true,
+      knowledgeMinAcu: 0,
+      knowledgeMaxAcu: 4,
+      graph: true,
+      graphMinNcu: 1,
+      graphMaxNcu: 4,
+      graphAnalytics: false,
+      graphAnalyticsMemory: 16,
+      policyMode: "LOG_ONLY",
+      checkpointTtlDays: 30,
+      memoryExpiryDays: 30,
+      eventArchiveDays: 90,
+    },
     ...overrides,
   };
 }
@@ -195,6 +287,21 @@ export function prodConfig(overrides: Partial<StageConfig> = {}): StageConfig {
     githubRepo: "MinRVAtlas",
     githubBranch: "main",
     enableCloudFront: false,
+    cortex: {
+      // Off until the sandbox passes `npm run cortex:readiness`.
+      enabled: false,
+      knowledgeMinAcu: 0.5,
+      knowledgeMaxAcu: 16,
+      graph: true,
+      graphMinNcu: 1,
+      graphMaxNcu: 16,
+      graphAnalytics: false,
+      graphAnalyticsMemory: 16,
+      policyMode: "ENFORCE",
+      checkpointTtlDays: 400,
+      memoryExpiryDays: 90,
+      eventArchiveDays: 3650,
+    },
     ...overrides,
   };
 }

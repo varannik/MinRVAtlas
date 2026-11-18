@@ -41,9 +41,14 @@ export interface IdentityStackProps extends Ew2StackProps {
   keyArn: string;
 }
 
+/** OAuth scope MCP clients ask for when they call Cortex tools through the gateway. */
+export const CORTEX_TOOLS_SCOPE = "cortex/tools";
+
 export class IdentityStack extends Ew2Stack {
   public readonly userPool: cognito.UserPool;
   public readonly userPoolClient: cognito.UserPoolClient;
+  /** Public PKCE client for analysts' MCP clients (Claude, IDEs). Same tenant claim as the web client. */
+  public readonly mcpClient: cognito.UserPoolClient;
   public readonly clientSecret: secretsmanager.Secret;
   /** Host only, e.g. minrv-ew2-sandbox.auth.eu-west-2.amazoncognito.com */
   public readonly hostedUiHost: string;
@@ -169,6 +174,41 @@ export class IdentityStack extends Ew2Stack {
       supportedIdentityProviders: [cognito.UserPoolClientIdentityProvider.COGNITO],
     });
 
+    // Cortex tools are reached through the AgentCore Gateway (MCP). The gateway
+    // accepts access tokens from the web client and from this public client; the
+    // pre-token trigger puts tenant_id and role on both.
+    const toolsScope = new cognito.ResourceServerScope({
+      scopeName: "tools",
+      scopeDescription: "Call Cortex tools through the MCP gateway",
+    });
+    const cortexServer = this.userPool.addResourceServer("CortexTools", {
+      identifier: CORTEX_TOOLS_SCOPE.split("/")[0],
+      userPoolResourceServerName: resourceName(cfg.stageName, "cortex-tools"),
+      scopes: [toolsScope],
+    });
+    this.mcpClient = this.userPool.addClient("Mcp", {
+      userPoolClientName: resourceName(cfg.stageName, "mcp-client"),
+      generateSecret: false,
+      authFlows: { userSrp: true, userPassword: false, adminUserPassword: false, custom: false },
+      oAuth: {
+        flows: { authorizationCodeGrant: true, implicitCodeGrant: false },
+        scopes: [
+          cognito.OAuthScope.OPENID,
+          cognito.OAuthScope.EMAIL,
+          cognito.OAuthScope.resourceServer(cortexServer, toolsScope),
+        ],
+        // Local loopback callbacks used by desktop and CLI MCP clients.
+        callbackUrls: ["http://localhost:8765/callback", "http://127.0.0.1:8765/callback"],
+        logoutUrls: ["http://localhost:8765/logout"],
+      },
+      preventUserExistenceErrors: true,
+      enableTokenRevocation: true,
+      accessTokenValidity: cdk.Duration.minutes(60),
+      idTokenValidity: cdk.Duration.minutes(60),
+      refreshTokenValidity: cdk.Duration.days(1),
+      supportedIdentityProviders: [cognito.UserPoolClientIdentityProvider.COGNITO],
+    });
+
     this.clientSecret = new secretsmanager.Secret(this, "ClientSecret", {
       secretName: cognitoClientSecretName(cfg.stageName),
       description: "Cognito confidential app client secret (web task only)",
@@ -190,6 +230,10 @@ export class IdentityStack extends Ew2Stack {
     new cdk.CfnOutput(this, "UserPoolClientId", {
       value: this.userPoolClient.userPoolClientId,
       exportName: `${cfnStackName(cfg.stageName, "identity")}-UserPoolClientId`,
+    });
+    new cdk.CfnOutput(this, "McpClientId", {
+      value: this.mcpClient.userPoolClientId,
+      exportName: `${cfnStackName(cfg.stageName, "identity")}-McpClientId`,
     });
     new cdk.CfnOutput(this, "HostedUiDomain", {
       value: this.hostedUiHost,
