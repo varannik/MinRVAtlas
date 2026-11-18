@@ -1,0 +1,21 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CortexTenancyTable",
+      "Effect": "Allow",
+      "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query"],
+      "Resource": "arn:aws:dynamodb:eu-west-2:625239230739:table/minrv-ew2-*-cortex-tenancy"
+    },
+    {
+      "Sid": "CortexTenancyTableKey",
+      "Effect": "Allow",
+      "Action": ["kms:Decrypt", "kms:GenerateDataKey"],
+      "Resource": "arn:aws:kms:eu-west-2:625239230739:key/*",
+      "Condition": {
+        "StringEquals": { "kms:ViaService": "dynamodb.eu-west-2.amazonaws.com" },
+        "ForAnyValue:StringLike": { "kms:ResourceAliases": "alias/minrv-ew2-*" }
+      }
+    }
+  ]
+}

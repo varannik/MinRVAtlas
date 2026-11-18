@@ -67,7 +67,8 @@ export STREAM_FROM STREAM_TO STREAM_PACK STREAM_LIST
 
 .PHONY: deps bootstrap status inventory synth diff deploy destroy push-images \
 	ci docker-build docker-push pipeline pipeline-start pipeline-status \
-	ecs-status logs rollback identity seed-cognito create-cognito-user seed-stream-s3
+	ecs-status logs rollback identity seed-cognito create-cognito-user seed-stream-s3 \
+	seed-cortex cortex-whoami
 
 deps:
 	npm install
@@ -142,6 +143,17 @@ seed-cognito:
 # Ask for an email username and a role. Creates the Cognito user and prints the password.
 create-cognito-user:
 	npx ts-node --prefer-ts-exts scripts/create-cognito-user.ts
+
+# After the Cortex stacks exist. Writes the tenant, its projects and (with
+# MEMBER_EMAIL, MEMBER_ROLE, MEMBER_PROJECT) one user's project grants. Safe to repeat.
+seed-cortex: identity
+	npx ts-node --prefer-ts-exts scripts/seed-cortex-tenancy.ts
+
+# End-to-end Cortex tool check: sign in, then initialize, tools/list and
+# tenancy___whoami through the gateway, plus two refusal checks and the
+# interceptor's audit lines. CORTEX_TEST_EMAIL=… (asks for the password).
+cortex-whoami: identity
+	npx ts-node --prefer-ts-exts scripts/cortex-whoami.ts
 
 # After minrv-ew2-{stage}-data has StreamBucketName.
 # From repo root: make seed-stream-s3
