@@ -8,6 +8,18 @@
       "Resource": "arn:aws:dynamodb:eu-west-2:625239230739:table/minrv-ew2-*-cortex-tenancy"
     },
     {
+      "Sid": "CortexTenantSessionForLocalWeb",
+      "Effect": "Allow",
+      "Action": ["sts:AssumeRole", "sts:TagSession"],
+      "Resource": "arn:aws:iam::625239230739:role/minrv-ew2-*-cortex-tenant-session"
+    },
+    {
+      "Sid": "CortexRemovalsForLocalWeb",
+      "Effect": "Allow",
+      "Action": ["states:StartExecution"],
+      "Resource": "arn:aws:states:eu-west-2:625239230739:stateMachine:minrv-ew2-*-cortex-removal"
+    },
+    {
       "Sid": "CortexIngestionRuns",
       "Effect": "Allow",
       "Action": ["states:ListExecutions"],

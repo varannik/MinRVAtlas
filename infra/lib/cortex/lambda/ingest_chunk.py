@@ -24,6 +24,24 @@ class NoText(Exception):
     """BDA found no readable text. Step Functions catches this by name."""
 
 
+class Superseded(Exception):
+    """The document was removed or replaced while it was parsed. Step Functions catches this by name."""
+
+
+def superseded(document, current):
+    """Why this run must not write passages, or None.
+
+    current is the admitted document's metadata as it is now. A removal deletes
+    it; a newer upload of the same file rewrites it with a new doc_id. Either
+    way this run's passages would bring back what the user no longer has.
+    """
+    if not current:
+        return "it was removed from Cortex while it was being parsed"
+    if current.get("doc_id") != document.get("doc_id"):
+        return "a newer upload of the same file replaced it while it was being parsed"
+    return None
+
+
 def s3():
     global _s3
     if _s3 is None:
@@ -56,6 +74,14 @@ def result_paths(value):
             yield from result_paths(inner)
 
 
+def _current_metadata(key):
+    try:
+        body = s3().get_object(Bucket=os.environ["KNOWLEDGE_BUCKET"], Key=f"{key}.metadata.json")["Body"].read()
+    except s3().exceptions.NoSuchKey:
+        return {}
+    return (json.loads(body) or {}).get("metadataAttributes") or {}
+
+
 def _delete_prefix(bucket, prefix):
     pages = s3().get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix)
     for page in pages:
@@ -86,6 +112,10 @@ def handler(event, _context):
     found = clauses.passages(elements)
     if not found:
         raise NoText(f"No readable text in {document['key']}")
+
+    reason = superseded(document, _current_metadata(document["key"]))
+    if reason:
+        raise Superseded(f"Passages for {document['key']} not written: {reason}.")
 
     bucket = os.environ["PARSED_BUCKET"]
     prefix = f"chunks/{document['key']}/"

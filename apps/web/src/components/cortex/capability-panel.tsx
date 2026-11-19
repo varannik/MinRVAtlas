@@ -25,6 +25,7 @@ import {
   type MetadataIntake,
 } from "@/lib/cortex/capabilities";
 import { stagedFor, useCortex, type StagedItem } from "@/store/cortex-store";
+import { DocumentIntake } from "./document-intake";
 
 const TIME = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -477,7 +478,9 @@ export function CapabilityPanel({ capability }: { capability: Capability }) {
       <section className="grid gap-2.5">
         <div className="flex items-baseline justify-between gap-2">
           <SectionTitle>Teach Cortex</SectionTitle>
-          <span className="text-[11px] text-mist">Stays in this browser for now</span>
+          <span className="text-[11px] text-mist">
+            {capability.document ? "Documents go to Cortex · the rest stays in this browser" : "Stays in this browser for now"}
+          </span>
         </div>
         {capability.data && (
           <Dropzone
@@ -488,11 +491,12 @@ export function CapabilityPanel({ capability }: { capability: Capability }) {
           />
         )}
         {capability.document && (
-          <Dropzone
-            intake={capability.document}
-            kind="document"
+          <DocumentIntake
+            capability={capability}
             lobe={lobe}
-            onFiles={(files) => stageFiles(capability.id, "document", files)}
+            renderDropzone={(onFiles) => (
+              <Dropzone intake={capability.document!} kind="document" lobe={lobe} onFiles={onFiles} />
+            )}
           />
         )}
         {capability.metadata && (
@@ -509,7 +513,8 @@ export function CapabilityPanel({ capability }: { capability: Capability }) {
         <SectionTitle>Staged for {capability.name}</SectionTitle>
         <StagedList capability={capability} lobe={lobe} />
         <p className="text-[11.5px] leading-snug text-mist">
-          Files are listed, not uploaded. The new Cortex backend will take what is staged here.
+          Listed here, not uploaded yet: the new Cortex backend will take data files and details.
+          {capability.document ? " Documents Cortex can read are sent above." : ""}
         </p>
       </section>
 
@@ -569,7 +574,8 @@ export function CorePanel() {
           ))}
         </dl>
         <p className="text-[11.5px] leading-snug text-mist">
-          Nothing is sent yet. The new backend will pick up what is staged here.
+          Documents given to a pin (PDF and Word) go to Cortex for your project. Data files and details are
+          staged here until their backend exists.
         </p>
       </section>
 

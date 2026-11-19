@@ -25,8 +25,12 @@ import {
   bdaProfileArn,
   cfnStackName,
   cortexBucketName,
+  cortexRemovalStateMachineName,
+  cortexTenantSessionRoleName,
   logGroupName,
   resourceName,
+  webOrigins,
+  webTaskRoleName,
 } from "../config";
 import { Ew2Stack, type Ew2StackProps } from "../ew2-stack";
 
@@ -62,7 +66,10 @@ export class CortexKnowledgeStack extends Ew2Stack {
   public readonly knowledgeBase: bedrock.CfnKnowledgeBase;
   public readonly dataSource: bedrock.CfnDataSource;
   public readonly ingestion: sfn.StateMachine;
+  /** Takes one project document out of Cortex; the web starts it for the user. */
+  public readonly removal: sfn.StateMachine;
   public readonly admitFn: lambda.Function;
+  public readonly removeFn: lambda.Function;
   public readonly parseFn: lambda.Function;
   public readonly chunkFn: lambda.Function;
   public readonly searchFn: lambda.Function;
@@ -96,6 +103,17 @@ export class CortexKnowledgeStack extends Ew2Stack {
     this.intakeBucket = new s3.Bucket(this, "Intake", {
       ...bucketBase,
       bucketName: cortexBucketName(stage, "intake"),
+      // The web app signs a POST form with a tenant-scoped session; the browser
+      // sends the file straight here, so documents never pass through the web tasks.
+      cors: [
+        {
+          allowedMethods: [s3.HttpMethods.POST],
+          allowedOrigins: webOrigins(cfg),
+          allowedHeaders: ["*"],
+          exposedHeaders: ["ETag", "x-amz-version-id"],
+          maxAge: 3000,
+        },
+      ],
       lifecycleRules: [
         { abortIncompleteMultipartUploadAfter: cdk.Duration.days(1) },
         // Admitted files live on in the knowledge bucket; the intake copy is only for the scan.
@@ -428,7 +446,32 @@ export class CortexKnowledgeStack extends Ew2Stack {
     this.knowledgeBucket.grantPut(this.admitFn);
     props.tenancyTable.grantReadData(this.admitFn);
 
-    // Only the admit function writes the knowledge bucket.
+    // Removal of a project's own document (tenants/ only: shared documents are never
+    // removed this way, whatever the request says).
+    this.removeFn = new lambda.Function(this, "Remove", {
+      functionName: resourceName(stage, "cortex-remove"),
+      description: "Take one project document out of Cortex: original, passages and parse output",
+      runtime: PYTHON,
+      handler: "ingest_remove.handler",
+      code,
+      timeout: cdk.Duration.minutes(2),
+      memorySize: 256,
+      logGroup: fnLog("Remove"),
+      environment: {
+        KNOWLEDGE_BUCKET: this.knowledgeBucket.bucketName,
+        INTAKE_BUCKET: this.intakeBucket.bucketName,
+        PARSED_BUCKET: this.parsedBucket.bucketName,
+      },
+    });
+    this.knowledgeBucket.grantRead(this.removeFn, "tenants/*");
+    this.knowledgeBucket.grantDelete(this.removeFn, "tenants/*");
+    this.intakeBucket.grantDelete(this.removeFn, "tenants/*");
+    this.parsedBucket.grantRead(this.removeFn, "chunks/tenants/*");
+    this.parsedBucket.grantDelete(this.removeFn, "chunks/tenants/*");
+    this.parsedBucket.grantDelete(this.removeFn, "bda/*");
+
+    // Only admission writes the knowledge bucket, and only removal deletes from it.
+    // Deleting leaves the file as a noncurrent version (and under Object Lock on prod).
     this.knowledgeBucket.addToResourcePolicy(
       new iam.PolicyStatement({
         sid: "OnlyAdmissionWritesKnowledge",
@@ -436,7 +479,9 @@ export class CortexKnowledgeStack extends Ew2Stack {
         principals: [new iam.AnyPrincipal()],
         actions: ["s3:PutObject", "s3:DeleteObject", "s3:DeleteObjectVersion", "s3:PutObjectTagging"],
         resources: [this.knowledgeBucket.arnForObjects("*")],
-        conditions: { ArnNotEquals: { "aws:PrincipalArn": this.admitFn.role!.roleArn } },
+        conditions: {
+          ArnNotEquals: { "aws:PrincipalArn": [this.admitFn.role!.roleArn, this.removeFn.role!.roleArn] },
+        },
       }),
     );
 
@@ -482,8 +527,13 @@ export class CortexKnowledgeStack extends Ew2Stack {
       timeout: cdk.Duration.minutes(5),
       memorySize: 512,
       logGroup: fnLog("Chunk"),
-      environment: { PARSED_BUCKET: this.parsedBucket.bucketName },
+      environment: {
+        PARSED_BUCKET: this.parsedBucket.bucketName,
+        // To check the document was not removed or replaced while it was parsed.
+        KNOWLEDGE_BUCKET: this.knowledgeBucket.bucketName,
+      },
     });
+    this.knowledgeBucket.grantRead(this.chunkFn, "*.metadata.json");
     this.parsedBucket.grantRead(this.chunkFn, "bda/*");
     this.parsedBucket.grantReadWrite(this.chunkFn, "chunks/*");
     this.parsedBucket.grantDelete(this.chunkFn, "chunks/*");
@@ -499,33 +549,38 @@ export class CortexKnowledgeStack extends Ew2Stack {
       resultPath: "$.admitted",
       retryOnServiceExceptions: true,
     });
-    const startIndex = new tasks.CallAwsService(this, "IndexKnowledge", {
-      service: "bedrockagent",
-      action: "startIngestionJob",
-      parameters: {
-        KnowledgeBaseId: this.knowledgeBase.attrKnowledgeBaseId,
-        DataSourceId: this.dataSource.attrDataSourceId,
-      },
-      iamResources: [this.knowledgeBase.attrKnowledgeBaseArn],
-      iamAction: "bedrock:StartIngestionJob",
-      resultPath: "$.ingestion",
-    });
-    // One ingestion job per data source at a time: wait and try again.
-    startIndex.addRetry({
-      errors: ["BedrockAgent.ConflictException", "BedrockAgent.ThrottlingException"],
-      interval: cdk.Duration.seconds(30),
-      backoffRate: 1.5,
-      maxAttempts: 20,
-    });
-    // With knowledgeMinAcu 0 the knowledge cluster pauses after 5 idle minutes, and
-    // Bedrock refuses the job with a ValidationException ("resuming after being
-    // auto-paused") until it is back, about 15 seconds later.
-    startIndex.addRetry({
-      errors: ["BedrockAgent.ValidationException"],
-      interval: cdk.Duration.seconds(15),
-      backoffRate: 2,
-      maxAttempts: 4,
-    });
+    // Sync the index with the passage files (new, changed and deleted ones).
+    const indexKnowledge = (id: string) => {
+      const task = new tasks.CallAwsService(this, id, {
+        service: "bedrockagent",
+        action: "startIngestionJob",
+        parameters: {
+          KnowledgeBaseId: this.knowledgeBase.attrKnowledgeBaseId,
+          DataSourceId: this.dataSource.attrDataSourceId,
+        },
+        iamResources: [this.knowledgeBase.attrKnowledgeBaseArn],
+        iamAction: "bedrock:StartIngestionJob",
+        resultPath: "$.ingestion",
+      });
+      // One ingestion job per data source at a time: wait and try again.
+      task.addRetry({
+        errors: ["BedrockAgent.ConflictException", "BedrockAgent.ThrottlingException"],
+        interval: cdk.Duration.seconds(30),
+        backoffRate: 1.5,
+        maxAttempts: 20,
+      });
+      // With knowledgeMinAcu 0 the knowledge cluster pauses after 5 idle minutes, and
+      // Bedrock refuses the job with a ValidationException ("resuming after being
+      // auto-paused") until it is back, about 15 seconds later.
+      task.addRetry({
+        errors: ["BedrockAgent.ValidationException"],
+        interval: cdk.Duration.seconds(15),
+        backoffRate: 2,
+        maxAttempts: 4,
+      });
+      return task;
+    };
+    const startIndex = indexKnowledge("IndexKnowledge");
     const announce = (id: string, detailType: string, detailPath: string) =>
       new tasks.EventBridgePutEvents(this, id, {
         entries: [
@@ -581,6 +636,9 @@ export class CortexKnowledgeStack extends Ew2Stack {
     );
     const noText = announce("AnnounceNoText", "DocumentParseFailed", "$.noText");
     chunk.addCatch(noText, { errors: ["NoText"], resultPath: "$.noText" });
+    // Removed or replaced while it was parsed: write nothing; the removal or the newer run wins.
+    const supersededRun = announce("AnnounceSuperseded", "DocumentSuperseded", "$.superseded");
+    chunk.addCatch(supersededRun, { errors: ["Superseded"], resultPath: "$.superseded" });
     const parsed = new sfn.Choice(this, "ParseDone")
       .when(
         sfn.Condition.stringEquals("$.parse.status", "Success"),
@@ -603,6 +661,38 @@ export class CortexKnowledgeStack extends Ew2Stack {
       tracingEnabled: true,
       logs: {
         destination: fnLog("Ingestion"),
+        level: sfn.LogLevel.ERROR,
+        includeExecutionData: false,
+      },
+    });
+
+    // Removal: the web starts this for a user who may add to the project.
+    const remove = new tasks.LambdaInvoke(this, "RemoveDocument", {
+      lambdaFunction: this.removeFn,
+      payload: sfn.TaskInput.fromObject({
+        "key.$": "$.key",
+        "tenant_id.$": "$.tenant_id",
+        "project_id.$": "$.project_id",
+        "requested_by.$": "$.requested_by",
+      }),
+      resultSelector: { "document.$": "$.Payload" },
+      resultPath: "$.removed",
+      retryOnServiceExceptions: true,
+    });
+    remove.addCatch(
+      new sfn.Fail(this, "RemovalRefused", { error: "NotAllowed", cause: "Not a document of the requesting project" }),
+      { errors: ["NotAllowed"] },
+    );
+    this.removal = new sfn.StateMachine(this, "Removal", {
+      stateMachineName: cortexRemovalStateMachineName(stage),
+      definitionBody: sfn.DefinitionBody.fromChainable(
+        remove
+          .next(indexKnowledge("IndexAfterRemoval"))
+          .next(announce("AnnounceRemoved", "DocumentRemoved", "$.removed.document")),
+      ),
+      tracingEnabled: true,
+      logs: {
+        destination: fnLog("Removal"),
         level: sfn.LogLevel.ERROR,
         includeExecutionData: false,
       },
@@ -659,7 +749,7 @@ export class CortexKnowledgeStack extends Ew2Stack {
     // tags taken from a verified token. Every grant below is written in terms of
     // those tags, so the session can reach one tenant's objects and checkpoints only.
     this.tenantSessionRole = new iam.Role(this, "TenantSession", {
-      roleName: resourceName(stage, "cortex-tenant-session"),
+      roleName: cortexTenantSessionRoleName(stage),
       description: "Tenant-scoped access: assumed with tenant_id/project_id session tags only",
       maxSessionDuration: cdk.Duration.hours(1),
       assumedBy: new iam.SessionTagsPrincipal(
@@ -677,6 +767,30 @@ export class CortexKnowledgeStack extends Ew2Stack {
           this.intakeBucket.arnForObjects(`tenants/${TENANT_TAG}/tenant/*`),
           this.intakeBucket.arnForObjects(`tenants/${TENANT_TAG}/projects/${PROJECT_TAG}/*`),
         ],
+      }),
+    );
+    this.tenantSessionRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: "ScanResultOfOwnUploads",
+        actions: ["s3:GetObjectTagging"],
+        resources: [
+          this.intakeBucket.arnForObjects(`tenants/${TENANT_TAG}/tenant/*`),
+          this.intakeBucket.arnForObjects(`tenants/${TENANT_TAG}/projects/${PROJECT_TAG}/*`),
+        ],
+      }),
+    );
+    // Listing is how the web shows what a project has given Cortex and how far each
+    // upload has got (in intake = being scanned, in knowledge = admitted).
+    this.tenantSessionRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: "ListOwnTenantOrGrantedProject",
+        actions: ["s3:ListBucket"],
+        resources: [this.intakeBucket.bucketArn, this.knowledgeBucket.bucketArn],
+        conditions: {
+          StringLike: {
+            "s3:prefix": [`tenants/${TENANT_TAG}/tenant/*`, `tenants/${TENANT_TAG}/projects/${PROJECT_TAG}/*`],
+          },
+        },
       }),
     );
     this.tenantSessionRole.addToPolicy(
@@ -724,6 +838,36 @@ export class CortexKnowledgeStack extends Ew2Stack {
       }),
     );
 
+    // ── Web app: signs document uploads as the user's tenant and project ──
+    // The web checks the user's project grant in the tenancy table, then assumes the
+    // tenant-session role tagged with that tenant and project and signs the upload
+    // with it, so S3 itself refuses any key outside them. The web role gets no
+    // access to the Cortex buckets of its own.
+    const webRole = iam.Role.fromRoleName(this, "WebTaskRole", webTaskRoleName(stage));
+    new iam.Policy(this, "WebCortexUploads", {
+      policyName: resourceName(stage, "web-cortex-uploads"),
+      roles: [webRole],
+      statements: [
+        new iam.PolicyStatement({
+          sid: "AssumeTenantSession",
+          actions: ["sts:AssumeRole", "sts:TagSession"],
+          resources: [this.tenantSessionRole.roleArn],
+        }),
+        new iam.PolicyStatement({
+          sid: "StartRemovals",
+          actions: ["states:StartExecution"],
+          resources: [this.removal.stateMachineArn],
+        }),
+        // Tenant status, its projects and the user's grants (the web role already
+        // decrypts with the stage key; see compute-stack.ts).
+        new iam.PolicyStatement({
+          sid: "ReadProjectGrants",
+          actions: ["dynamodb:GetItem", "dynamodb:Query"],
+          resources: [props.tenancyTable.tableArn],
+        }),
+      ],
+    });
+
     new cdk.CfnOutput(this, "IntakeBucketName", { value: this.intakeBucket.bucketName });
     new cdk.CfnOutput(this, "KnowledgeBucketName", { value: this.knowledgeBucket.bucketName });
     new cdk.CfnOutput(this, "KnowledgeClusterArn", { value: this.cluster.clusterArn });
@@ -733,6 +877,7 @@ export class CortexKnowledgeStack extends Ew2Stack {
     new cdk.CfnOutput(this, "ParsedBucketName", { value: this.parsedBucket.bucketName });
     new cdk.CfnOutput(this, "DocumentParsingProjectArn", { value: parsing.attrProjectArn });
     new cdk.CfnOutput(this, "IngestionStateMachineArn", { value: this.ingestion.stateMachineArn });
+    new cdk.CfnOutput(this, "RemovalStateMachineArn", { value: this.removal.stateMachineArn });
     new cdk.CfnOutput(this, "MalwareProtectionPlanId", { value: scanPlan.attrMalwareProtectionPlanId });
     new cdk.CfnOutput(this, "TenantSessionRoleArn", { value: this.tenantSessionRole.roleArn });
     new cdk.CfnOutput(this, "SearchFunctionName", { value: this.searchFn.functionName });

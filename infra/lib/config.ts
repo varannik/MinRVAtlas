@@ -189,6 +189,39 @@ export function cortexBucketName(
   return `${STACK_PREFIX}-${stage}-cortex-${kind}-${account}`;
 }
 
+/** Cortex names the web app is told about; fixed, so no cross-stack exports are needed. */
+export function cortexTenancyTableName(stage: StageName): string {
+  return resourceName(stage, "cortex-tenancy");
+}
+
+export function cortexTenantSessionRoleName(stage: StageName): string {
+  return resourceName(stage, "cortex-tenant-session");
+}
+
+/** State machine the web starts to take a project document out of Cortex. */
+export function cortexRemovalStateMachineName(stage: StageName): string {
+  return resourceName(stage, "cortex-removal");
+}
+
+export function webTaskRoleName(stage: StageName): string {
+  return resourceName(stage, "web-task");
+}
+
+/**
+ * Browser origins the web app is served from (custom domain, CloudFront), plus
+ * localhost on the sandbox. Browsers upload documents straight to the Cortex
+ * intake bucket, so these are its CORS origins.
+ */
+export function webOrigins(cfg: StageConfig): string[] {
+  const origins = new Set<string>();
+  if (cfg.domainName) origins.add(`https://${cfg.domainName}`);
+  for (const url of [cfg.cognitoCallbackUrl, cfg.cognitoLogoutUrl]) {
+    if (url?.startsWith("https://")) origins.add(new URL(url).origin);
+  }
+  if (cfg.stageName === "sandbox") origins.add("http://localhost:3000");
+  return [...origins];
+}
+
 /**
  * Bedrock Data Automation profile for documents. Created in London it routes only
  * to eu-west-2, so parsing stays in the UK (docs: bda-cris).

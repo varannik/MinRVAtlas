@@ -18,6 +18,10 @@ import {
   appSecretName,
   cfnStackName,
   cognitoClientSecretName,
+  cortexBucketName,
+  cortexRemovalStateMachineName,
+  cortexTenancyTableName,
+  cortexTenantSessionRoleName,
   ecrSentinelRepo,
   ecrWebRepo,
   entraSecretName,
@@ -28,6 +32,7 @@ import {
   projectLocationsParamName,
   resourceName,
   sessionKeySecretName,
+  webTaskRoleName,
 } from "./config";
 import { Ew2Stack, type Ew2StackProps } from "./ew2-stack";
 import type { MinrvSecurityGroups } from "./network-stack";
@@ -204,6 +209,17 @@ export class ComputeStack extends Ew2Stack {
         COGNITO_ISSUER: `https://cognito-idp.${REGION}.amazonaws.com/${props.userPoolId}`,
         COGNITO_REDIRECT_URI: redirectUri,
         ...(logoutUrl ? { COGNITO_LOGOUT_URL: logoutUrl } : {}),
+        // Cortex document uploads: the web signs them with a tenant-scoped session
+        // (granted in the cortex-knowledge stack, which is deployed after this one).
+        ...(cfg.cortex.enabled
+          ? {
+              CORTEX_INTAKE_BUCKET: cortexBucketName(cfg.stageName, "intake"),
+              CORTEX_KNOWLEDGE_BUCKET: cortexBucketName(cfg.stageName, "knowledge"),
+              CORTEX_TENANCY_TABLE: cortexTenancyTableName(cfg.stageName),
+              CORTEX_TENANT_SESSION_ROLE_ARN: `arn:aws:iam::${ACCOUNT}:role/${cortexTenantSessionRoleName(cfg.stageName)}`,
+              CORTEX_REMOVAL_STATE_MACHINE_ARN: `arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:${cortexRemovalStateMachineName(cfg.stageName)}`,
+            }
+          : {}),
       },
       secrets: {
         ISOMETRIC_CLIENT_SECRET: ecs.Secret.fromSecretsManager(
@@ -540,7 +556,7 @@ export class ComputeStack extends Ew2Stack {
   private createWebTaskRole(props: ComputeStackProps): iam.Role {
     const { cfg, keyArn } = props;
     const role = new iam.Role(this, "WebTaskRole", {
-      roleName: resourceName(cfg.stageName, "web-task"),
+      roleName: webTaskRoleName(cfg.stageName),
       assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
     });
     role.addToPolicy(

@@ -5,7 +5,7 @@ import * as kms from "aws-cdk-lib/aws-kms";
 import * as scheduler from "aws-cdk-lib/aws-scheduler";
 import * as avp from "aws-cdk-lib/aws-verifiedpermissions";
 import { Construct } from "constructs";
-import { cfnStackName, resourceName } from "../config";
+import { cfnStackName, cortexTenancyTableName, resourceName } from "../config";
 import { Ew2Stack, type Ew2StackProps } from "../ew2-stack";
 
 export interface CortexCoreStackProps extends Ew2StackProps {
@@ -37,7 +37,7 @@ export class CortexCoreStack extends Ew2Stack {
     const removal = cfg.deletionProtection ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY;
 
     this.tenancyTable = new dynamodb.Table(this, "Tenancy", {
-      tableName: resourceName(cfg.stageName, "cortex-tenancy"),
+      tableName: cortexTenancyTableName(cfg.stageName),
       partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,

@@ -6,8 +6,9 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import type { CapabilityId, IntakeKind } from "@/lib/cortex/capabilities";
 
 /**
- * What the operator has given Cortex, kept in this browser until the new
- * backend exists. File contents are never stored, only their description.
+ * Data files and details the operator has given Cortex, kept in this browser
+ * until their backend exists (documents are uploaded; see document-intake.tsx).
+ * File contents are never stored, only their description.
  */
 export interface StagedItem {
   id: string;
@@ -26,7 +27,10 @@ type CortexState = {
   selected: Focus;
   hovered: Focus;
   staged: StagedItem[];
+  /** Cortex project that documents are sent to (from the tenancy table). */
+  projectId: string | null;
   select: (focus: Focus) => void;
+  setProject: (projectId: string) => void;
   hover: (focus: Focus) => void;
   stageFiles: (capabilityId: CapabilityId, kind: IntakeKind, files: File[]) => void;
   stageMetadata: (
@@ -50,7 +54,9 @@ export const useCortex = create<CortexState>()(
       selected: null,
       hovered: null,
       staged: [],
+      projectId: null,
       select: (focus) => set({ selected: focus }),
+      setProject: (projectId) => set({ projectId }),
       hover: (focus) => set({ hovered: focus }),
       stageFiles: (capabilityId, kind, files) =>
         set((state) => ({
@@ -87,7 +93,7 @@ export const useCortex = create<CortexState>()(
     {
       name: "minrv-cortex-staged-v1",
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ staged: state.staged }),
+      partialize: (state) => ({ staged: state.staged, projectId: state.projectId }),
     },
   ),
 );

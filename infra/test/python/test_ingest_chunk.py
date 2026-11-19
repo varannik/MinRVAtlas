@@ -71,6 +71,19 @@ class PassageMetadataTest(unittest.TestCase):
         self.assertFalse(access.visible(outsider, project))
 
 
+class SupersededTest(unittest.TestCase):
+    """A run must not write passages for a document removed or replaced while it was parsed."""
+
+    def test_current_document_is_written(self):
+        self.assertIsNone(ingest_chunk.superseded(SHARED, {"doc_id": SHARED["doc_id"]}))
+
+    def test_removed_document_is_not_written(self):
+        self.assertIn("removed", ingest_chunk.superseded(SHARED, {}))
+
+    def test_document_replaced_by_a_newer_upload_is_not_written(self):
+        self.assertIn("newer upload", ingest_chunk.superseded(SHARED, {"doc_id": "a-newer-upload"}))
+
+
 class CitationTest(unittest.TestCase):
     def test_cites_the_original_document_rule_and_page(self):
         os.environ["KNOWLEDGE_BUCKET"] = "knowledge-bucket"
