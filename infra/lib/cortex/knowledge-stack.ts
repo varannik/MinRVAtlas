@@ -22,6 +22,7 @@ import { Construct } from "constructs";
 import {
   CORTEX_EMBEDDING_DIMENSIONS,
   CORTEX_EMBEDDING_MODEL,
+  bdaProfileArn,
   cfnStackName,
   cortexBucketName,
   logGroupName,
@@ -54,12 +55,16 @@ export interface CortexKnowledgeStackProps extends Ew2StackProps {
 export class CortexKnowledgeStack extends Ew2Stack {
   public readonly intakeBucket: s3.Bucket;
   public readonly knowledgeBucket: s3.Bucket;
+  /** Data Automation output and rule passages: a projection, rebuilt from the knowledge bucket. */
+  public readonly parsedBucket: s3.Bucket;
   public readonly cluster: rds.DatabaseCluster;
   public readonly appSecret: secretsmanager.Secret;
   public readonly knowledgeBase: bedrock.CfnKnowledgeBase;
   public readonly dataSource: bedrock.CfnDataSource;
   public readonly ingestion: sfn.StateMachine;
   public readonly admitFn: lambda.Function;
+  public readonly parseFn: lambda.Function;
+  public readonly chunkFn: lambda.Function;
   public readonly searchFn: lambda.Function;
   /** Assumed with tenant_id (and project_id) session tags; can only reach that tenant's data. */
   public readonly tenantSessionRole: iam.Role;
@@ -105,6 +110,19 @@ export class CortexKnowledgeStack extends Ew2Stack {
       lifecycleRules: [
         { abortIncompleteMultipartUploadAfter: cdk.Duration.days(1) },
         { noncurrentVersionExpiration: cdk.Duration.days(cfg.deletionProtection ? 3650 : 90) },
+      ],
+    });
+    // Nothing here is the record: it is rebuilt by re-ingesting from the knowledge
+    // bucket, so it is not versioned and is emptied when the stack goes.
+    this.parsedBucket = new s3.Bucket(this, "Parsed", {
+      ...bucketBase,
+      bucketName: cortexBucketName(stage, "parsed"),
+      versioned: false,
+      autoDeleteObjects: !cfg.deletionProtection,
+      lifecycleRules: [
+        { abortIncompleteMultipartUploadAfter: cdk.Duration.days(1) },
+        // Raw Data Automation output is only read once, by the chunk task.
+        { prefix: "bda/", expiration: cdk.Duration.days(30) },
       ],
     });
 
@@ -308,8 +326,9 @@ export class CortexKnowledgeStack extends Ew2Stack {
           resources: [this.cluster.clusterArn],
         }),
         new iam.PolicyStatement({ actions: ["secretsmanager:GetSecretValue"], resources: [kbSecret.secretArn] }),
-        new iam.PolicyStatement({ actions: ["s3:ListBucket"], resources: [this.knowledgeBucket.bucketArn] }),
-        new iam.PolicyStatement({ actions: ["s3:GetObject"], resources: [this.knowledgeBucket.arnForObjects("*")] }),
+        // The index is built from rule passages, never from the originals.
+        new iam.PolicyStatement({ actions: ["s3:ListBucket"], resources: [this.parsedBucket.bucketArn] }),
+        new iam.PolicyStatement({ actions: ["s3:GetObject"], resources: [this.parsedBucket.arnForObjects("chunks/*")] }),
         new iam.PolicyStatement({ actions: ["kms:Decrypt", "kms:GenerateDataKey"], resources: [props.keyArn] }),
       ],
     });
@@ -347,25 +366,42 @@ export class CortexKnowledgeStack extends Ew2Stack {
       },
     });
     this.knowledgeBase.node.addDependency(schema, kbPolicy);
-    this.dataSource = new bedrock.CfnDataSource(this, "KnowledgeSource", {
+    // One file per rule passage (ingest_chunk.py), so the knowledge base does no
+    // chunking of its own: each passage is one search result, cited by its rule.
+    this.dataSource = new bedrock.CfnDataSource(this, "ClauseSource", {
       knowledgeBaseId: this.knowledgeBase.attrKnowledgeBaseId,
-      name: resourceName(stage, "cortex-knowledge-s3"),
-      description: "Admitted documents with .metadata.json scope files (shared/, tenants/<t>/tenant/, tenants/<t>/projects/<p>/)",
+      name: resourceName(stage, "cortex-knowledge-clauses"),
+      description:
+        "Rule passages from Data Automation output, with scope, clause_ref, section and page metadata (chunks/ in the parsed bucket)",
       dataDeletionPolicy: "DELETE",
       dataSourceConfiguration: {
         type: "S3",
-        s3Configuration: { bucketArn: this.knowledgeBucket.bucketArn },
+        s3Configuration: { bucketArn: this.parsedBucket.bucketArn, inclusionPrefixes: ["chunks/"] },
       },
       vectorIngestionConfiguration: {
-        chunkingConfiguration: {
-          chunkingStrategy: "HIERARCHICAL",
-          hierarchicalChunkingConfiguration: {
-            levelConfigurations: [{ maxTokens: 1500 }, { maxTokens: 300 }],
-            overlapTokens: 60,
+        chunkingConfiguration: { chunkingStrategy: "NONE" },
+      },
+    });
+
+    // ── Document parsing (Bedrock Data Automation, London only) ─────────
+    const parsing = new bedrock.CfnDataAutomationProject(this, "DocumentParsing", {
+      projectName: resourceName(stage, "cortex-documents"),
+      projectDescription: "Layout elements of admitted documents, in reading order, for rule-by-rule passages",
+      standardOutputConfiguration: {
+        document: {
+          extraction: {
+            granularity: { types: ["PAGE", "ELEMENT"] },
+            boundingBox: { state: "DISABLED" },
+          },
+          generativeField: { state: "DISABLED" },
+          outputFormat: {
+            textFormat: { types: ["MARKDOWN", "PLAIN_TEXT"] },
+            additionalFileFormat: { state: "DISABLED" },
           },
         },
       },
     });
+    const profileArn = bdaProfileArn(this.region, this.account);
 
     // ── Ingestion: scanned upload -> admit -> index -> event ────────────
     const fnLog = (name: string) =>
@@ -403,6 +439,54 @@ export class CortexKnowledgeStack extends Ew2Stack {
         conditions: { ArnNotEquals: { "aws:PrincipalArn": this.admitFn.role!.roleArn } },
       }),
     );
+
+    // Data Automation reads the admitted copy and writes its output with this
+    // function's permissions, so it can read the knowledge bucket and write bda/.
+    this.parseFn = new lambda.Function(this, "Parse", {
+      functionName: resourceName(stage, "cortex-parse"),
+      description: "Start Bedrock Data Automation on an admitted document, and report its status",
+      runtime: PYTHON,
+      handler: "ingest_parse.handler",
+      code,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      logGroup: fnLog("Parse"),
+      environment: {
+        KNOWLEDGE_BUCKET: this.knowledgeBucket.bucketName,
+        PARSED_BUCKET: this.parsedBucket.bucketName,
+        BDA_PROJECT_ARN: parsing.attrProjectArn,
+        BDA_PROFILE_ARN: profileArn,
+      },
+    });
+    this.knowledgeBucket.grantRead(this.parseFn);
+    this.parsedBucket.grantReadWrite(this.parseFn, "bda/*");
+    this.parseFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeDataAutomationAsync"],
+        resources: [parsing.attrProjectArn, profileArn],
+      }),
+    );
+    this.parseFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:GetDataAutomationStatus"],
+        resources: [`arn:aws:bedrock:${this.region}:${this.account}:data-automation-invocation/*`],
+      }),
+    );
+
+    this.chunkFn = new lambda.Function(this, "Chunk", {
+      functionName: resourceName(stage, "cortex-chunk"),
+      description: "Turn Data Automation output into one passage per methodology rule",
+      runtime: PYTHON,
+      handler: "ingest_chunk.handler",
+      code,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+      logGroup: fnLog("Chunk"),
+      environment: { PARSED_BUCKET: this.parsedBucket.bucketName },
+    });
+    this.parsedBucket.grantRead(this.chunkFn, "bda/*");
+    this.parsedBucket.grantReadWrite(this.chunkFn, "chunks/*");
+    this.parsedBucket.grantDelete(this.chunkFn, "chunks/*");
 
     const admit = new tasks.LambdaInvoke(this, "AdmitUpload", {
       lambdaFunction: this.admitFn,
@@ -456,10 +540,65 @@ export class CortexKnowledgeStack extends Ew2Stack {
       });
     const rejected = announce("AnnounceRejected", "DocumentRejected", "$.rejection");
     admit.addCatch(rejected, { errors: ["Rejected"], resultPath: "$.rejection" });
+
+    // Parse: start Data Automation, then poll until it finishes (a 100-page PDF takes minutes).
+    const parseStatusFields = {
+      "invocationArn.$": "$.Payload.invocationArn",
+      "status.$": "$.Payload.status",
+      "jobMetadata.$": "$.Payload.jobMetadata",
+      "error.$": "$.Payload.error",
+    };
+    const startParse = new tasks.LambdaInvoke(this, "StartParse", {
+      lambdaFunction: this.parseFn,
+      payload: sfn.TaskInput.fromObject({ action: "start", "document.$": "$.admitted.document" }),
+      resultSelector: parseStatusFields,
+      resultPath: "$.parse",
+      retryOnServiceExceptions: true,
+    });
+    const waitForParse = new sfn.Wait(this, "WaitForParse", {
+      time: sfn.WaitTime.duration(cdk.Duration.seconds(20)),
+    });
+    const parseStatus = new tasks.LambdaInvoke(this, "ParseStatus", {
+      lambdaFunction: this.parseFn,
+      payload: sfn.TaskInput.fromObject({ action: "status", "invocationArn.$": "$.parse.invocationArn" }),
+      resultSelector: parseStatusFields,
+      resultPath: "$.parse",
+      retryOnServiceExceptions: true,
+    });
+    const chunk = new tasks.LambdaInvoke(this, "ChunkByRule", {
+      lambdaFunction: this.chunkFn,
+      payload: sfn.TaskInput.fromObject({
+        "document.$": "$.admitted.document",
+        "jobMetadata.$": "$.parse.jobMetadata",
+      }),
+      resultSelector: { "passages.$": "$.Payload.passages", "rules.$": "$.Payload.rules" },
+      resultPath: "$.chunks",
+      retryOnServiceExceptions: true,
+    });
+    const parseFailed = announce("AnnounceParseFailed", "DocumentParseFailed", "$.parse").next(
+      // The DocumentParseFailed event carries BDA's own error; it can be empty, so the cause is fixed.
+      new sfn.Fail(this, "ParseFailed", { error: "ParseFailed", cause: "Bedrock Data Automation did not succeed" }),
+    );
+    const noText = announce("AnnounceNoText", "DocumentParseFailed", "$.noText");
+    chunk.addCatch(noText, { errors: ["NoText"], resultPath: "$.noText" });
+    const parsed = new sfn.Choice(this, "ParseDone")
+      .when(
+        sfn.Condition.stringEquals("$.parse.status", "Success"),
+        chunk.next(startIndex).next(announce("AnnounceAdmitted", "DocumentAdmitted", "$.admitted.document")),
+      )
+      .when(
+        sfn.Condition.or(
+          sfn.Condition.stringEquals("$.parse.status", "Created"),
+          sfn.Condition.stringEquals("$.parse.status", "InProgress"),
+        ),
+        waitForParse,
+      )
+      .otherwise(parseFailed);
+
     this.ingestion = new sfn.StateMachine(this, "Ingestion", {
       stateMachineName: resourceName(stage, "cortex-ingestion"),
       definitionBody: sfn.DefinitionBody.fromChainable(
-        admit.next(startIndex).next(announce("AnnounceAdmitted", "DocumentAdmitted", "$.admitted.document")),
+        admit.next(startParse).next(waitForParse).next(parseStatus).next(parsed),
       ),
       tracingEnabled: true,
       logs: {
@@ -504,6 +643,8 @@ export class CortexKnowledgeStack extends Ew2Stack {
       logGroup: fnLog("Search"),
       environment: {
         KNOWLEDGE_BASE_ID: this.knowledgeBase.attrKnowledgeBaseId,
+        // Citations point at the original document, not the passage file.
+        KNOWLEDGE_BUCKET: this.knowledgeBucket.bucketName,
         TENANCY_TABLE: props.tenancyTable.tableName,
       },
     });
@@ -589,6 +730,8 @@ export class CortexKnowledgeStack extends Ew2Stack {
     new cdk.CfnOutput(this, "AppDbSecretArn", { value: this.appSecret.secretArn });
     new cdk.CfnOutput(this, "KnowledgeBaseId", { value: this.knowledgeBase.attrKnowledgeBaseId });
     new cdk.CfnOutput(this, "DataSourceId", { value: this.dataSource.attrDataSourceId });
+    new cdk.CfnOutput(this, "ParsedBucketName", { value: this.parsedBucket.bucketName });
+    new cdk.CfnOutput(this, "DocumentParsingProjectArn", { value: parsing.attrProjectArn });
     new cdk.CfnOutput(this, "IngestionStateMachineArn", { value: this.ingestion.stateMachineArn });
     new cdk.CfnOutput(this, "MalwareProtectionPlanId", { value: scanPlan.attrMalwareProtectionPlanId });
     new cdk.CfnOutput(this, "TenantSessionRoleArn", { value: this.tenantSessionRole.roleArn });

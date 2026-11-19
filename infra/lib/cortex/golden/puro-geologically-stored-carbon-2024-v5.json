@@ -13,16 +13,19 @@
       "expect": ["15 years"]
     },
     {
-      "clause": "3.2.1",
+      "clause": "3.2.6",
+      "also": ["3.2.1"],
+      "page": 17,
       "question": "For how long must the injected CO2 stream be stored in the reservoir?",
-      "expect": ["1,000 years", "1000 years", "1 000 years", "thousand years"]
+      "expect": ["1,000 years", "1000 years", "1 000 years", "thousand years"],
+      "note": "The document states the 1,000-year requirement twice in the same words: 3.2.6 (\"The CO₂ Stream shall be injected ... for at least 1000 years\", the rule on the injected stream itself) and 3.2.1 (the definition of an eligible activity). Either citation answers the question."
     },
     {
       "clause": "4.3.1",
       "page": 30,
       "question": "How is the number of CORCs calculated for a monitoring period?",
       "expect": ["overall number of CORCs", "Cstored"],
-      "note": "Plain text extraction loses the equation's subscript letters (\"Cstored− Eproject− Elekge− Ereversl\"), so expect the clause's own words. On 19 Nov 2026 search returned the section intro on p.29 (Figure 3) instead of this clause: a parsing and clause-chunking gap, not a test to relax."
+      "note": "Before clause chunking (19 Nov 2026) search returned the section intro on p.29 instead of this clause; since rule passages it comes back first. Bedrock Data Automation keeps the equation (\"CORCs = Cstored - Eproject - Eleakage - Ereversal\")."
     }
   ]
 }

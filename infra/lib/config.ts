@@ -177,13 +177,24 @@ export function ecrCortexAgentRepo(): string {
   return `${STACK_PREFIX}-cortex-agent`;
 }
 
-/** Cortex buckets: `intake` (uploads, scanned) and `knowledge` (approved, indexed). */
+/**
+ * Cortex buckets: `intake` (uploads, scanned), `knowledge` (admitted originals)
+ * and `parsed` (Data Automation output and rule passages; rebuilt from knowledge).
+ */
 export function cortexBucketName(
   stage: StageName,
-  kind: "intake" | "knowledge",
+  kind: "intake" | "knowledge" | "parsed",
   account = ACCOUNT,
 ): string {
   return `${STACK_PREFIX}-${stage}-cortex-${kind}-${account}`;
+}
+
+/**
+ * Bedrock Data Automation profile for documents. Created in London it routes only
+ * to eu-west-2, so parsing stays in the UK (docs: bda-cris).
+ */
+export function bdaProfileArn(region: string, account: string): string {
+  return `arn:aws:bedrock:${region}:${account}:data-automation-profile/eu.data-automation-v1`;
 }
 
 /** Titan Text Embeddings V2 runs in-region in London; 1024 dimensions. */

@@ -58,6 +58,32 @@ def client():
     return _client
 
 
+def citation(item, metadata):
+    """One search result: the passage and where it comes from.
+
+    Passages are indexed from chunk files, so `source` points back to the
+    original document (its source_key in the knowledge bucket), with the rule
+    number, section and PDF page the passage starts on.
+    """
+    page = metadata.get("page")
+    if isinstance(page, float) and page.is_integer():
+        page = int(page)
+    bucket = os.environ.get("KNOWLEDGE_BUCKET")
+    source_key = metadata.get("source_key")
+    return {
+        "text": item.get("content", {}).get("text", ""),
+        "score": item.get("score"),
+        "scope": metadata.get("scope"),
+        "doc_id": metadata.get("doc_id"),
+        "clause_ref": metadata.get("clause_ref"),
+        "section": metadata.get("section"),
+        "page": page,
+        "source": f"s3://{bucket}/{source_key}"
+        if bucket and source_key
+        else item.get("location", {}).get("s3Location", {}).get("uri"),
+    }
+
+
 def tool_name(context):
     custom = getattr(getattr(context, "client_context", None), "custom", None) or {}
     return str(custom.get("bedrockAgentCoreToolName", "")).split("___")[-1]
@@ -90,16 +116,7 @@ def search(event, caller):
         if not access.visible(caller, metadata):
             dropped += 1
             continue
-        results.append(
-            {
-                "text": item.get("content", {}).get("text", ""),
-                "score": item.get("score"),
-                "scope": metadata.get("scope"),
-                "doc_id": metadata.get("doc_id"),
-                "clause_ref": metadata.get("clause_ref"),
-                "source": item.get("location", {}).get("s3Location", {}).get("uri"),
-            }
-        )
+        results.append(citation(item, metadata))
     if dropped:
         # A filter let something through that the second check stopped. Alarm on this.
         log.error(json.dumps({"cortex_security": "result_outside_scope", "tenant_id": caller["tenant_id"], "dropped": dropped}))

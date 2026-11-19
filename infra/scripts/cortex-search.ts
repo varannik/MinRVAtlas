@@ -29,7 +29,8 @@ interface Golden {
   edition: string;
   project_id: string;
   document: string;
-  questions: Array<{ clause: string; page?: number; question: string; expect: string[] }>;
+  /** clause: the rule that answers; also: other rules that state the same answer. */
+  questions: Array<{ clause: string; also?: string[]; page?: number; question: string; expect: string[] }>;
 }
 
 interface Passage {
@@ -38,7 +39,13 @@ interface Passage {
   scope?: string;
   doc_id?: string;
   clause_ref?: string | null;
+  section?: string | null;
+  page?: number | null;
   source?: string;
+}
+
+function cite(hit: Passage): string {
+  return `clause ${hit.clause_ref ?? "(none)"}${hit.page ? ` p.${hit.page}` : ""}${hit.section ? ` (${hit.section})` : ""}`;
 }
 
 const DEFAULT_GOLDEN = "lib/cortex/golden/puro-geologically-stored-carbon-2024-v5.json";
@@ -90,7 +97,9 @@ async function main(): Promise<void> {
     }
     console.log(`"${adHoc}" for ${golden.project_id}: ${results.length} passage(s)`);
     for (const [i, hit] of results.entries()) {
-      console.log(`\n#${i + 1} score=${hit.score?.toFixed(3)} scope=${hit.scope} ${path.basename(hit.source ?? "")}`);
+      console.log(
+        `\n#${i + 1} score=${hit.score?.toFixed(3)} scope=${hit.scope} ${path.basename(hit.source ?? "")} ${cite(hit)}`,
+      );
       console.log(`   ${flat(hit.text ?? "").slice(0, 400)}`);
     }
     return;
@@ -110,26 +119,27 @@ async function main(): Promise<void> {
     }
     if (results.length === 0) empty += 1;
     const fromDoc = results.filter((hit) => (hit.source ?? "").endsWith(`/${golden.document}`));
-    const match = fromDoc
+    const worded = fromDoc
       .map((hit) => ({ hit, phrase: q.expect.find((p) => flat(hit.text ?? "").toLowerCase().includes(p.toLowerCase())) }))
-      .find((candidate) => candidate.phrase);
+      .filter((candidate) => candidate.phrase);
+    // The answer must be the right wording, cited to a rule that states it.
+    const clauses = [q.clause, ...(q.also ?? [])];
+    const match = worded.find((candidate) => clauses.includes(candidate.hit.clause_ref ?? ""));
     if (match?.phrase) {
       const rank = results.indexOf(match.hit) + 1;
-      record(label, true, `rank ${rank}/${results.length}, score ${match.hit.score?.toFixed(3)}`);
+      record(label, true, `rank ${rank}/${results.length}, score ${match.hit.score?.toFixed(3)}, ${cite(match.hit)}`);
       console.log(`       "${around(match.hit.text ?? "", match.phrase)}"`);
-      console.log(
-        `       source ${match.hit.source}  doc ${match.hit.doc_id}  clause_ref ${match.hit.clause_ref ?? "(not set)"}`,
-      );
+      console.log(`       source ${match.hit.source}  doc ${match.hit.doc_id}`);
     } else {
-      record(
-        label,
-        false,
+      const reason =
         results.length === 0
           ? "no passages"
-          : `${results.length} passage(s), ${fromDoc.length} from ${golden.document}, none mention ${q.expect.join(" / ")}`,
-      );
+          : worded.length > 0
+            ? `the wording comes back, but cited as ${worded.map((w) => cite(w.hit)).join("; ")}, not clause ${clauses.join(" or ")}`
+            : `${results.length} passage(s), ${fromDoc.length} from ${golden.document}, none mention ${q.expect.join(" / ")}`;
+      record(label, false, reason);
       for (const hit of results.slice(0, 2)) {
-        console.log(`       ${path.basename(hit.source ?? "?")}: ${flat(hit.text ?? "").slice(0, 160)}…`);
+        console.log(`       ${cite(hit)}: ${flat(hit.text ?? "").slice(0, 160)}…`);
       }
     }
   }
