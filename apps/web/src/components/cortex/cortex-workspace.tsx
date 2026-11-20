@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, MessageSquareText } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 import {
@@ -149,6 +149,14 @@ export function CortexWorkspace({ pin = null, back = null }: { pin?: string | nu
         <p className="mt-2 hidden text-[13.5px] leading-snug text-white/82 sm:block">
           The expert that checks your MRV data. Open a pin to see what it does and teach it.
         </p>
+        <button
+          type="button"
+          onClick={() => select("core")}
+          className="pointer-events-auto mt-3 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[12.5px] font-semibold text-[#5536B0] shadow-sm transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        >
+          <MessageSquareText className="size-3.5" />
+          Ask Cortex
+        </button>
         {staged.length > 0 && (
           <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-[11.5px] font-semibold text-white backdrop-blur-md">
             <span className="size-1.5 rounded-full bg-white" />

@@ -159,6 +159,24 @@ export async function respondToAuthChallenge(
   return outcomeFromAuth(body);
 }
 
+/**
+ * New tokens from the refresh token kept in the session. The web client rotates
+ * refresh tokens, so the reply carries a new one that replaces the old.
+ */
+export async function getTokensFromRefreshToken(
+  cfg: CognitoConfig,
+  refreshToken: string,
+): Promise<{ accessToken: string; refreshToken?: string }> {
+  const body = await cognitoCall<InitiateAuthBody>(cfg, "GetTokensFromRefreshToken", {
+    ClientId: cfg.clientId,
+    ClientSecret: cfg.clientSecret,
+    RefreshToken: refreshToken,
+  });
+  const accessToken = body.AuthenticationResult?.AccessToken;
+  if (!accessToken) throw new CognitoIdpError("UnknownError", "Cognito did not return an access token");
+  return { accessToken, refreshToken: body.AuthenticationResult?.RefreshToken };
+}
+
 export async function forgotPassword(
   cfg: CognitoConfig,
   username: string,

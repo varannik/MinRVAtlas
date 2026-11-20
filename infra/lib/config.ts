@@ -230,6 +230,28 @@ export function bdaProfileArn(region: string, account: string): string {
   return `arn:aws:bedrock:${region}:${account}:data-automation-profile/eu.data-automation-v1`;
 }
 
+/**
+ * Claude for the Cortex agent, through the EU inference profile so prompts stay in
+ * EU regions. Effort sets how much it thinks (and so latency and cost) per answer.
+ * Sonnet 4.6 because this AWS account is refused newer Claude models (Nov 2026);
+ * move to eu.anthropic.claude-opus-5-5 once AWS opens it for the account.
+ */
+export const CORTEX_AGENT_MODEL = "eu.anthropic.claude-sonnet-4-6";
+export const CORTEX_AGENT_EFFORT = "medium";
+
+/**
+ * SSM parameter holding the Cortex agent runtime's ARN. AgentCore generates the
+ * runtime id, so the web app reads the ARN from here instead of being told it.
+ */
+export function cortexAgentRuntimeParamName(stage: StageName): string {
+  return `/minrv/ew2/${stage}/cortex/agent-runtime-arn`;
+}
+
+/** AgentCore runtime names allow letters, digits and underscores only. */
+export function cortexAgentRuntimeName(stage: StageName): string {
+  return `${STACK_PREFIX.replace(/-/g, "_")}_${stage}_cortex`;
+}
+
 /** Titan Text Embeddings V2 runs in-region in London; 1024 dimensions. */
 export const CORTEX_EMBEDDING_MODEL = "amazon.titan-embed-text-v2:0";
 export const CORTEX_EMBEDDING_DIMENSIONS = 1024;

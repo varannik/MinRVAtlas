@@ -18,6 +18,7 @@ import {
   appSecretName,
   cfnStackName,
   cognitoClientSecretName,
+  cortexAgentRuntimeParamName,
   cortexBucketName,
   cortexRemovalStateMachineName,
   cortexTenancyTableName,
@@ -218,6 +219,8 @@ export class ComputeStack extends Ew2Stack {
               CORTEX_TENANCY_TABLE: cortexTenancyTableName(cfg.stageName),
               CORTEX_TENANT_SESSION_ROLE_ARN: `arn:aws:iam::${ACCOUNT}:role/${cortexTenantSessionRoleName(cfg.stageName)}`,
               CORTEX_REMOVAL_STATE_MACHINE_ARN: `arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:${cortexRemovalStateMachineName(cfg.stageName)}`,
+              // Ask Cortex: the agent runtime's ARN, published by the cortex-agent stack.
+              CORTEX_AGENT_RUNTIME_PARAM: cortexAgentRuntimeParamName(cfg.stageName),
             }
           : {}),
       },

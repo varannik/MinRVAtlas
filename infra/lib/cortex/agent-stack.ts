@@ -6,13 +6,18 @@ import * as events from "aws-cdk-lib/aws-events";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
+import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 import {
-  BEDROCK_INFERENCE_PROFILE,
+  CORTEX_AGENT_EFFORT,
+  CORTEX_AGENT_MODEL,
   cfnStackName,
+  cortexAgentRuntimeName,
+  cortexAgentRuntimeParamName,
   ecrCortexAgentRepo,
   logGroupName,
   resourceName,
+  webTaskRoleName,
 } from "../config";
 import { Ew2Stack, type Ew2StackProps } from "../ew2-stack";
 import { LAMBDA_DIR, PYTHON } from "./knowledge-stack";
@@ -310,13 +315,16 @@ export class CortexAgentStack extends Ew2Stack {
           resources: ["*"],
         }),
       );
+      // The EU inference profile routes to the model in EU regions, so it needs the profile
+      // here and the model itself wherever the profile may send the request.
+      const foundationModel = CORTEX_AGENT_MODEL.replace(/^eu\./, "");
       runtimeRole.addToPolicy(
         new iam.PolicyStatement({
           sid: "Models",
           actions: ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
           resources: [
-            `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/${BEDROCK_INFERENCE_PROFILE}`,
-            "arn:aws:bedrock:*::foundation-model/anthropic.*",
+            `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/${CORTEX_AGENT_MODEL}`,
+            `arn:aws:bedrock:eu-*::foundation-model/${foundationModel}`,
           ],
         }),
       );
@@ -360,7 +368,7 @@ export class CortexAgentStack extends Ew2Stack {
       props.eventBus.grantPutEventsTo(runtimeRole);
 
       this.runtime = new agentcore.CfnRuntime(this, "Runtime", {
-        agentRuntimeName: `${underscored}_cortex`,
+        agentRuntimeName: cortexAgentRuntimeName(stage),
         description: "Cortex agent (LangGraph): chat, drafting and approval graphs",
         roleArn: runtimeRole.roleArn,
         agentRuntimeArtifact: {
@@ -374,15 +382,38 @@ export class CortexAgentStack extends Ew2Stack {
         // The agent forwards the user's token to the gateway, so tool calls carry the user's tenant.
         requestHeaderConfiguration: { requestHeaderAllowlist: ["Authorization"] },
         environmentVariables: {
+          CORTEX_REGION: this.region,
           GATEWAY_URL: this.gateway.attrGatewayUrl,
           MEMORY_ID: this.memory.attrMemoryId,
           CHECKPOINT_TABLE: props.checkpointsTable.tableName,
+          CHECKPOINT_TTL_DAYS: String(cfg.cortex.checkpointTtlDays),
           TENANT_SESSION_ROLE_ARN: props.tenantSessionRole.roleArn,
           EVENT_BUS: props.eventBus.eventBusName,
-          MODEL_ID: BEDROCK_INFERENCE_PROFILE,
+          MODEL_ID: CORTEX_AGENT_MODEL,
+          MODEL_EFFORT: CORTEX_AGENT_EFFORT,
+          // The agent checks each token again before acting on its tenant (apps/cortex-agent/cortex_agent/identity.py).
+          COGNITO_ISSUER: `https://cognito-idp.${this.region}.amazonaws.com/${props.userPool.userPoolId}`,
+          COGNITO_CLIENT_IDS: cdk.Fn.join(",", allowedClients),
         },
       });
       new cdk.CfnOutput(this, "RuntimeArn", { value: this.runtime.attrAgentRuntimeArn });
+
+      // The web app finds the runtime here (its id is generated) and calls it with the user's token.
+      const runtimeArnParam = new ssm.StringParameter(this, "RuntimeArnParam", {
+        parameterName: cortexAgentRuntimeParamName(stage),
+        description: "Cortex agent runtime ARN, read by the web app",
+        stringValue: this.runtime.attrAgentRuntimeArn,
+      });
+      new iam.Policy(this, "WebFindsCortexAgent", {
+        roles: [iam.Role.fromRoleName(this, "WebTaskRole", webTaskRoleName(stage))],
+        statements: [
+          new iam.PolicyStatement({
+            sid: "ReadCortexAgentRuntimeArn",
+            actions: ["ssm:GetParameter"],
+            resources: [runtimeArnParam.parameterArn],
+          }),
+        ],
+      });
     }
 
     new cdk.CfnOutput(this, "GatewayId", { value: this.gateway.attrGatewayIdentifier });

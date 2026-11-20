@@ -3,7 +3,27 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import type { AskSource } from "@/lib/cortex/ask";
 import type { CapabilityId, IntakeKind } from "@/lib/cortex/capabilities";
+
+/** One question to Cortex and its answer as it streams in. */
+export interface ChatTurn {
+  id: string;
+  question: string;
+  answer: string;
+  /** What Cortex is doing while it works ("Searching: …"). */
+  status: string | null;
+  sources: AskSource[];
+  cited: string[];
+  state: "asking" | "done" | "error";
+  error?: string;
+}
+
+/** A conversation with Cortex about one project. Its history lives with the agent. */
+export interface Chat {
+  conversationId: string;
+  turns: ChatTurn[];
+}
 
 /**
  * Data files and details the operator has given Cortex, kept in this browser
@@ -39,6 +59,11 @@ type CortexState = {
     fields: Record<string, string>,
   ) => void;
   unstage: (id: string) => void;
+  /** Conversations by project, for this page visit only (not stored in the browser). */
+  chats: Record<string, Chat>;
+  askStarted: (projectId: string, turn: ChatTurn) => void;
+  askUpdated: (projectId: string, turnId: string, change: (turn: ChatTurn) => ChatTurn) => void;
+  newChat: (projectId: string) => void;
 };
 
 function newId(): string {
@@ -89,6 +114,23 @@ export const useCortex = create<CortexState>()(
         })),
       unstage: (id) =>
         set((state) => ({ staged: state.staged.filter((item) => item.id !== id) })),
+      chats: {},
+      askStarted: (projectId, turn) =>
+        set((state) => {
+          const chat = state.chats[projectId] ?? { conversationId: newId(), turns: [] };
+          return { chats: { ...state.chats, [projectId]: { ...chat, turns: [...chat.turns, turn] } } };
+        }),
+      askUpdated: (projectId, turnId, change) =>
+        set((state) => {
+          const chat = state.chats[projectId];
+          if (!chat) return {};
+          const turns = chat.turns.map((turn) => (turn.id === turnId ? change(turn) : turn));
+          return { chats: { ...state.chats, [projectId]: { ...chat, turns } } };
+        }),
+      newChat: (projectId) =>
+        set((state) => ({
+          chats: { ...state.chats, [projectId]: { conversationId: newId(), turns: [] } },
+        })),
     }),
     {
       name: "minrv-cortex-staged-v1",

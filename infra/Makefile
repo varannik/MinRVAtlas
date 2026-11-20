@@ -12,6 +12,8 @@ ROOT       := $(abspath ..)
 IMAGE_TAG  ?= $(shell git -C $(ROOT) rev-parse HEAD 2>/dev/null || echo local)
 WEB_IMAGE_TAG ?=
 SENTINEL_IMAGE_TAG ?=
+# Cortex agent image to roll out (a commit SHA the pipeline built). Unset keeps the live one.
+CORTEX_AGENT_IMAGE_TAG ?=
 # 1 = force ECS desiredCount 0 (empty bootstrap only). Default: pin live tags.
 SCALE_TO_ZERO ?=
 WEB_REPO   ?= minrv-ew2-web
@@ -55,6 +57,12 @@ else
 export SENTINEL_IMAGE_TAG
 endif
 
+ifeq ($(CORTEX_AGENT_IMAGE_TAG),)
+unexport CORTEX_AGENT_IMAGE_TAG
+else
+export CORTEX_AGENT_IMAGE_TAG
+endif
+
 ifeq ($(SCALE_TO_ZERO),)
 unexport SCALE_TO_ZERO
 else
@@ -68,7 +76,7 @@ export STREAM_FROM STREAM_TO STREAM_PACK STREAM_LIST
 .PHONY: deps bootstrap status inventory synth diff deploy destroy push-images \
 	ci docker-build docker-push pipeline pipeline-start pipeline-status \
 	ecs-status logs rollback identity seed-cognito create-cognito-user seed-stream-s3 \
-	seed-cortex cortex-whoami cortex-search
+	seed-cortex cortex-whoami cortex-search cortex-ask
 
 deps:
 	npm install
@@ -159,6 +167,12 @@ cortex-whoami: identity
 # project (GOLDEN=… picks the set; CORTEX_SEARCH="…" asks one question instead).
 cortex-search: identity
 	npx ts-node --prefer-ts-exts scripts/cortex-search.ts
+
+# Answer check: the same known-answer questions put to the Cortex agent, which must
+# cite the rule and say what it says (CORTEX_ASK="…" asks one question instead;
+# CORTEX_AGENT_URL=http://127.0.0.1:8080/invocations uses a local agent).
+cortex-ask: identity
+	npx ts-node --prefer-ts-exts scripts/cortex-ask.ts
 
 # After minrv-ew2-{stage}-data has StreamBucketName.
 # From repo root: make seed-stream-s3

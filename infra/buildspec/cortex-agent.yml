@@ -1,0 +1,17 @@
+version: 0.2
+
+# Runs on an arm64 CodeBuild host: AgentCore Runtime takes linux/arm64 images only.
+cache:
+  paths:
+    - "/root/.cache/pip/**/*"
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.12
+    commands:
+      - echo "Python $(python3 --version)"
+      - chmod +x infra/buildspec/push-image.sh
+  build:
+    commands:
+      - infra/buildspec/push-image.sh

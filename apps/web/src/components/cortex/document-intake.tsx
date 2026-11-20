@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import { CircleAlert, CircleCheck, FileText, LoaderCircle, ShieldCheck, Trash2, X } from "lucide-react";
 
 import type { Capability, Lobe } from "@/lib/cortex/capabilities";
@@ -13,6 +13,7 @@ import {
   type DocumentStatus,
 } from "@/lib/cortex/uploads";
 import { useCortex } from "@/store/cortex-store";
+import { ProjectPicker, noProjectReason, readJson, useCortexProjects } from "./cortex-projects";
 
 /**
  * Documents on a Cortex pin go to the knowledge pipeline for one project:
@@ -22,22 +23,6 @@ import { useCortex } from "@/store/cortex-store";
  * replaces it (after a confirmation); a document can be removed from Cortex.
  * Anything Cortex cannot read yet stays staged in this browser, as before.
  */
-
-interface CortexProjectOption {
-  id: string;
-  name: string;
-  registry?: string;
-  methodology?: string;
-  edition?: string;
-}
-
-interface ProjectsReply {
-  configured: boolean;
-  tenantStatus: string;
-  projects: CortexProjectOption[];
-  canUpload: boolean;
-  canRemove: boolean;
-}
 
 interface UploadForm {
   url: string;
@@ -70,40 +55,6 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-async function readJson<T>(response: Response): Promise<T> {
-  const body = (await response.json().catch(() => ({}))) as T & { error?: string };
-  if (!response.ok) throw new Error(body.error ?? `Request failed (${response.status}).`);
-  return body;
-}
-
-// One request per page load; every panel shares it.
-let projectsRequest: Promise<ProjectsReply> | null = null;
-
-function loadProjects(): Promise<ProjectsReply> {
-  if (!projectsRequest) {
-    projectsRequest = fetch("/api/cortex/projects").then((response) => readJson<ProjectsReply>(response));
-    projectsRequest.catch(() => {
-      projectsRequest = null;
-    });
-  }
-  return projectsRequest;
-}
-
-function useCortexProjects(): { reply: ProjectsReply | null; error: string | null } {
-  const [reply, setReply] = useState<ProjectsReply | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    let live = true;
-    loadProjects()
-      .then((value) => live && setReply(value))
-      .catch((failure: Error) => live && setError(failure.message));
-    return () => {
-      live = false;
-    };
-  }, []);
-  return { reply, error };
-}
-
 /** S3 answers a refused POST with XML; show its message. */
 function storageError(xml: string, status: number): string {
   const message = /<Message>([^<]*)<\/Message>/.exec(xml)?.[1];
@@ -133,46 +84,6 @@ function newId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-// ── Project picker ──────────────────────────────────────────────────────────
-
-function ProjectPicker({
-  projects,
-  value,
-  onChange,
-}: {
-  projects: CortexProjectOption[];
-  value: string;
-  onChange: (id: string) => void;
-}) {
-  const selectId = useId();
-  const current = projects.find((project) => project.id === value);
-  return (
-    <div className="grid gap-1">
-      <label htmlFor={selectId} className="text-[11.5px] font-medium text-shale">
-        Project
-      </label>
-      <select
-        id={selectId}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-9 w-full min-w-0 rounded-lg border border-line bg-white px-2.5 text-[13px] text-rock outline-none focus:border-rock/60 focus:shadow-[0_0_0_3px_rgba(7,8,8,0.08)]"
-      >
-        {projects.map((project) => (
-          <option key={project.id} value={project.id}>
-            {project.name}
-          </option>
-        ))}
-      </select>
-      {current?.methodology && (
-        <span className="font-mono text-[10.5px] text-mist">
-          {current.methodology}
-          {current.edition ? ` · ${current.edition}` : ""}
-        </span>
-      )}
-    </div>
-  );
 }
 
 // ── Status ──────────────────────────────────────────────────────────────────
@@ -510,12 +421,8 @@ export function DocumentIntake({
     );
   }
   const project = reply.projects.find((item) => item.id === stored) ?? reply.projects[0];
-  if (!reply.configured || !project) {
-    const why = !reply.configured
-      ? "Document uploads are not set up on this deployment."
-      : reply.tenantStatus !== "active"
-        ? "Your organisation is not active on Cortex yet."
-        : "You have no Cortex project yet. An admin grants projects.";
+  const why = noProjectReason(reply, project);
+  if (why || !project) {
     return (
       <div className="grid gap-1.5">
         {renderDropzone(stageLocally)}

@@ -20,6 +20,23 @@
       "Resource": "arn:aws:states:eu-west-2:625239230739:stateMachine:minrv-ew2-*-cortex-removal"
     },
     {
+      "Sid": "CortexAgentRuntimeForDeployAndChecks",
+      "Effect": "Allow",
+      "Action": ["bedrock-agentcore:ListAgentRuntimes", "bedrock-agentcore:GetAgentRuntime"],
+      "Resource": "arn:aws:bedrock-agentcore:eu-west-2:625239230739:runtime/*"
+    },
+    {
+      "Sid": "CortexAgentModelForLocalRuns",
+      "Effect": "Allow",
+      "Action": ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"],
+      "Resource": [
+        "arn:aws:bedrock:eu-west-2:625239230739:inference-profile/eu.anthropic.claude-sonnet-4-6",
+        "arn:aws:bedrock:eu-*::foundation-model/anthropic.claude-sonnet-4-6",
+        "arn:aws:bedrock:eu-west-2:625239230739:inference-profile/eu.anthropic.claude-opus-5-5",
+        "arn:aws:bedrock:eu-*::foundation-model/anthropic.claude-opus-5-5"
+      ]
+    },
+    {
       "Sid": "CortexIngestionRuns",
       "Effect": "Allow",
       "Action": ["states:ListExecutions"],

@@ -146,7 +146,7 @@ export async function projectsFor(
   return { tenantStatus, projects };
 }
 
-async function requireProject(session: SessionPayload, env: CortexEnv, projectId: string): Promise<CortexProject> {
+export async function requireProject(session: SessionPayload, env: CortexEnv, projectId: string): Promise<CortexProject> {
   if (!CORTEX_ID.test(projectId)) throw new CortexRefusal("Unknown project.", 400);
   const { tenantStatus, projects } = await projectsFor(session, env);
   if (tenantStatus !== "active") throw new CortexRefusal("Your organisation is not active on Cortex.", 403);

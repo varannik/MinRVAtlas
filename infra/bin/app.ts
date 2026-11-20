@@ -6,7 +6,7 @@ import {
   sandboxConfig,
   type StageConfig,
 } from "../lib/config";
-import { resolveLiveImageTags } from "../lib/live-image-tags";
+import { liveCortexAgentImageTag, resolveLiveImageTags } from "../lib/live-image-tags";
 import { PipelineStack } from "../lib/pipeline-stack";
 import { RegistryStack } from "../lib/registry-stack";
 import { MinrvStage } from "../lib/stage";
@@ -89,13 +89,19 @@ function extras(stage: "sandbox" | "prod"): Partial<StageConfig> {
   };
 }
 
-/** Cortex agent image: no AgentCore Runtime is created until a tag is given. */
+/**
+ * Cortex agent image: no AgentCore Runtime is created until a tag is given. Without
+ * CORTEX_AGENT_IMAGE_TAG the runtime keeps the image it runs now.
+ */
 const cortexAgentImageTag =
   optionalString(app, "cortexAgentImageTag") ?? process.env.CORTEX_AGENT_IMAGE_TAG;
 function withCortex(cfg: StageConfig): StageConfig {
-  return cortexAgentImageTag
-    ? { ...cfg, cortex: { ...cfg.cortex, agentImageTag: cortexAgentImageTag } }
-    : cfg;
+  if (!cfg.cortex.enabled) return cfg;
+  const tag = cortexAgentImageTag ?? liveCortexAgentImageTag(cfg.stageName);
+  if (tag && !cortexAgentImageTag) {
+    console.log(`[minrv] live Cortex agent tag ${cfg.stageName}: ${tag}`);
+  }
+  return tag ? { ...cfg, cortex: { ...cfg.cortex, agentImageTag: tag } } : cfg;
 }
 
 new MinrvStage(app, "minrv-ew2-sandbox", {

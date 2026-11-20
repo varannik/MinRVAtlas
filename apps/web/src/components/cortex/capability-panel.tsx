@@ -25,6 +25,7 @@ import {
   type MetadataIntake,
 } from "@/lib/cortex/capabilities";
 import { stagedFor, useCortex, type StagedItem } from "@/store/cortex-store";
+import { AskCortex } from "./ask-cortex";
 import { DocumentIntake } from "./document-intake";
 
 const TIME = new Intl.DateTimeFormat("en-GB", {
@@ -560,9 +561,14 @@ export function CorePanel() {
         </span>
       }
       title="Cortex"
-      summary="The AI expert at the centre of MinRV data quality. Every pin is a capability carried over from Data Sentinel. Feed a pin and the expert learns from it."
+      summary="The AI expert at the centre of MinRV data quality. Ask it about your registry rules and project documents, or feed a pin to teach it."
       onClose={() => select(null)}
     >
+      <section className="grid min-w-0 gap-2.5" aria-label="Ask Cortex">
+        <SectionTitle>Ask Cortex</SectionTitle>
+        <AskCortex />
+      </section>
+
       <section className="grid gap-2.5">
         <SectionTitle>Staged in this browser</SectionTitle>
         <dl className="grid grid-cols-3 gap-2">

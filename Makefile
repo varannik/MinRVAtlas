@@ -12,6 +12,7 @@ AWS_PROFILE ?=
 IMAGE_TAG  ?=
 WEB_IMAGE_TAG ?=
 SENTINEL_IMAGE_TAG ?=
+CORTEX_AGENT_IMAGE_TAG ?=
 SCALE_TO_ZERO ?=
 STREAM_TENANT_ID ?=
 STREAM_REGISTRY_ID ?=
@@ -29,13 +30,15 @@ SINCE      ?= 1h
 
 .PHONY: bootstrap deploy diff destroy synth status inventory push-images \
 	ci docker-build docker-push pipeline pipeline-start pipeline-status \
-	ecs-status logs rollback seed-stream-s3 create-cognito-user
+	ecs-status logs rollback seed-stream-s3 create-cognito-user \
+	seed-cortex cortex-whoami cortex-search cortex-ask
 
 # Empty AWS_PROFILE= on the child command line is auto-exported and makes
 # `aws` look up a profile named "". Same for IMAGE_TAG vs the git-SHA default.
 bootstrap deploy diff destroy synth status inventory push-images \
 ci docker-build docker-push pipeline pipeline-start pipeline-status \
-ecs-status logs rollback seed-stream-s3 create-cognito-user:
+ecs-status logs rollback seed-stream-s3 create-cognito-user \
+seed-cortex cortex-whoami cortex-search cortex-ask:
 	$(MAKE) -C infra $@ \
 		ACCOUNT=$(ACCOUNT) \
 		REGION=$(REGION) \
@@ -46,6 +49,7 @@ ecs-status logs rollback seed-stream-s3 create-cognito-user:
 		$(if $(IMAGE_TAG),IMAGE_TAG=$(IMAGE_TAG)) \
 		$(if $(WEB_IMAGE_TAG),WEB_IMAGE_TAG=$(WEB_IMAGE_TAG)) \
 		$(if $(SENTINEL_IMAGE_TAG),SENTINEL_IMAGE_TAG=$(SENTINEL_IMAGE_TAG)) \
+		$(if $(CORTEX_AGENT_IMAGE_TAG),CORTEX_AGENT_IMAGE_TAG=$(CORTEX_AGENT_IMAGE_TAG)) \
 		$(if $(SCALE_TO_ZERO),SCALE_TO_ZERO=$(SCALE_TO_ZERO)) \
 		$(if $(STREAM_TENANT_ID),STREAM_TENANT_ID=$(STREAM_TENANT_ID)) \
 		$(if $(STREAM_REGISTRY_ID),STREAM_REGISTRY_ID=$(STREAM_REGISTRY_ID)) \

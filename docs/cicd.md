@@ -18,8 +18,11 @@ AWS CodePipeline V2  (queued executions)
     +-- Build (parallel)
     |     |-- CodeBuild minrv-ew2-{stage}-build-web
     |     |     tests (tsc + eslint) → docker build → ECR minrv-ew2-web:<git-sha>
-    |     `-- CodeBuild minrv-ew2-{stage}-build-sentinel
-    |           tests (pytest) → docker build → ECR minrv-ew2-sentinel:<git-sha>
+    |     |-- CodeBuild minrv-ew2-{stage}-build-sentinel
+    |     |     tests (pytest) → docker build → ECR minrv-ew2-sentinel:<git-sha>
+    |     `-- CodeBuild minrv-ew2-{stage}-build-cortex-agent  (arm64 host)
+    |           tests (pytest) → docker build linux/arm64 → ECR minrv-ew2-cortex-agent:<git-sha>
+    |           pushed only: `make deploy CORTEX_AGENT_IMAGE_TAG=<sha>` rolls it out (§7)
     |
     +-- Approve          (prod only, manual)
     |
@@ -38,7 +41,7 @@ There is **no** GitHub Actions workflow in this repository that builds images, p
 | --- | --- |
 | Source | GitHub via **CodeConnections** (not a PAT stored in CloudFormation) |
 | Pipeline | `minrv-ew2-sandbox-pipeline` / `minrv-ew2-prod-pipeline` CloudFormation stacks at the CDK app (not inside the landing-zone Stage). Pipeline names: `minrv-ew2-{stage}-app`. CodePipeline **V2**, `QUEUED`. |
-| Build | Two CodeBuild projects (web and Sentinel are independently deployable images) |
+| Build | Three CodeBuild projects: web and Sentinel (deployed to ECS by this pipeline) and the Cortex agent (pushed for AgentCore Runtime, which only runs `linux/arm64`) |
 | Registry | Existing `minrv-ew2-web` and `minrv-ew2-sentinel` (immutable tags, scan on push, AES-256) |
 | Runtime | Existing ECS **Fargate** cluster `minrv-ew2-{stage}-ecs` — services `web`, `api`, `worker`, `beat` |
 | Edge | CloudFront (prod) is **not** invalidated by this pipeline |
@@ -124,6 +127,7 @@ ECS circuit breaker also rolls back automatically when a new deployment fails he
 | Push SHA tags to ECR from a laptop | `make docker-push` | No (does not update ECS) |
 | Start the AWS pipeline | `make pipeline-start` | Sandbox yes; prod after console approval |
 | CloudFormation landing zone | `make deploy` | Only with `APP=minrv-ew2-prod CONFIRM=YES` |
+| Roll out a Cortex agent build | `make deploy CORTEX_AGENT_IMAGE_TAG=<commit sha>` after the pipeline built that commit. A plain `make deploy` keeps the image the runtime runs now. | Only with `APP=minrv-ew2-prod CONFIRM=YES` |
 
 ## 8. Logs
 
@@ -148,7 +152,8 @@ CodeBuild prints commit SHA, image URI, digest, ECR repository, ECS cluster, and
 | --- | --- |
 | Pipeline never starts on push | Connection `minrv-ew2-github` still **PENDING** — complete it in eu-west-2 Developer Tools → Connections. A connection in **eu-west-3** cannot drive this pipeline. |
 | Source action fails | GitHub App not authorized for `varannik/MinRVAtlas`, or wrong branch (`GITHUB_BRANCH`). |
-| Build fails on tests | Web: `tsc` / `eslint`. Sentinel: `pytest` under `ENVIRONMENT=test`. Fix code; do not skip. |
+| Build fails on tests | Web: `tsc` / `eslint`. Sentinel: `pytest` under `ENVIRONMENT=test`. Cortex agent: `pytest` in `apps/cortex-agent`. Fix code; do not skip. |
+| `make deploy` stops: could not read the live Cortex agent runtime | Synth pins the runtime's current image. Your user needs `bedrock-agentcore:ListAgentRuntimes` and `GetAgentRuntime` (`infra/iam/minrv-ew2-cortex-operator.json`), or pass `CORTEX_AGENT_IMAGE_TAG`. |
 | `Image tag already exists` then skip | Expected for immutable tags when sandbox and prod build the same SHA. |
 | Deploy succeeds, 0 running tasks | `desiredCount` is 0 — first create before images, or `SCALE_TO_ZERO=1`. See §5. |
 | Deploy fails then old tasks return | Circuit breaker rollback — inspect `make ecs-status` events and `/minrv/ew2/{stage}/…` logs. |

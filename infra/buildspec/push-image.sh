@@ -10,6 +10,8 @@ set -euo pipefail
 : "${APP_KIND:?}"
 : "${STAGE:=unknown}"
 : "${ECS_CLUSTER:=unknown}"
+# ECS runs linux/amd64; the Cortex agent (AgentCore Runtime) needs linux/arm64.
+: "${PLATFORM:=linux/amd64}"
 
 # Docker CLI treats DOCKER_CONTEXT as a named endpoint (desktop-linux, default).
 # CodeBuild must pass a filesystem path. Read it, then drop the reserved var.
@@ -37,12 +39,19 @@ echo "Image tag URI=${IMAGE_TAG_URI}"
 echo "ECS cluster=${ECS_CLUSTER}"
 echo "Stage=${STAGE}"
 echo "Containers=${CONTAINER_NAMES}"
+echo "Platform=${PLATFORM}"
 echo "CodeBuild id=${CODEBUILD_BUILD_ID:-local}"
 
 run_tests() {
   if [[ "${APP_KIND}" == "web" ]]; then
     echo "=== web lint + typecheck ==="
     (cd apps/web && npm ci && npx tsc --noEmit && npm run lint)
+    return
+  fi
+  if [[ "${APP_KIND}" == "cortex-agent" ]]; then
+    echo "=== cortex agent unit tests ==="
+    python3 -m pip install -q -r apps/cortex-agent/requirements.txt pytest
+    (cd apps/cortex-agent && python3 -m pytest -q --tb=short)
     return
   fi
   echo "=== sentinel unit tests ==="
@@ -66,7 +75,7 @@ else
   echo "=== docker build ${IMAGE_TAG_URI} ==="
   export DOCKER_BUILDKIT=1
   docker build \
-    --platform linux/amd64 \
+    --platform "${PLATFORM}" \
     -f "${DOCKERFILE}" \
     -t "${IMAGE_TAG_URI}" \
     "${BUILD_PATH}"

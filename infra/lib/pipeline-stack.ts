@@ -10,6 +10,7 @@ import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
 import {
   cfnStackName,
+  ecrCortexAgentRepo,
   ecrSentinelRepo,
   ecrWebRepo,
   logGroupName,
@@ -129,6 +130,28 @@ export class PipelineStack extends Ew2Stack {
       },
     });
 
+    // AgentCore Runtime runs arm64 images only, so the agent builds on an arm64 host.
+    // The image is pushed here; `make deploy CORTEX_AGENT_IMAGE_TAG=<sha>` rolls it out.
+    const cortexAgentRepo = ecr.Repository.fromRepositoryName(this, "CortexAgentRepo", ecrCortexAgentRepo());
+    const cortexAgentProject = this.buildProject({
+      id: "BuildCortexAgent",
+      projectName: resourceName(cfg.stageName, "build-cortex-agent"),
+      buildspec: "infra/buildspec/cortex-agent.yml",
+      logSuffix: "codebuild-cortex-agent",
+      retention,
+      removal,
+      repos: [cortexAgentRepo],
+      buildImage: codebuild.LinuxArmBuildImage.AMAZON_LINUX_2023_STANDARD_3_0,
+      env: {
+        ECR_REPOSITORY: ecrCortexAgentRepo(),
+        CONTAINER_NAMES: "cortex-agent",
+        DOCKERFILE: "apps/cortex-agent/Dockerfile",
+        BUILD_CONTEXT: "apps/cortex-agent",
+        APP_KIND: "cortex-agent",
+        PLATFORM: "linux/arm64",
+      },
+    });
+
     const sourceOutput = new codepipeline.Artifact("Source");
     const webOutput = new codepipeline.Artifact("WebBuild");
     const sentinelOutput = new codepipeline.Artifact("SentinelBuild");
@@ -188,6 +211,12 @@ export class PipelineStack extends Ew2Stack {
           project: sentinelProject,
           input: sourceOutput,
           outputs: [sentinelOutput],
+          runOrder: 1,
+        }),
+        new cpactions.CodeBuildAction({
+          actionName: "CortexAgent",
+          project: cortexAgentProject,
+          input: sourceOutput,
           runOrder: 1,
         }),
       ],
@@ -272,6 +301,8 @@ export class PipelineStack extends Ew2Stack {
     removal: cdk.RemovalPolicy;
     repos: ecr.IRepository[];
     env: Record<string, string>;
+    /** Default: x86_64 for the ECS services. */
+    buildImage?: codebuild.IBuildImage;
   }): codebuild.PipelineProject {
     const { cfg } = this;
     const logGroup = new logs.LogGroup(this, `${opts.id}Logs`, {
@@ -292,7 +323,7 @@ export class PipelineStack extends Ew2Stack {
         codebuild.LocalCacheMode.SOURCE,
       ),
       environment: {
-        buildImage: codebuild.LinuxBuildImage.STANDARD_7_0,
+        buildImage: opts.buildImage ?? codebuild.LinuxBuildImage.STANDARD_7_0,
         computeType: codebuild.ComputeType.LARGE,
         privileged: true,
       },
