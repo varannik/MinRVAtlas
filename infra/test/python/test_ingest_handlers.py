@@ -52,7 +52,12 @@ def answer(kind="registry_rules", title="Puro Standard General Rules", version="
     return {"title": title, "issuer": "Puro.earth", "version": version, "summary": "s", "kind": kind, "reason": "r"}
 
 
+def admitted(s3, key=KEY, doc_id="doc-1"):
+    s3.put(KNOWLEDGE, f"{key}.metadata.json", json.dumps({"metadataAttributes": {"doc_id": doc_id}}))
+
+
 def parsed_document(s3, text="Puro Standard General Rules\nVersion 4.4"):
+    admitted(s3)
     s3.put(PARSED, "bda/doc-1/job_metadata.json", json.dumps({"output_metadata": [{"standard_output_path": "s3://parsed/bda/doc-1/0/result.json"}]}))
     elements = [{"type": "TITLE", "page_indices": [0], "representation": {"text": text}}]
     s3.put(PARSED, "bda/doc-1/0/result.json", json.dumps({"elements": elements}))
@@ -113,12 +118,38 @@ class LabelTaskTest(Handlers):
         self.assertEqual(result, {"checked": False, "kind": None, "held": None})
         self.assertFalse(self.stored_label()["checked"])
 
+    def test_a_document_removed_or_replaced_while_claude_read_it_gets_no_label(self):
+        for change in ("removed", "replaced"):
+            with self.subTest(change=change):
+                parsed_document(self.s3)
+                if change == "removed":
+                    self.s3.delete_object(KNOWLEDGE, f"{KEY}.metadata.json")
+                else:
+                    admitted(self.s3, doc_id="doc-2")
+                result = self.label(FakeClaude(answer()))
+                self.assertEqual(result, {"checked": False, "kind": None, "held": None})
+                self.assertEqual(self.s3.keys(PARSED, "labels/"), [])
 
-class ChunkAreaTest(unittest.TestCase):
+
+class ChunkTaskTest(Handlers):
+    def chunk(self):
+        return ingest_chunk.handler({"document": {"key": KEY, "doc_id": "doc-1"}, "jobMetadata": JOB, "label": None}, None)
+
     def test_held_passages_go_where_the_index_does_not_read(self):
         self.assertEqual(ingest_chunk.passage_area({"held": "not_mrv"}), "held")
         self.assertEqual(ingest_chunk.passage_area({"held": None}), "chunks")
         self.assertEqual(ingest_chunk.passage_area(None), "chunks")
+
+    def test_a_removal_while_it_was_labelled_ends_the_run_as_superseded(self):
+        # The removal deleted the document and its parsed output before the chunk task read it.
+        with self.assertRaises(ingest_chunk.Superseded):
+            self.chunk()
+        self.assertEqual(self.s3.keys(PARSED), [])
+
+    def test_parsed_output_missing_for_a_current_document_is_still_an_error(self):
+        admitted(self.s3)
+        with self.assertRaises(self.s3.exceptions.NoSuchKey):
+            self.chunk()
 
 
 class ReviewTaskTest(Handlers):

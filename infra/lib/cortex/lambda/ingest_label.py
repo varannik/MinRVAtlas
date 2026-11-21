@@ -8,6 +8,10 @@ then writes the passages to held/ instead of chunks/ when the document is held.
 
 Labelling never blocks ingestion: if Claude cannot be reached or gives no usable
 answer, the document is labelled unchecked and searched as before.
+
+A document removed or replaced while Claude read it gets no label: the removal
+has already cleared labels/, and a label written after it would outlive the
+document (and could hold a later copy as the same as a document that is gone).
 """
 
 import json
@@ -16,6 +20,7 @@ import os
 from datetime import datetime, timezone
 
 import bda
+import current
 import labels
 import tenancy
 
@@ -103,6 +108,11 @@ def handler(event, _context):
     except Exception as error:  # Bedrock refused or throttled, no text, an unusable answer: search it unlabelled
         log.error(json.dumps({"cortex_label": "unlabelled", "key": document["key"], "error": type(error).__name__}))
         label = {"checked": False, "error": type(error).__name__}
+
+    reason = current.superseded(document, current.metadata(s3(), document["key"]))
+    if reason:  # the chunk task then ends the run as superseded
+        log.info(json.dumps({"cortex_label": "superseded", "key": document["key"], "reason": reason}))
+        return {"checked": False, "kind": None, "held": None}
 
     previous = _read_label(labels.label_key(document["key"]))
     others = neighbours(place, project) if label["checked"] else []

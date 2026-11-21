@@ -613,8 +613,11 @@ export class CortexKnowledgeStack extends Ew2Stack {
         PARSED_BUCKET: this.parsedBucket.bucketName,
         TENANCY_TABLE: props.tenancyTable.tableName,
         LABEL_MODEL: CORTEX_LABEL_MODEL,
+        // To write no label for a document removed or replaced while Claude read it.
+        KNOWLEDGE_BUCKET: this.knowledgeBucket.bucketName,
       },
     });
+    this.knowledgeBucket.grantRead(this.labelFn, "*.metadata.json");
     this.parsedBucket.grantRead(this.labelFn, "bda/*");
     this.parsedBucket.grantReadWrite(this.labelFn, "labels/*");
     props.tenancyTable.grantReadData(this.labelFn);

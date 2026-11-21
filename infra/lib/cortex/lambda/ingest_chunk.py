@@ -18,7 +18,9 @@ import os
 import access
 import bda
 import clauses
+import current
 from bda import result_paths  # noqa: F401  (re-exported for tests)
+from current import superseded  # noqa: F401  (re-exported for tests)
 
 _s3 = None
 
@@ -34,20 +36,6 @@ class Superseded(Exception):
     """The document was removed or replaced while it was parsed. Step Functions catches this by name."""
 
 
-def superseded(document, current):
-    """Why this run must not write passages, or None.
-
-    current is the admitted document's metadata as it is now. A removal deletes
-    it; a newer upload of the same file rewrites it with a new doc_id. Either
-    way this run's passages would bring back what the user no longer has.
-    """
-    if not current:
-        return "it was removed from Cortex while it was being parsed"
-    if current.get("doc_id") != document.get("doc_id"):
-        return "a newer upload of the same file replaced it while it was being parsed"
-    return None
-
-
 def s3():
     global _s3
     if _s3 is None:
@@ -57,12 +45,10 @@ def s3():
     return _s3
 
 
-def _current_metadata(key):
-    try:
-        body = s3().get_object(Bucket=os.environ["KNOWLEDGE_BUCKET"], Key=f"{key}.metadata.json")["Body"].read()
-    except s3().exceptions.NoSuchKey:
-        return {}
-    return (json.loads(body) or {}).get("metadataAttributes") or {}
+def _check_current(document):
+    reason = current.superseded(document, current.metadata(s3(), document["key"]))
+    if reason:
+        raise Superseded(f"Passages for {document['key']} not written: {reason}.")
 
 
 def _delete_prefix(bucket, prefix):
@@ -93,13 +79,14 @@ def passage_area(label):
 
 def handler(event, _context):
     document = event["document"]
-    found = clauses.passages(bda.elements(s3(), event["jobMetadata"]))
+    try:
+        found = clauses.passages(bda.elements(s3(), event["jobMetadata"]))
+    except s3().exceptions.NoSuchKey:
+        _check_current(document)  # a removal deletes the parsed output with the document
+        raise
     if not found:
         raise NoText(f"No readable text in {document['key']}")
-
-    reason = superseded(document, _current_metadata(document["key"]))
-    if reason:
-        raise Superseded(f"Passages for {document['key']} not written: {reason}.")
+    _check_current(document)
 
     bucket = os.environ["PARSED_BUCKET"]
     area = passage_area(event.get("label"))
