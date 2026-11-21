@@ -5,7 +5,7 @@ import * as kms from "aws-cdk-lib/aws-kms";
 import * as scheduler from "aws-cdk-lib/aws-scheduler";
 import * as avp from "aws-cdk-lib/aws-verifiedpermissions";
 import { Construct } from "constructs";
-import { cfnStackName, cortexTenancyTableName, resourceName } from "../config";
+import { cfnStackName, cortexJourneyTableName, cortexTenancyTableName, resourceName } from "../config";
 import { Ew2Stack, type Ew2StackProps } from "../ew2-stack";
 
 export interface CortexCoreStackProps extends Ew2StackProps {
@@ -22,6 +22,8 @@ export class CortexCoreStack extends Ew2Stack {
   public readonly tenancyTable: dynamodb.Table;
   /** LangGraph checkpoints (AWS DynamoDBSaver: PK/SK strings, ttl). Thread ids start "{tenant}#{project}#". */
   public readonly checkpointsTable: dynamodb.Table;
+  /** Each project's journey (pk TENANT#<t>#PROJECT#<p>): sk JOURNEY, and CHANGE#<version> per change. */
+  public readonly journeysTable: dynamodb.Table;
   public readonly eventBus: events.EventBus;
   public readonly scheduleGroup: scheduler.ScheduleGroup;
   public readonly policyStore: avp.CfnPolicyStore;
@@ -53,6 +55,22 @@ export class CortexCoreStack extends Ew2Stack {
       partitionKey: { name: "PK", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "SK", type: dynamodb.AttributeType.STRING },
       timeToLiveAttribute: "ttl",
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
+      encryptionKey: key,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      deletionProtection: cfg.deletionProtection,
+      removalPolicy: removal,
+    });
+
+    // The web reads and writes a project's items only through the tenant session,
+    // whose policy limits it to keys starting with that tenant and project
+    // (cortex-knowledge stack). Change records are never rewritten, so the table
+    // is the project's audit trail of who answered what, and when.
+    this.journeysTable = new dynamodb.Table(this, "Journeys", {
+      tableName: cortexJourneyTableName(cfg.stageName),
+      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
       encryptionKey: key,

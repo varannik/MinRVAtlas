@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-import type { ScenarioId } from "@/lib/journey/types";
+import type { JourneyRequest } from "./journey-workspace";
 
 /** The journey is a client-only 3D workspace, so it skips server rendering. */
 const JourneyWorkspace = dynamic(
@@ -20,6 +20,6 @@ const JourneyWorkspace = dynamic(
   },
 );
 
-export function JourneyEntry({ initialScenario }: { initialScenario: ScenarioId }) {
-  return <JourneyWorkspace initialScenario={initialScenario} />;
+export function JourneyEntry({ request }: { request: JourneyRequest }) {
+  return <JourneyWorkspace request={request} />;
 }

@@ -194,6 +194,11 @@ export function cortexTenancyTableName(stage: StageName): string {
   return resourceName(stage, "cortex-tenancy");
 }
 
+/** Each project's journey: answers, filings, where it stands, and a record of every change. */
+export function cortexJourneyTableName(stage: StageName): string {
+  return resourceName(stage, "cortex-journeys");
+}
+
 export function cortexTenantSessionRoleName(stage: StageName): string {
   return resourceName(stage, "cortex-tenant-session");
 }

@@ -74,6 +74,8 @@ export interface CortexEnv {
   reviewArn?: string;
   /** Moves to another pin, or to or from every project. */
   moveArn?: string;
+  /** Each project's journey (answers, filings and where it stands); without it the journey is practice only. */
+  journeyTable?: string;
 }
 
 export interface CortexProject {
@@ -104,7 +106,18 @@ export function cortexEnv(): CortexEnv | null {
   const parsedBucket = process.env.CORTEX_PARSED_BUCKET?.trim() || undefined;
   const reviewArn = process.env.CORTEX_REVIEW_STATE_MACHINE_ARN?.trim() || undefined;
   const moveArn = process.env.CORTEX_MOVE_STATE_MACHINE_ARN?.trim() || undefined;
-  return { intakeBucket, knowledgeBucket, tenancyTable, sessionRoleArn, removalArn, parsedBucket, reviewArn, moveArn };
+  const journeyTable = process.env.CORTEX_JOURNEY_TABLE?.trim() || undefined;
+  return {
+    intakeBucket,
+    knowledgeBucket,
+    tenancyTable,
+    sessionRoleArn,
+    removalArn,
+    parsedBucket,
+    reviewArn,
+    moveArn,
+    journeyTable,
+  };
 }
 
 export async function currentSession(): Promise<SessionPayload | null> {
@@ -203,22 +216,38 @@ function requireScope(session: SessionPayload, scope: DocumentScope, pin: Capabi
 // ── Tenant-scoped session ───────────────────────────────────────────────────
 
 let sts: STSClient | null = null;
-/** Sessions per user and project, reused until shortly before they expire (status polls every few seconds). */
-const sessions = new Map<string, { client: S3Client; until: number }>();
 
-/** An S3 client that can reach this tenant's and project's prefixes only. */
-async function projectClient(session: SessionPayload, env: CortexEnv, projectId: string): Promise<S3Client> {
-  const cacheKey = `${session.sub}|${session.tenantId}|${projectId}`;
-  const cached = sessions.get(cacheKey);
-  if (cached && cached.until > Date.now()) return cached.client;
-  const client = await assumeProjectSession(session, env, projectId);
-  for (const [key, entry] of sessions) if (entry.until <= Date.now()) sessions.delete(key);
-  // A signed form must stay valid for FORM_SECONDS after it is issued.
-  sessions.set(cacheKey, { client, until: Date.now() + (900 - FORM_SECONDS - 60) * 1000 });
-  return client;
+interface ProjectSession {
+  s3: S3Client;
+  dynamo: DynamoDBClient;
 }
 
-async function assumeProjectSession(session: SessionPayload, env: CortexEnv, projectId: string): Promise<S3Client> {
+/** Sessions per user and project, reused until shortly before they expire (status polls every few seconds). */
+const sessions = new Map<string, ProjectSession & { until: number }>();
+
+/** Clients that can reach this tenant's and project's data only (S3 prefixes, journey items). */
+async function projectSession(session: SessionPayload, env: CortexEnv, projectId: string): Promise<ProjectSession> {
+  const cacheKey = `${session.sub}|${session.tenantId}|${projectId}`;
+  const cached = sessions.get(cacheKey);
+  if (cached && cached.until > Date.now()) return cached;
+  const credentials = await assumeProjectSession(session, env, projectId);
+  const clients = { s3: new S3Client({ region: REGION, credentials }), dynamo: new DynamoDBClient({ region: REGION, credentials }) };
+  for (const [key, entry] of sessions) if (entry.until <= Date.now()) sessions.delete(key);
+  // A signed form must stay valid for FORM_SECONDS after it is issued.
+  sessions.set(cacheKey, { ...clients, until: Date.now() + (900 - FORM_SECONDS - 60) * 1000 });
+  return clients;
+}
+
+async function projectClient(session: SessionPayload, env: CortexEnv, projectId: string): Promise<S3Client> {
+  return (await projectSession(session, env, projectId)).s3;
+}
+
+/** A DynamoDB client whose every read and write is limited to this tenant's project (IAM leading keys). */
+export async function projectDynamo(session: SessionPayload, env: CortexEnv, projectId: string): Promise<DynamoDBClient> {
+  return (await projectSession(session, env, projectId)).dynamo;
+}
+
+async function assumeProjectSession(session: SessionPayload, env: CortexEnv, projectId: string) {
   sts ??= new STSClient({ region: REGION });
   const { Credentials: creds } = await sts.send(
     new AssumeRoleCommand({
@@ -235,15 +264,12 @@ async function assumeProjectSession(session: SessionPayload, env: CortexEnv, pro
   if (!creds?.AccessKeyId || !creds.SecretAccessKey || !creds.SessionToken) {
     throw new CortexRefusal("Cortex could not open a session for this project.", 502);
   }
-  return new S3Client({
-    region: REGION,
-    credentials: {
-      accessKeyId: creds.AccessKeyId,
-      secretAccessKey: creds.SecretAccessKey,
-      sessionToken: creds.SessionToken,
-      expiration: creds.Expiration,
-    },
-  });
+  return {
+    accessKeyId: creds.AccessKeyId,
+    secretAccessKey: creds.SecretAccessKey,
+    sessionToken: creds.SessionToken,
+    expiration: creds.Expiration,
+  };
 }
 
 // ── Uploads ─────────────────────────────────────────────────────────────────

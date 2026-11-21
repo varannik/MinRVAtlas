@@ -10,7 +10,7 @@ import { Check, CircleDashed } from "lucide-react";
 import { CortexOrb } from "@/components/cortex/cortex-orb";
 import { CAPABILITIES, CAPABILITY_BY_ID, LOBE_BY_ID } from "@/lib/cortex/capabilities";
 import { featureContent } from "@/lib/journey/feature-content";
-import { cortexHref, featuresFor } from "@/lib/journey/features";
+import { cortexHref, featuresFor, journeyHref } from "@/lib/journey/features";
 import { PHASE, STEP_ORDER, planOf, stepState } from "@/lib/journey/steps";
 import type { StepId } from "@/lib/journey/types";
 import { useCortex } from "@/store/cortex-store";
@@ -502,6 +502,7 @@ function PinTip({ colour, working }: { colour: string; working: boolean }) {
  */
 function OrbPins({ taskId, working }: { taskId: string; working: boolean }) {
   const scenarioId = useJourney((state) => state.scenarioId);
+  const projectId = useJourney((state) => state.project?.id ?? null);
   const tasks = useJourney((state) => state.tasks);
   const staged = useCortex((state) => state.staged);
   const plan = usePlan();
@@ -605,7 +606,7 @@ function OrbPins({ taskId, working }: { taskId: string; working: boolean }) {
                 <div className="-translate-x-full -translate-y-1/2 pr-1">
                   {/* A plain link: this label renders outside the app router. */}
                   <a
-                    href={cortexHref(use.id, scenarioId)}
+                    href={cortexHref(use.id, journeyHref(projectId, scenarioId))}
                     data-journey-label
                     onPointerDown={(event) => event.stopPropagation()}
                     title={`${content?.sources.join(" · ") ?? ""}\nOpen ${capability.name} in Cortex${ready ? "" : " to add some"}`}

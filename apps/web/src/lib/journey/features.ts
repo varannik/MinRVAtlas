@@ -10,8 +10,13 @@ import type { FeatureUse, JourneyTask } from "./types";
 export type { FeatureUse };
 
 /** The capability's page in Cortex, with a way back to this journey. */
-export function cortexHref(id: CapabilityId, scenarioId: string): string {
-  const back = encodeURIComponent(`/journey?project=${scenarioId}`);
+/** The journey's own link: a saved project, or a practice scenario. */
+export function journeyHref(project: string | null, scenarioId: string): string {
+  return project ? `/journey?project=${encodeURIComponent(project)}` : `/journey?practice=${scenarioId}`;
+}
+
+export function cortexHref(id: CapabilityId, journey: string): string {
+  const back = encodeURIComponent(journey);
   return `/cortex?pin=${id}&back=${back}`;
 }
 

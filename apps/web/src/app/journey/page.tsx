@@ -1,5 +1,4 @@
 import { JourneyEntry } from "@/components/journey/journey-entry";
-import { isScenarioId } from "@/lib/journey/scenarios";
 
 export const metadata = {
   title: "Journey — 3DMinRV",
@@ -12,7 +11,8 @@ export default async function JourneyPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const { project } = await searchParams;
-  const id = Array.isArray(project) ? project[0] : project;
-  return <JourneyEntry initialScenario={isScenarioId(id) ? id : "fujairah-mineral"} />;
+  const params = await searchParams;
+  const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
+  // ?project=<Cortex project> opens its saved journey; ?practice=<scenario> a practice one.
+  return <JourneyEntry request={{ project: first(params.project), practice: first(params.practice) }} />;
 }

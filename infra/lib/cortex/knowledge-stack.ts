@@ -76,6 +76,8 @@ export interface CortexKnowledgeStackProps extends Ew2StackProps {
   keyArn: string;
   tenancyTable: dynamodb.ITable;
   checkpointsTable: dynamodb.ITable;
+  /** Each project's journey; the tenant session reads and writes its own project's items. */
+  journeysTable: dynamodb.ITable;
   eventBus: events.IEventBus;
 }
 
@@ -1091,6 +1093,17 @@ export class CortexKnowledgeStack extends Ew2Stack {
           // Thread ids are "{tenant}#{project}#…". The saver may prefix the key ("CHECKPOINT_…");
           // tenant ids never contain "_" or "#", so neither pattern can match another tenant.
           "ForAllValues:StringLike": { "dynamodb:LeadingKeys": [`${TENANT_TAG}#*`, `*_${TENANT_TAG}#*`] },
+        },
+      }),
+    );
+    this.tenantSessionRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: "OwnProjectJourneyOnly",
+        // No delete: a journey and its change records are kept.
+        actions: ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query", "dynamodb:ConditionCheckItem"],
+        resources: [props.journeysTable.tableArn],
+        conditions: {
+          "ForAllValues:StringEquals": { "dynamodb:LeadingKeys": [`TENANT#${TENANT_TAG}#PROJECT#${PROJECT_TAG}`] },
         },
       }),
     );

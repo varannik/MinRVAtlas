@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowLeft, Check, ListTree, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, Check, CircleAlert, Cloud, ListTree, LoaderCircle, RotateCcw, X } from "lucide-react";
 
+import { useCortexProjects, type CortexProjectOption } from "@/components/cortex/cortex-projects";
 import { formatLocation, formatPeriod } from "@/lib/journey/cortex";
-import { SCENARIOS, SCENARIO_BY_ID } from "@/lib/journey/scenarios";
+import { SCENARIOS, SCENARIO_BY_ID, isScenarioId } from "@/lib/journey/scenarios";
 import { nextStep, stepState } from "@/lib/journey/steps";
 import type { Phase, ScenarioId } from "@/lib/journey/types";
 import { firstOpenTask, stepProgress, usePlan, useJourney } from "@/store/journey-store";
@@ -183,56 +184,142 @@ function StepDot({ state }: { state: ReturnType<typeof stepState> }) {
   return <span className="size-4 shrink-0 rounded-full border border-white/35" />;
 }
 
-// ── Scenario and legend ─────────────────────────────────────────────────────
+// ── Project, practice and legend ──────────────────────────────────────────
 
-function ScenarioSwitch() {
+/** What the page was asked to open: a stored Cortex project, or a practice scenario. */
+export interface JourneyRequest {
+  project: string | null;
+  practice: string | null;
+}
+
+/** Keep the link shareable without a router navigation (which would remount the page). */
+function remember(query: string) {
+  window.history.replaceState(null, "", `?${query}`);
+}
+
+function SwitchButton({
+  on,
+  title,
+  tag,
+  onClick,
+}: {
+  on: boolean;
+  title: string;
+  tag: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={on}
+      onClick={onClick}
+      className={`rounded-xl px-3 py-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-white ${
+        on ? "bg-white text-[#1B1846]" : "text-white/80 hover:bg-white/10"
+      }`}
+    >
+      <span className="block max-w-44 truncate text-[12px] leading-tight font-semibold">{title}</span>
+      <span className={`block text-[10.5px] ${on ? "text-[#1B1846]/60" : "text-white/55"}`}>{tag}</span>
+    </button>
+  );
+}
+
+function ProjectSwitch({ projects }: { projects: CortexProjectOption[] }) {
   const scenarioId = useJourney((state) => state.scenarioId);
+  const project = useJourney((state) => state.project);
   const load = useJourney((state) => state.load);
+  const openProject = useJourney((state) => state.openProject);
 
-  const choose = (id: ScenarioId) => {
+  const practise = (id: ScenarioId) => {
     load(id);
-    // Keep the link shareable without a router navigation (which would remount the page).
-    window.history.replaceState(null, "", `?project=${id}`);
+    remember(`practice=${id}`);
   };
 
   return (
-    <div className="flex items-center gap-1.5">
-      <div
-        role="radiogroup"
-        aria-label="Project"
-        className="flex items-center gap-1 rounded-2xl border border-white/15 bg-[#141235]/55 p-1 backdrop-blur-xl"
-      >
-        {SCENARIOS.map((scenario) => {
-          const on = scenario.id === scenarioId;
-          return (
-            <button
-              key={scenario.id}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              onClick={() => choose(scenario.id)}
-              className={`rounded-xl px-3 py-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-white ${
-                on ? "bg-white text-[#1B1846]" : "text-white/80 hover:bg-white/10"
-              }`}
-            >
-              <span className="block max-w-44 truncate text-[12px] leading-tight font-semibold">
-                {scenario.id === "new" ? "New project" : scenario.name}
-              </span>
-              <span className={`block text-[10.5px] ${on ? "text-[#1B1846]/60" : "text-white/55"}`}>{scenario.tag}</span>
-            </button>
-          );
-        })}
+    <div className="flex flex-col items-end gap-1.5">
+      <div className="flex items-center gap-1.5">
+        <div
+          role="radiogroup"
+          aria-label="Project"
+          className="flex max-w-[calc(100vw-6rem)] items-center gap-1 overflow-x-auto rounded-2xl border border-white/15 bg-[#141235]/55 p-1 backdrop-blur-xl"
+        >
+          {projects.map((option) => (
+            <SwitchButton
+              key={`project-${option.id}`}
+              on={project?.id === option.id}
+              title={option.name}
+              tag="Saved for the team"
+              onClick={() => {
+                void openProject(option.id, option.name);
+                remember(`project=${encodeURIComponent(option.id)}`);
+              }}
+            />
+          ))}
+          {SCENARIOS.map((scenario) => (
+            <SwitchButton
+              key={`practice-${scenario.id}`}
+              on={!project && scenario.id === scenarioId}
+              title={scenario.id === "new" ? "New project" : scenario.name}
+              tag={`Practice · ${scenario.tag}`}
+              onClick={() => practise(scenario.id)}
+            />
+          ))}
+        </div>
+        {!project ? (
+          <button
+            type="button"
+            onClick={() => load(scenarioId)}
+            title="Start this practice journey again from its starting point"
+            aria-label="Reset"
+            className="grid size-10 place-items-center rounded-xl border border-white/15 bg-[#141235]/55 text-white/75 backdrop-blur-xl hover:text-white"
+          >
+            <RotateCcw className="size-4" />
+          </button>
+        ) : null}
       </div>
-      <button
-        type="button"
-        onClick={() => load(scenarioId)}
-        title="Start this project again from its starting point"
-        aria-label="Reset"
-        className="grid size-10 place-items-center rounded-xl border border-white/15 bg-[#141235]/55 text-white/75 backdrop-blur-xl hover:text-white"
-      >
-        <RotateCcw className="size-4" />
-      </button>
+      <SyncNote />
     </div>
+  );
+}
+
+/** Whether what is shown is saved, being saved, read only or practice. */
+function SyncNote() {
+  const project = useJourney((state) => state.project);
+  const sync = useJourney((state) => state.sync);
+  const dismiss = useJourney((state) => state.dismissError);
+  const base = "flex max-w-80 items-start gap-1.5 rounded-xl border px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur-xl";
+
+  if (sync.state === "error") {
+    return (
+      <p role="alert" className={`${base} border-[#FFC48F]/35 bg-[#3A2414]/70 text-[#FFD9B8]`}>
+        <CircleAlert className="mt-px size-3.5 shrink-0" aria-hidden />
+        <span className="min-w-0">{sync.message}</span>
+        <button type="button" onClick={dismiss} aria-label="Dismiss" className="ml-1 shrink-0 text-white/60 hover:text-white">
+          <X className="size-3.5" />
+        </button>
+      </p>
+    );
+  }
+  if (!project) {
+    return <p className={`${base} border-white/12 bg-[#141235]/50 text-white/60`}>Practice: nothing here is saved.</p>;
+  }
+  if (sync.state === "loading" || sync.state === "saving") {
+    return (
+      <p role="status" className={`${base} border-white/12 bg-[#141235]/50 text-white/70`}>
+        <LoaderCircle className="mt-px size-3.5 shrink-0 animate-spin" aria-hidden />
+        {sync.state === "loading" ? "Opening the project's journey…" : "Saving…"}
+      </p>
+    );
+  }
+  return (
+    <p className={`${base} border-white/12 bg-[#141235]/50 text-white/70`}>
+      <Cloud className="mt-px size-3.5 shrink-0" aria-hidden />
+      {!project.canEdit
+        ? "Read only: your role can see this journey but not change it."
+        : project.stored
+          ? "Saved for everyone on this project."
+          : "Nothing saved yet: your first answer saves the journey for the team."}
+    </p>
   );
 }
 
@@ -257,18 +344,28 @@ function Legend() {
 
 // ── Workspace ───────────────────────────────────────────────────────────────
 
-export function JourneyWorkspace({ initialScenario }: { initialScenario: ScenarioId }) {
+export function JourneyWorkspace({ request }: { request: JourneyRequest }) {
   const scenarioId = useJourney((state) => state.scenarioId);
+  const project = useJourney((state) => state.project);
   const selectedStep = useJourney((state) => state.selectedStep);
   const selectStep = useJourney((state) => state.selectStep);
   const load = useJourney((state) => state.load);
+  const openProject = useJourney((state) => state.openProject);
+  const { reply, error: projectsError } = useCortexProjects();
   const reduce = useReducedMotion();
   const plan = usePlan();
   const scenario = SCENARIO_BY_ID[scenarioId];
   // The header follows what has been answered, so a new project fills in as it goes.
-  const name = useJourney((state) => state.tasks["setup.name"]?.value) || scenario.name;
+  const name = useJourney((state) => state.tasks["setup.name"]?.value) || (project ? project.name : scenario.name);
   const location = useJourney((state) => state.tasks["setup.location"]?.value);
-  const place = scenarioId === "new" && location ? formatLocation(location) : scenario.place;
+  const place = project
+    ? location
+      ? formatLocation(location)
+      : "Location not given yet"
+    : scenarioId === "new" && location
+      ? formatLocation(location)
+      : scenario.place;
+  const projects = useMemo(() => (reply?.configured && reply.tenantStatus === "active" ? reply.projects : []), [reply]);
   const methodology = plan.methodology
     ? [plan.methodology.label, plan.methodology.version].filter(Boolean).join(" ")
     : "Methodology not chosen yet";
@@ -280,11 +377,29 @@ export function JourneyWorkspace({ initialScenario }: { initialScenario: Scenari
     setRailOpen(false);
   }
 
-  // Keep this tab's journey (for example after a trip to Cortex) unless the
-  // link asks for a different project.
+  // Open what the link asks for, once the user's Cortex projects are known: one of
+  // them is read from the server; a practice scenario keeps this tab's answers
+  // (for example after a trip to Cortex) unless the link asks for another one.
+  const opened = useRef(false);
   useEffect(() => {
-    if (useJourney.getState().scenarioId !== initialScenario) load(initialScenario);
-  }, [initialScenario, load]);
+    if (opened.current || (!reply && !projectsError)) return;
+    opened.current = true;
+    const practise = (id: ScenarioId) => {
+      const state = useJourney.getState();
+      if (state.project || state.scenarioId !== id) load(id);
+    };
+    const wanted = request.project ?? (request.practice ? null : projects[0]?.id ?? null);
+    const stored = wanted ? projects.find((option) => option.id === wanted) : undefined;
+    if (stored) {
+      void openProject(stored.id, stored.name).then((result) => {
+        // Journeys not set up on this deployment: practise on the same scenario if there is one.
+        if (result === "unavailable") practise(isScenarioId(stored.id) ? stored.id : "new");
+      });
+      return;
+    }
+    const scenarioWanted = request.practice ?? request.project;
+    practise(isScenarioId(scenarioWanted) ? scenarioWanted : "fujairah-mineral");
+  }, [reply, projectsError, projects, request, load, openProject]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -369,7 +484,7 @@ export function JourneyWorkspace({ initialScenario }: { initialScenario: Scenari
           panelOpen ? "pointer-events-none opacity-0" : "opacity-100"
         }`}
       >
-        <ScenarioSwitch />
+        <ProjectSwitch projects={projects} />
       </div>
 
       <div
