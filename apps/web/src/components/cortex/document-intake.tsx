@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CircleAlert, CircleCheck, FileText, LoaderCircle, ShieldCheck, Trash2, X } from "lucide-react";
+import { CircleAlert, CircleCheck, CirclePause, FileText, LoaderCircle, ShieldCheck, Trash2, X } from "lucide-react";
 
 import type { Capability, Lobe } from "@/lib/cortex/capabilities";
 import {
+  adviceFor,
   isSettled,
+  labelTitle,
+  placeOfKey,
   safeFileName,
   sameDocument,
   uploadProblem,
@@ -16,6 +19,7 @@ import {
 } from "@/lib/cortex/uploads";
 import { useCortex } from "@/store/cortex-store";
 import { ProjectPicker, noProjectReason, readJson, useCortexProjects } from "./cortex-projects";
+import { DocumentAdvice, useDocumentActions } from "./document-advice";
 
 /**
  * Documents on a Cortex pin go to the knowledge pipeline for one project:
@@ -23,6 +27,8 @@ import { ProjectPicker, noProjectReason, readJson, useCortexProjects } from "./c
  * browser posts the file to S3, and the list below follows it through the
  * malware scan and admission. A file with the name of one already there
  * replaces it (after a confirmation); a document can be removed from Cortex.
+ * Once admitted, Cortex labels it, and may hold it out of search or suggest
+ * another pin (document-advice.tsx).
  * Anything Cortex cannot read yet stays staged in this browser, as before.
  */
 
@@ -104,6 +110,7 @@ const STATUS: Record<DocumentStatus, { label: string; tone: string; Icon: typeof
   scanning: { label: "Scanning", tone: "text-signal-sky", Icon: LoaderCircle },
   admitting: { label: "Admitting", tone: "text-signal-sky", Icon: ShieldCheck },
   in_cortex: { label: "In Cortex", tone: "text-carbon-400", Icon: CircleCheck },
+  held: { label: "Held", tone: "text-[#855300]", Icon: CirclePause },
   rejected: { label: "Not admitted", tone: "text-signal-rose", Icon: CircleAlert },
 };
 
@@ -159,20 +166,25 @@ function ProjectDocuments({
   capability,
   lobe,
   projectId,
+  projectName,
   owner,
   scope,
   canUpload,
   canRemove,
+  canShare,
   renderDropzone,
 }: {
   capability: Capability;
   lobe: Lobe;
   projectId: string;
+  projectName: string;
   /** Whose documents these are, for the copy: the project's name or "your organisation". */
   owner: string;
   scope: DocumentScope;
   canUpload: boolean;
   canRemove: boolean;
+  /** May give documents to every project (moves there need it too). */
+  canShare: boolean;
   renderDropzone: (onFiles: (files: File[]) => void) => React.ReactNode;
 }) {
   const stageFiles = useCortex((state) => state.stageFiles);
@@ -201,7 +213,9 @@ function ProjectDocuments({
     return () => controller.abort();
   }, [capability.id, projectId, scope, refresh]);
 
+  const { acting, act, pending } = useDocumentActions(documents, () => setRefresh((value) => value + 1));
   const moving =
+    pending ||
     uploads.some((upload) => !upload.error) ||
     (documents ?? []).some((doc) => !isSettled(doc.status) || removing[doc.name] === "");
   useEffect(() => {
@@ -359,6 +373,15 @@ function ProjectDocuments({
         {(documents ?? []).map((doc) => {
           const removal = removing[doc.name];
           const removable = canRemove && isSettled(doc.status) && removal === undefined;
+          const titled = doc.label?.checked ? labelTitle(doc.label) : "";
+          const advice =
+            removal === undefined
+              ? adviceFor(
+                  { scope, pin: capability.id, label: doc.label },
+                  { canUpload, canShare, placeOf: (key) => placeOfKey(key, projectName) },
+                )
+              : null;
+          const request = { project: projectId, pin: capability.id, name: doc.name, scope };
           return (
             <Row
               key={doc.key}
@@ -367,7 +390,9 @@ function ProjectDocuments({
               meta={
                 removal
                   ? `Not removed: ${removal}`
-                  : `${formatBytes(doc.size)} · ${TIME.format(new Date(doc.uploadedAt))} · ${doc.detail}`
+                  : [titled, formatBytes(doc.size), TIME.format(new Date(doc.uploadedAt)), doc.detail]
+                      .filter(Boolean)
+                      .join(" · ")
               }
               aside={
                 <span className="flex items-center gap-1.5">
@@ -392,6 +417,17 @@ function ProjectDocuments({
                 </span>
               }
             >
+              {advice && (
+                <DocumentAdvice
+                  advice={advice}
+                  acting={acting[doc.key]}
+                  onKeep={() => void act(doc, request, "keep")}
+                  onStay={() => void act(doc, request, "stay")}
+                  onMove={() => advice.kind === "move" && void act(doc, request, "move", advice.to)}
+                  onRemove={removable ? () => setConfirmRemove(doc.key) : undefined}
+                  who={scope === "tenant" ? "An organisation admin" : "Someone who can add to this project"}
+                />
+              )}
               {confirmRemove === doc.key && (
                 <div className="grid gap-2 border-t border-line pt-2" role="alertdialog">
                   <p className="text-[11.5px] leading-snug text-rock">
@@ -503,10 +539,12 @@ export function DocumentIntake({
         capability={capability}
         lobe={lobe}
         projectId={project.id}
+        projectName={project.name}
         owner={forOrganisation ? "your organisation" : project.name}
         scope={forOrganisation ? "tenant" : "project"}
         canUpload={forOrganisation ? reply.canShare : reply.canUpload}
         canRemove={forOrganisation ? reply.canShare && reply.canRemove : reply.canRemove}
+        canShare={reply.canShare}
         renderDropzone={renderDropzone}
       />
     </div>

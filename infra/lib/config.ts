@@ -203,6 +203,16 @@ export function cortexRemovalStateMachineName(stage: StageName): string {
   return resourceName(stage, "cortex-removal");
 }
 
+/** State machine the web starts when a person decides on a labelled document (keep it in search, keep it where it is). */
+export function cortexReviewStateMachineName(stage: StageName): string {
+  return resourceName(stage, "cortex-review");
+}
+
+/** State machine the web starts to move a document to another pin, or to or from every project. */
+export function cortexMoveStateMachineName(stage: StageName): string {
+  return resourceName(stage, "cortex-move");
+}
+
 export function webTaskRoleName(stage: StageName): string {
   return resourceName(stage, "web-task");
 }
@@ -238,6 +248,13 @@ export function bdaProfileArn(region: string, account: string): string {
  */
 export const CORTEX_AGENT_MODEL = "eu.anthropic.claude-sonnet-4-6";
 export const CORTEX_AGENT_EFFORT = "medium";
+
+/**
+ * Claude for labelling each admitted document (its kind, title and version), through the
+ * EU inference profile. A short classification of the opening pages, so the small model:
+ * Haiku 4.5, the newest small Claude this account is allowed (Nov 2026).
+ */
+export const CORTEX_LABEL_MODEL = "eu.anthropic.claude-haiku-4-5-20251001-v1:0";
 
 /**
  * SSM parameter holding the Cortex agent runtime's ARN. AgentCore generates the

@@ -422,13 +422,13 @@ export const CAPABILITIES: readonly Capability[] = [
     lobe: "know",
     summary: "What the expert reads before it answers.",
     learns: [
-      "Your methodology, SOPs and design documents",
-      "Findings from past verifications",
+      "Your procedures and project design documents",
+      "The standards and papers behind your methods",
       "Site context that no dataset carries",
     ],
     document: {
       label: "Reference documents",
-      hint: "Methodologies, SOPs, project design documents, verifier reports.",
+      hint: "SOPs, project design documents, monitoring plans, standards and papers. Registry rules go on Protocols.",
       accept: ".pdf,.docx,.doc,.md,.txt,.html",
       formats: "PDF, DOCX, Markdown, TXT, HTML",
     },
@@ -458,7 +458,7 @@ export const CAPABILITIES: readonly Capability[] = [
     ],
     document: {
       label: "Methodology documents",
-      hint: "The expert extracts checkpoints from the PDF.",
+      hint: "A registry's rules and methodologies. The expert extracts checkpoints from the PDF.",
       accept: ".pdf,.docx",
       formats: "PDF, DOCX",
     },
@@ -547,7 +547,7 @@ export const CAPABILITIES: readonly Capability[] = [
     ],
     document: {
       label: "Reviewer correspondence",
-      hint: "Corrective action requests, responses and statement drafts.",
+      hint: "Corrective action requests, responses, verification reports and statements.",
       accept: ".pdf,.docx,.eml,.msg",
       formats: "PDF, DOCX, EML, MSG",
     },

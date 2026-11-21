@@ -14,10 +14,14 @@
       "Resource": "arn:aws:iam::625239230739:role/minrv-ew2-*-cortex-tenant-session"
     },
     {
-      "Sid": "CortexRemovalsForLocalWeb",
+      "Sid": "CortexRemovalsReviewsAndMovesForLocalWeb",
       "Effect": "Allow",
       "Action": ["states:StartExecution"],
-      "Resource": "arn:aws:states:eu-west-2:625239230739:stateMachine:minrv-ew2-*-cortex-removal"
+      "Resource": [
+        "arn:aws:states:eu-west-2:625239230739:stateMachine:minrv-ew2-*-cortex-removal",
+        "arn:aws:states:eu-west-2:625239230739:stateMachine:minrv-ew2-*-cortex-review",
+        "arn:aws:states:eu-west-2:625239230739:stateMachine:minrv-ew2-*-cortex-move"
+      ]
     },
     {
       "Sid": "CortexAgentRuntimeForDeployAndChecks",

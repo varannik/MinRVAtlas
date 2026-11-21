@@ -578,7 +578,13 @@ function ProjectSections() {
       </section>
       <section className="grid min-w-0 gap-2.5" aria-label="What Cortex knows">
         <SectionTitle>What Cortex knows for this project</SectionTitle>
-        <KnowledgeList key={project.id} project={project} canRemove={reply.canRemove} canShare={reply.canShare} />
+        <KnowledgeList
+          key={project.id}
+          project={project}
+          canUpload={reply.canUpload}
+          canRemove={reply.canRemove}
+          canShare={reply.canShare}
+        />
       </section>
     </>
   );

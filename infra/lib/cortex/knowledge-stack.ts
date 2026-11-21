@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import * as path from "node:path";
@@ -22,10 +23,13 @@ import { Construct } from "constructs";
 import {
   CORTEX_EMBEDDING_DIMENSIONS,
   CORTEX_EMBEDDING_MODEL,
+  CORTEX_LABEL_MODEL,
   bdaProfileArn,
   cfnStackName,
   cortexBucketName,
+  cortexMoveStateMachineName,
   cortexRemovalStateMachineName,
+  cortexReviewStateMachineName,
   cortexTenantSessionRoleName,
   logGroupName,
   resourceName,
@@ -36,6 +40,32 @@ import { Ew2Stack, type Ew2StackProps } from "../ew2-stack";
 
 export const LAMBDA_DIR = path.join(__dirname, "lambda");
 export const PYTHON = lambda.Runtime.PYTHON_3_13;
+/** requirements.txt of the layer with the Claude SDK, for the label task. */
+const ANTHROPIC_LAYER_DIR = path.join(__dirname, "anthropic-layer");
+
+/**
+ * Installs the layer's packages for Lambda's platform with this machine's pip, so a
+ * deploy needs no Docker. When it cannot (no python3 or pip), CDK bundles in Docker.
+ */
+function pipForLambda(outputDir: string): boolean {
+  const result = spawnSync(
+    "python3",
+    [
+      "-m", "pip", "install",
+      "-r", path.join(ANTHROPIC_LAYER_DIR, "requirements.txt"),
+      "--target", path.join(outputDir, "python"),
+      "--platform", "manylinux2014_x86_64",
+      "--implementation", "cp",
+      "--python-version", PYTHON.name.replace("python", ""),
+      "--only-binary=:all:",
+      "--no-compile",
+      "--quiet",
+      "--disable-pip-version-check",
+    ],
+    { stdio: ["ignore", "ignore", "inherit"] },
+  );
+  return result.status === 0;
+}
 
 /** The tag every tenant-scoped session carries; S3, DynamoDB and the bucket policies key on it. */
 export const TENANT_TAG = "${aws:PrincipalTag/tenant_id}";
@@ -68,10 +98,17 @@ export class CortexKnowledgeStack extends Ew2Stack {
   public readonly ingestion: sfn.StateMachine;
   /** Takes one project document out of Cortex; the web starts it for the user. */
   public readonly removal: sfn.StateMachine;
+  /** Records a person's decision on a labelled document; the web starts it. */
+  public readonly review: sfn.StateMachine;
+  /** Moves a document to another pin, or to or from every project; the web starts it. */
+  public readonly move: sfn.StateMachine;
   public readonly admitFn: lambda.Function;
   public readonly removeFn: lambda.Function;
   public readonly parseFn: lambda.Function;
   public readonly chunkFn: lambda.Function;
+  public readonly labelFn: lambda.Function;
+  public readonly reviewFn: lambda.Function;
+  public readonly moveFn: lambda.Function;
   public readonly searchFn: lambda.Function;
   /** Assumed with tenant_id (and project_id) session tags; can only reach that tenant's data. */
   public readonly tenantSessionRole: iam.Role;
@@ -466,8 +503,11 @@ export class CortexKnowledgeStack extends Ew2Stack {
     this.knowledgeBucket.grantRead(this.removeFn, "tenants/*");
     this.knowledgeBucket.grantDelete(this.removeFn, "tenants/*");
     this.intakeBucket.grantDelete(this.removeFn, "tenants/*");
-    this.parsedBucket.grantRead(this.removeFn, "chunks/tenants/*");
-    this.parsedBucket.grantDelete(this.removeFn, "chunks/tenants/*");
+    for (const prefix of ["chunks/tenants/*", "held/tenants/*"]) {
+      this.parsedBucket.grantRead(this.removeFn, prefix);
+      this.parsedBucket.grantDelete(this.removeFn, prefix);
+    }
+    this.parsedBucket.grantDelete(this.removeFn, "labels/tenants/*");
     this.parsedBucket.grantDelete(this.removeFn, "bda/*");
 
     // Only admission writes the knowledge bucket, and only removal deletes from it.
@@ -537,6 +577,95 @@ export class CortexKnowledgeStack extends Ew2Stack {
     this.parsedBucket.grantRead(this.chunkFn, "bda/*");
     this.parsedBucket.grantReadWrite(this.chunkFn, "chunks/*");
     this.parsedBucket.grantDelete(this.chunkFn, "chunks/*");
+    // Passages of a held document go to held/, which the index does not read.
+    this.parsedBucket.grantReadWrite(this.chunkFn, "held/*");
+    this.parsedBucket.grantDelete(this.chunkFn, "held/*");
+
+    // ── Labels: what each document is, where it belongs, whether it is searched ──
+    const anthropicSdk = new lambda.LayerVersion(this, "AnthropicSdk", {
+      layerVersionName: resourceName(stage, "cortex-anthropic-sdk"),
+      description: "Anthropic Python SDK (Bedrock client) for the Cortex label task",
+      compatibleRuntimes: [PYTHON],
+      compatibleArchitectures: [lambda.Architecture.X86_64],
+      code: lambda.Code.fromAsset(ANTHROPIC_LAYER_DIR, {
+        bundling: {
+          image: PYTHON.bundlingImage,
+          command: [
+            "bash",
+            "-c",
+            "pip install -r requirements.txt --target /asset-output/python --only-binary=:all: --no-compile --quiet",
+          ],
+          local: { tryBundle: (outputDir) => pipForLambda(outputDir) },
+        },
+      }),
+    });
+    this.labelFn = new lambda.Function(this, "Label", {
+      functionName: resourceName(stage, "cortex-label"),
+      description: "Label a parsed document with Claude (kind, title, version) and hold it out of search when it is not MRV material or a copy",
+      runtime: PYTHON,
+      handler: "ingest_label.handler",
+      code,
+      layers: [anthropicSdk],
+      timeout: cdk.Duration.minutes(3),
+      memorySize: 512,
+      logGroup: fnLog("Label"),
+      environment: {
+        PARSED_BUCKET: this.parsedBucket.bucketName,
+        TENANCY_TABLE: props.tenancyTable.tableName,
+        LABEL_MODEL: CORTEX_LABEL_MODEL,
+      },
+    });
+    this.parsedBucket.grantRead(this.labelFn, "bda/*");
+    this.parsedBucket.grantReadWrite(this.labelFn, "labels/*");
+    props.tenancyTable.grantReadData(this.labelFn);
+    // The EU inference profile, and the model in whichever EU region it routes to.
+    this.labelFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel"],
+        resources: [
+          `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/${CORTEX_LABEL_MODEL}`,
+          `arn:aws:bedrock:eu-*::foundation-model/${CORTEX_LABEL_MODEL.replace(/^eu\./, "")}`,
+        ],
+      }),
+    );
+
+    // A person's decision on a label: keep a held document (its passages move to
+    // chunks/), or keep a document where it is despite a suggested move.
+    this.reviewFn = new lambda.Function(this, "Review", {
+      functionName: resourceName(stage, "cortex-review"),
+      description: "Record a person's decision on a labelled Cortex document",
+      runtime: PYTHON,
+      handler: "ingest_review.handler",
+      code,
+      timeout: cdk.Duration.minutes(2),
+      memorySize: 256,
+      logGroup: fnLog("Review"),
+      environment: { PARSED_BUCKET: this.parsedBucket.bucketName },
+    });
+    for (const prefix of ["held/tenants/*", "chunks/tenants/*", "labels/tenants/*"]) {
+      this.parsedBucket.grantReadWrite(this.reviewFn, prefix);
+    }
+    this.parsedBucket.grantDelete(this.reviewFn, "held/tenants/*");
+
+    // A move copies the admitted file back into intake at its new key, so it is scanned,
+    // admitted, parsed and labelled there like any upload; removal then clears the old place.
+    this.moveFn = new lambda.Function(this, "Move", {
+      functionName: resourceName(stage, "cortex-move"),
+      description: "Copy a Cortex document into intake at its new pin or scope",
+      runtime: PYTHON,
+      handler: "ingest_move.handler",
+      code,
+      timeout: cdk.Duration.minutes(2),
+      memorySize: 256,
+      logGroup: fnLog("Move"),
+      environment: {
+        KNOWLEDGE_BUCKET: this.knowledgeBucket.bucketName,
+        INTAKE_BUCKET: this.intakeBucket.bucketName,
+      },
+    });
+    this.knowledgeBucket.grantRead(this.moveFn, "tenants/*");
+    this.intakeBucket.grantRead(this.moveFn, "tenants/*");
+    this.intakeBucket.grantPut(this.moveFn, "tenants/*");
 
     const admit = new tasks.LambdaInvoke(this, "AdmitUpload", {
       lambdaFunction: this.admitFn,
@@ -620,16 +749,35 @@ export class CortexKnowledgeStack extends Ew2Stack {
       resultPath: "$.parse",
       retryOnServiceExceptions: true,
     });
+    // Label before writing passages: a held document's passages go where search does not read.
+    const label = new tasks.LambdaInvoke(this, "LabelDocument", {
+      lambdaFunction: this.labelFn,
+      payload: sfn.TaskInput.fromObject({
+        "document.$": "$.admitted.document",
+        "jobMetadata.$": "$.parse.jobMetadata",
+      }),
+      resultSelector: { "label.$": "$.Payload" },
+      resultPath: "$.labelled",
+      retryOnServiceExceptions: true,
+    });
+    // Labelling never stands between a document and search: on any failure it is searched unlabelled.
+    const unlabelled = new sfn.Pass(this, "Unlabelled", {
+      result: sfn.Result.fromObject({ label: { checked: false, held: null } }),
+      resultPath: "$.labelled",
+    });
+    label.addCatch(unlabelled, { errors: ["States.ALL"], resultPath: "$.labelError" });
     const chunk = new tasks.LambdaInvoke(this, "ChunkByRule", {
       lambdaFunction: this.chunkFn,
       payload: sfn.TaskInput.fromObject({
         "document.$": "$.admitted.document",
         "jobMetadata.$": "$.parse.jobMetadata",
+        "label.$": "$.labelled.label",
       }),
-      resultSelector: { "passages.$": "$.Payload.passages", "rules.$": "$.Payload.rules" },
+      resultSelector: { "passages.$": "$.Payload.passages", "rules.$": "$.Payload.rules", "held.$": "$.Payload.held" },
       resultPath: "$.chunks",
       retryOnServiceExceptions: true,
     });
+    unlabelled.next(chunk);
     const parseFailed = announce("AnnounceParseFailed", "DocumentParseFailed", "$.parse").next(
       // The DocumentParseFailed event carries BDA's own error; it can be empty, so the cause is fixed.
       new sfn.Fail(this, "ParseFailed", { error: "ParseFailed", cause: "Bedrock Data Automation did not succeed" }),
@@ -642,7 +790,7 @@ export class CortexKnowledgeStack extends Ew2Stack {
     const parsed = new sfn.Choice(this, "ParseDone")
       .when(
         sfn.Condition.stringEquals("$.parse.status", "Success"),
-        chunk.next(startIndex).next(announce("AnnounceAdmitted", "DocumentAdmitted", "$.admitted.document")),
+        label.next(chunk).next(startIndex).next(announce("AnnounceAdmitted", "DocumentAdmitted", "$.admitted.document")),
       )
       .when(
         sfn.Condition.or(
@@ -696,6 +844,86 @@ export class CortexKnowledgeStack extends Ew2Stack {
         level: sfn.LogLevel.ERROR,
         includeExecutionData: false,
       },
+    });
+
+    // Review: a person keeps a held document in search, or keeps one where it is.
+    const runLogs = (name: string) => ({
+      destination: fnLog(name),
+      level: sfn.LogLevel.ERROR,
+      includeExecutionData: false,
+    });
+    const reviewDocument = new tasks.LambdaInvoke(this, "ReviewDocument", {
+      lambdaFunction: this.reviewFn,
+      payload: sfn.TaskInput.fromObject({
+        "key.$": "$.key",
+        "action.$": "$.action",
+        "tenant_id.$": "$.tenant_id",
+        "project_id.$": "$.project_id",
+        "requested_by.$": "$.requested_by",
+      }),
+      resultSelector: { "document.$": "$.Payload" },
+      resultPath: "$.reviewed",
+      retryOnServiceExceptions: true,
+    });
+    reviewDocument.addCatch(
+      new sfn.Fail(this, "ReviewRefused", { error: "NotAllowed", cause: "Not a decision this user can make on this document" }),
+      { errors: ["NotAllowed"] },
+    );
+    const announceReviewed = announce("AnnounceReviewed", "DocumentReviewed", "$.reviewed.document");
+    const released = new sfn.Choice(this, "PassagesReleased")
+      .when(
+        sfn.Condition.booleanEquals("$.reviewed.document.reindex", true),
+        indexKnowledge("IndexAfterReview").next(announceReviewed),
+      )
+      .otherwise(announceReviewed);
+    this.review = new sfn.StateMachine(this, "ReviewStateMachine", {
+      stateMachineName: cortexReviewStateMachineName(stage),
+      definitionBody: sfn.DefinitionBody.fromChainable(reviewDocument.next(released)),
+      tracingEnabled: true,
+      logs: runLogs("Reviews"),
+    });
+
+    // Move: copy into intake at the new key (scanned and ingested there like any upload),
+    // then take the document out of its old place.
+    const copyToNewPlace = new tasks.LambdaInvoke(this, "CopyToNewPlace", {
+      lambdaFunction: this.moveFn,
+      payload: sfn.TaskInput.fromObject({
+        "key.$": "$.key",
+        "to_key.$": "$.to_key",
+        "tenant_id.$": "$.tenant_id",
+        "project_id.$": "$.project_id",
+        "requested_by.$": "$.requested_by",
+      }),
+      resultSelector: { "document.$": "$.Payload" },
+      resultPath: "$.moved",
+      retryOnServiceExceptions: true,
+    });
+    copyToNewPlace.addCatch(
+      new sfn.Fail(this, "MoveRefused", { error: "NotAllowed", cause: "Not a move this user can make" }),
+      { errors: ["NotAllowed"] },
+    );
+    const removeFromOldPlace = new tasks.LambdaInvoke(this, "RemoveFromOldPlace", {
+      lambdaFunction: this.removeFn,
+      payload: sfn.TaskInput.fromObject({
+        "key.$": "$.moved.document.key",
+        "tenant_id.$": "$.tenant_id",
+        "project_id.$": "$.project_id",
+        "requested_by.$": "$.requested_by",
+      }),
+      resultSelector: { "document.$": "$.Payload" },
+      resultPath: "$.removed",
+      retryOnServiceExceptions: true,
+    });
+    this.move = new sfn.StateMachine(this, "MoveStateMachine", {
+      stateMachineName: cortexMoveStateMachineName(stage),
+      definitionBody: sfn.DefinitionBody.fromChainable(
+        copyToNewPlace
+          .next(removeFromOldPlace)
+          .next(indexKnowledge("IndexAfterMove"))
+          .next(announce("AnnounceMoved", "DocumentMoved", "$.moved.document")),
+      ),
+      tracingEnabled: true,
+      logs: runLogs("Moves"),
     });
 
     // GuardDuty publishes scan results on the default bus.
@@ -805,18 +1033,30 @@ export class CortexKnowledgeStack extends Ew2Stack {
     );
     this.tenantSessionRole.addToPolicy(
       new iam.PolicyStatement({
-        sid: "CountPassagesOfVisibleDocuments",
+        sid: "CountPassagesAndListLabelsOfVisibleDocuments",
         actions: ["s3:ListBucket"],
         resources: [this.parsedBucket.bucketArn],
         conditions: {
           StringLike: {
-            "s3:prefix": [
-              "chunks/shared/*",
-              `chunks/tenants/${TENANT_TAG}/tenant/*`,
-              `chunks/tenants/${TENANT_TAG}/projects/${PROJECT_TAG}/*`,
-            ],
+            "s3:prefix": ["chunks", "labels"].flatMap((area) => [
+              `${area}/shared/*`,
+              `${area}/tenants/${TENANT_TAG}/tenant/*`,
+              `${area}/tenants/${TENANT_TAG}/projects/${PROJECT_TAG}/*`,
+            ]),
           },
         },
+      }),
+    );
+    // Labels: what each document is, whether it is held, and where Cortex suggests it goes.
+    this.tenantSessionRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: "ReadLabelsOfVisibleDocuments",
+        actions: ["s3:GetObject"],
+        resources: [
+          this.parsedBucket.arnForObjects("labels/shared/*"),
+          this.parsedBucket.arnForObjects(`labels/tenants/${TENANT_TAG}/tenant/*`),
+          this.parsedBucket.arnForObjects(`labels/tenants/${TENANT_TAG}/projects/${PROJECT_TAG}/*`),
+        ],
       }),
     );
     this.tenantSessionRole.addToPolicy(
@@ -880,9 +1120,9 @@ export class CortexKnowledgeStack extends Ew2Stack {
           resources: [this.tenantSessionRole.roleArn],
         }),
         new iam.PolicyStatement({
-          sid: "StartRemovals",
+          sid: "StartRemovalsReviewsAndMoves",
           actions: ["states:StartExecution"],
-          resources: [this.removal.stateMachineArn],
+          resources: [this.removal.stateMachineArn, this.review.stateMachineArn, this.move.stateMachineArn],
         }),
         // Tenant status, its projects and the user's grants (the web role already
         // decrypts with the stage key; see compute-stack.ts).
@@ -904,6 +1144,8 @@ export class CortexKnowledgeStack extends Ew2Stack {
     new cdk.CfnOutput(this, "DocumentParsingProjectArn", { value: parsing.attrProjectArn });
     new cdk.CfnOutput(this, "IngestionStateMachineArn", { value: this.ingestion.stateMachineArn });
     new cdk.CfnOutput(this, "RemovalStateMachineArn", { value: this.removal.stateMachineArn });
+    new cdk.CfnOutput(this, "ReviewStateMachineArn", { value: this.review.stateMachineArn });
+    new cdk.CfnOutput(this, "MoveStateMachineArn", { value: this.move.stateMachineArn });
     new cdk.CfnOutput(this, "MalwareProtectionPlanId", { value: scanPlan.attrMalwareProtectionPlanId });
     new cdk.CfnOutput(this, "TenantSessionRoleArn", { value: this.tenantSessionRole.roleArn });
     new cdk.CfnOutput(this, "SearchFunctionName", { value: this.searchFn.functionName });

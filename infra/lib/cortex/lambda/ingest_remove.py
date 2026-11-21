@@ -2,23 +2,20 @@
 
 Started by the web app (cortex-removal state machine) for a user who may add
 to the project, or, for an organisation document (tenants/<tenant>/tenant/),
-an organisation admin. Deletes the admitted document and its metadata file, the intake
-copy, the rule passages and the Data Automation output; the index sync that
-follows drops the passages from search. Both buckets with originals are
-versioned, so the deleted file survives as a noncurrent version for its
-retention period (and under Object Lock on prod) for audit.
+an organisation admin. Also the second half of a move, for the document's old
+place. Deletes the admitted document and its metadata file, the intake copy,
+the rule passages (searched or held), the label and the Data Automation output;
+the index sync that follows drops the passages from search. Both buckets with
+originals are versioned, so the deleted file survives as a noncurrent version
+for its retention period (and under Object Lock on prod) for audit.
 """
 
 import json
 import os
 
-import access
+from ownership import NotAllowed, check  # noqa: F401  (NotAllowed: Step Functions catches it by name)
 
 _s3 = None
-
-
-class NotAllowed(Exception):
-    """The request is not for the requesting tenant's or project's own document. Step Functions catches this by name."""
 
 
 def s3():
@@ -28,26 +25,6 @@ def s3():
 
         _s3 = boto3.client("s3")
     return _s3
-
-
-def check(event):
-    """The key must be a document of the tenant named in the request: one of the named
-    project's, or one of the tenant's own (the web lets only organisation admins ask
-    for those). Never a shared registry document."""
-    key = event.get("key")
-    try:
-        scope = access.key_scope(key)
-    except ValueError as error:
-        raise NotAllowed(str(error)) from None
-    if scope["scope"] == "tenant" and scope["tenant_id"] == event.get("tenant_id"):
-        return key
-    if (
-        scope["scope"] != "project"
-        or scope["tenant_id"] != event.get("tenant_id")
-        or scope["project_id"] != event.get("project_id")
-    ):
-        raise NotAllowed(f"{key} is not a document of project {event.get('project_id')}.")
-    return key
 
 
 def _sidecar(bucket, key):
@@ -81,6 +58,8 @@ def handler(event, _context):
     s3().delete_object(Bucket=knowledge, Key=key)
     s3().delete_object(Bucket=intake, Key=key)
     passages = _delete_prefix(parsed, f"chunks/{key}/") // 2  # each passage has a .metadata.json
+    passages += _delete_prefix(parsed, f"held/{key}/") // 2
+    s3().delete_object(Bucket=parsed, Key=f"labels/{key}.json")
     if doc_id:
         _delete_prefix(parsed, f"bda/{doc_id}/")
     return {

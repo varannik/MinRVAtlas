@@ -4,6 +4,14 @@ import { describe, it } from "node:test";
 
 import {
   DOCUMENT_PINS,
+  adviceFor,
+  duplicateNotes,
+  isHeld,
+  parseLabel,
+  placeOfKey,
+  withLabel,
+  type DocumentLabel,
+  type KnowledgeDocument,
   MAX_UPLOAD_BYTES,
   allowedProjects,
   canShareAcrossOrganisation,
@@ -178,5 +186,144 @@ describe("duplicates", () => {
       documentPlace({ scope: "shared", pin: null, methodology: "puro-geologically-stored-carbon", edition: "2024-v5" }, "Fujairah"),
       "the registry documents (puro-geologically-stored-carbon 2024-v5)",
     );
+  });
+});
+
+// ── Labels ──────────────────────────────────────────────────────────────────
+
+const RULES_FILE = {
+  checked: true,
+  kind: "registry_rules",
+  pin: "protocols",
+  applies_to: "every_project",
+  title: "General Rules",
+  issuer: "Puro.earth",
+  version: "4.4",
+  summary: "Puro Standard rules for certification.",
+  reason: "Registry-issued rules.",
+  title_key: "general rules",
+  version_key: "4.4",
+  held: null,
+  same_as: null,
+  released: null,
+  placement_kept: null,
+  labelled_at: "2026-11-21T10:05:00+00:00",
+};
+
+function label(overrides: Record<string, unknown> = {}): DocumentLabel {
+  return parseLabel({ ...RULES_FILE, ...overrides }) as DocumentLabel;
+}
+
+function doc(overrides: Partial<KnowledgeDocument> = {}): KnowledgeDocument {
+  return {
+    key: "tenants/fourfourone/projects/fujairah-mineral/knowledge/General_Rules_4_4.pdf",
+    name: "General_Rules_4_4.pdf",
+    scope: "project",
+    pin: "knowledge",
+    size: 1,
+    uploadedAt: "2026-11-21T10:00:00Z",
+    status: "in_cortex",
+    detail: "",
+    passages: null,
+    label: label(),
+    ...overrides,
+  };
+}
+
+const CONTEXT = { canUpload: true, canShare: false, placeOf: (key: string) => placeOfKey(key, "Fujairah") };
+
+describe("labels", () => {
+  it("reads a label file", () => {
+    const read = label({ released: { by: "sub-1", at: "2026-11-21T11:00:00Z" } });
+    assert.equal(read.kind, "registry_rules");
+    assert.equal(read.appliesTo, "every_project");
+    assert.equal(read.titleKey, "general rules");
+    assert.deepEqual(read.released, { by: "sub-1", at: "2026-11-21T11:00:00Z" });
+    assert.equal(parseLabel({ checked: true }), null);
+    assert.equal(parseLabel("nonsense"), null);
+    assert.equal(label({ kind: "poem" }).kind, undefined);
+  });
+
+  it("holds a document until someone keeps it", () => {
+    assert.equal(isHeld(label({ held: "not_mrv" })), true);
+    assert.equal(isHeld(label({ held: "not_mrv", released: { by: "a", at: "b" } })), false);
+    const held = withLabel({ status: "in_cortex", detail: "" }, label({ held: "not_mrv" }));
+    assert.equal(held.status, "held");
+    assert.match(held.detail, /does not look like MRV material/);
+  });
+
+  it("ignores a label of an earlier file of the same name", () => {
+    const admittedLater = new Date("2026-11-21T12:00:00Z");
+    assert.equal(withLabel({ status: "in_cortex", detail: "x" }, label({ held: "not_mrv" }), admittedLater).status, "in_cortex");
+    assert.equal(withLabel({ status: "in_cortex", detail: "x" }, label(), admittedLater).label, null);
+    assert.equal(withLabel({ status: "scanning", detail: "x" }, label()).label, null);
+  });
+});
+
+describe("what Cortex suggests", () => {
+  it("moves registry rules from Knowledge to Protocols", () => {
+    const advice = adviceFor(doc(), CONTEXT);
+    assert.equal(advice?.kind, "move");
+    assert.ok(advice?.kind === "move");
+    assert.deepEqual(advice.to, { pin: "protocols", scope: "project" });
+    assert.equal(advice.action, "Move to Protocols");
+    assert.equal(advice.text, "Looks like registry rules: General Rules 4.4 (Puro.earth). It belongs on the Protocols pin.");
+    assert.equal(advice.canDecide, true);
+  });
+
+  it("offers admins every project for rules that apply to every project", () => {
+    const advice = adviceFor(doc({ pin: "protocols" }), { ...CONTEXT, canShare: true });
+    assert.ok(advice?.kind === "move");
+    assert.deepEqual(advice.to, { pin: "protocols", scope: "tenant" });
+    assert.equal(advice.action, "Move to Protocols · every project");
+    assert.equal(adviceFor(doc({ pin: "protocols" }), CONTEXT), null);
+  });
+
+  it("sends project evidence given to every project back to this project", () => {
+    const evidence = label({ kind: "evidence", pin: "evidence", applies_to: "one_project" });
+    const organisation = doc({ scope: "tenant", pin: "knowledge", label: evidence });
+    const advice = adviceFor(organisation, { ...CONTEXT, canShare: true });
+    assert.ok(advice?.kind === "move");
+    assert.deepEqual(advice.to, { pin: "evidence", scope: "project" });
+    assert.equal(adviceFor(organisation, CONTEXT)?.canDecide, false);
+  });
+
+  it("asks about a held document, and names where its twin is", () => {
+    const twin = "tenants/fourfourone/tenant/protocols/General_Rules.pdf";
+    const advice = adviceFor(doc({ label: label({ held: "same_as", same_as: { key: twin } }) }), CONTEXT);
+    assert.equal(advice?.kind, "held");
+    assert.match(advice?.text ?? "", /already has in your organisation's Protocols documents/);
+  });
+
+  it("stays quiet once someone keeps it here, for registry documents and unlabelled ones", () => {
+    assert.equal(adviceFor(doc({ label: label({ placement_kept: { by: "a", at: "b" } }) }), CONTEXT), null);
+    assert.equal(adviceFor(doc({ scope: "shared", pin: null }), CONTEXT), null);
+    assert.equal(adviceFor(doc({ label: label({ checked: false }) }), CONTEXT), null);
+    assert.equal(adviceFor(doc({ label: null }), CONTEXT), null);
+  });
+});
+
+describe("searched more than once", () => {
+  const place = (item: KnowledgeDocument) => placeOfKey(item.key, "Fujairah");
+  const protocols = doc({ key: "tenants/fourfourone/projects/fujairah-mineral/protocols/Rules.pdf", name: "Rules.pdf" });
+
+  it("warns about the same rules twice and about two editions", () => {
+    assert.match(duplicateNotes([doc(), protocols], place)[0], /^General Rules is in Cortex more than once/);
+    const older = doc({ label: label({ version: "4.3", version_key: "4.3" }) });
+    const [note] = duplicateNotes([older, protocols], place);
+    assert.match(note, /more than one edition of General Rules: General_Rules_4_4.pdf \(4.3\) in the Knowledge pin of Fujairah/);
+  });
+
+  it("does not count held documents or evidence titles, and still catches unlabelled names", () => {
+    assert.deepEqual(duplicateNotes([doc({ status: "held" }), protocols], place), []);
+    const certificate = label({ kind: "evidence", title: "Certificate of Analysis", title_key: "certificate of analysis" });
+    assert.deepEqual(duplicateNotes([doc({ label: certificate }), { ...protocols, label: certificate }], place), []);
+    const unlabelled = [doc({ label: null }), { ...protocols, name: "General_Rules_4_4.pdf", label: null }];
+    assert.match(duplicateNotes(unlabelled, place)[0], /General_Rules_4_4.pdf is in Cortex more than once/);
+  });
+
+  it("says where a key is", () => {
+    assert.equal(placeOfKey("tenants/t1/projects/p1/evidence/a.pdf", "Fujairah"), "the Evidence pin of Fujairah");
+    assert.equal(placeOfKey("shared/puro/any/any/a.pdf", "Fujairah"), "the registry documents (any any)");
   });
 });

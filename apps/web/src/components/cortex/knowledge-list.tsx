@@ -4,14 +4,26 @@ import { useEffect, useState } from "react";
 import { CircleAlert, FileText, LoaderCircle, RotateCw, Trash2 } from "lucide-react";
 
 import { CAPABILITY_BY_ID, isCapabilityId } from "@/lib/cortex/capabilities";
-import { duplicateNames, isSettled, type KnowledgeDocument } from "@/lib/cortex/uploads";
+import {
+  adviceFor,
+  documentPlace,
+  duplicateNotes,
+  isSettled,
+  labelTitle,
+  placeOfKey,
+  type DocumentScope,
+  type KnowledgeDocument,
+} from "@/lib/cortex/uploads";
 import { readJson, type CortexProjectOption } from "./cortex-projects";
+import { DocumentAdvice, useDocumentActions } from "./document-advice";
 import { StatusChip } from "./document-intake";
 
 /**
  * Everything one project's Cortex searches read, in the three scopes the search
  * combines: registry documents for its methodology and edition, the organisation's
- * documents (every project) and the project's own, across all pins.
+ * documents (every project) and the project's own, across all pins. Each shows what
+ * Cortex made of it (title, version), and what Cortex suggests: keep a held document
+ * in search, or move one to the pin it belongs on.
  */
 
 const POLL_MS = 8000;
@@ -48,10 +60,12 @@ function Group({ title, note, children }: { title: string; note: string; childre
 
 export function KnowledgeList({
   project,
+  canUpload,
   canRemove,
   canShare,
 }: {
   project: CortexProjectOption;
+  canUpload: boolean;
   canRemove: boolean;
   canShare: boolean;
 }) {
@@ -77,7 +91,8 @@ export function KnowledgeList({
   }, [project.id, refresh]);
 
   const documents = reply?.documents ?? [];
-  const moving = documents.some((doc) => !isSettled(doc.status) || removing[doc.key] === "");
+  const { acting, act, pending } = useDocumentActions(reply?.documents ?? null, () => setRefresh((value) => value + 1));
+  const moving = pending || documents.some((doc) => !isSettled(doc.status) || removing[doc.key] === "");
   useEffect(() => {
     if (!moving) return;
     const timer = window.setTimeout(() => setRefresh((value) => value + 1), POLL_MS);
@@ -104,7 +119,14 @@ export function KnowledgeList({
     );
   }
 
-  const twice = duplicateNames(documents.map((doc) => doc.name));
+  const placeOf = (doc: KnowledgeDocument) => documentPlace(doc, project.name);
+  const notes = duplicateNotes(documents, placeOf);
+  const request = (doc: KnowledgeDocument) => ({
+    project: project.id,
+    pin: doc.pin ?? "",
+    name: doc.name,
+    scope: doc.scope as DocumentScope,
+  });
   const passages = documents.reduce((sum, doc) => sum + (doc.passages ?? 0), 0);
   const shared = documents.filter((doc) => doc.scope === "shared");
   const organisation = documents.filter((doc) => doc.scope === "tenant");
@@ -124,9 +146,14 @@ export function KnowledgeList({
             removal === undefined &&
             canRemove &&
             (doc.scope === "project" || canShare);
-          const meta = [pinName(doc.pin), TIME.format(new Date(doc.uploadedAt)), formatBytes(doc.size)]
+          const titled = doc.label?.checked ? labelTitle(doc.label) : "";
+          const meta = [titled, pinName(doc.pin), TIME.format(new Date(doc.uploadedAt)), formatBytes(doc.size)]
             .filter(Boolean)
             .join(" · ");
+          const advice =
+            removal === undefined
+              ? adviceFor(doc, { canUpload, canShare, placeOf: (key) => placeOfKey(key, project.name) })
+              : null;
           return (
             <li key={doc.key} className="grid min-w-0 gap-1.5 rounded-lg border border-line bg-white px-2.5 py-2">
               <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5">
@@ -137,7 +164,9 @@ export function KnowledgeList({
                   <span className="truncate text-[12.5px] font-semibold text-rock" title={doc.name}>
                     {doc.name}
                   </span>
-                  <span className="truncate text-[11px] text-mist">{removal ? `Not removed: ${removal}` : meta}</span>
+                  <span className="truncate text-[11px] text-mist" title={doc.label?.summary}>
+                    {removal ? `Not removed: ${removal}` : meta}
+                  </span>
                 </span>
                 <span className="flex items-center gap-1.5">
                   {removal === "" ? (
@@ -164,6 +193,17 @@ export function KnowledgeList({
                   )}
                 </span>
               </div>
+              {advice && (
+                <DocumentAdvice
+                  advice={advice}
+                  acting={acting[doc.key]}
+                  onKeep={() => void act(doc, request(doc), "keep")}
+                  onStay={() => void act(doc, request(doc), "stay")}
+                  onMove={() => advice.kind === "move" && void act(doc, request(doc), "move", advice.to)}
+                  onRemove={removable ? () => setConfirm(doc.key) : undefined}
+                  who={doc.scope === "tenant" ? "An organisation admin" : "Someone who can add to this project"}
+                />
+              )}
               {doc.status === "in_cortex" && doc.passages === 0 && (
                 <p className="text-[11px] leading-snug text-signal-rose">
                   No text was found in this file, so search cannot use it. A scanned PDF needs a text layer.
@@ -224,15 +264,15 @@ export function KnowledgeList({
         </button>
       </div>
 
-      {twice.size > 0 && (
-        <p className="flex items-start gap-1.5 rounded-lg bg-[#FBF0D9] px-2.5 py-2 text-[11.5px] leading-snug text-[#855300]">
+      {notes.map((note) => (
+        <p
+          key={note}
+          className="flex items-start gap-1.5 rounded-lg bg-[#FBF0D9] px-2.5 py-2 text-[11.5px] leading-snug text-[#855300]"
+        >
           <CircleAlert className="mt-px size-3.5 shrink-0" />
-          <span>
-            {documents.find((doc) => twice.has(doc.name.toLowerCase()))?.name} is in Cortex more than once, so search
-            can return the same rule twice. Remove the extra copy.
-          </span>
+          <span>{note}</span>
         </p>
-      )}
+      ))}
 
       <Group title="Registry" note={edition ? `${edition}, for every organisation` : "for every organisation"}>
         {reply.gaps.includes("registry") ? (

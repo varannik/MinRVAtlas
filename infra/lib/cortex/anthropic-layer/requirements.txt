@@ -1,0 +1,3 @@
+# The Claude SDK for the Cortex label task (Bedrock client; boto3 comes with the Lambda runtime).
+# Same version as apps/cortex-agent.
+anthropic==2.10.0

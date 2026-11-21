@@ -160,21 +160,212 @@ export function pinAndName(rest: string): { pin: string | null; name: string } {
 }
 
 /** One document a project's searches read, from any scope. */
-export interface KnowledgeDocument {
-  key: string;
-  name: string;
+export interface KnowledgeDocument extends CortexDocument {
   /** shared: registry document; tenant: every project in the organisation; project: this project. */
   scope: "shared" | DocumentScope;
   pin: string | null;
-  size: number;
-  uploadedAt: string;
-  status: DocumentStatus;
-  detail: string;
   /** Rule passages Cortex made from it; null when not counted (still processing, or no access yet). */
   passages: number | null;
   registry?: string;
   methodology?: string;
   edition?: string;
+}
+
+// ── Labels ──────────────────────────────────────────────────────────────────
+//
+// Cortex labels every admitted document with Claude: what it is, its title and
+// version (infra/lib/cortex/lambda/labels.py). From the kind it knows the pin the
+// document belongs on and whether it applies to every project, so it can suggest a
+// move; and it holds a document out of search when it is not MRV material or is
+// the same document as one already searched. The model proposes; a person decides.
+
+export type LabelKind =
+  | "registry_rules"
+  | "organisation_procedure"
+  | "reference"
+  | "project_design"
+  | "evidence"
+  | "calibration"
+  | "verifier_correspondence"
+  | "not_mrv";
+
+const LABEL_KINDS: ReadonlySet<string> = new Set<LabelKind>([
+  "registry_rules",
+  "organisation_procedure",
+  "reference",
+  "project_design",
+  "evidence",
+  "calibration",
+  "verifier_correspondence",
+  "not_mrv",
+]);
+
+/** How a kind reads in a sentence: "Looks like registry rules". */
+export const KIND_PHRASE: Record<LabelKind, string> = {
+  registry_rules: "registry rules",
+  organisation_procedure: "an organisation procedure",
+  reference: "reference material",
+  project_design: "a project design document",
+  evidence: "project evidence",
+  calibration: "a calibration record",
+  verifier_correspondence: "verifier correspondence",
+  not_mrv: "not MRV material",
+};
+
+/** Who decided and when. */
+export interface Decision {
+  by: string;
+  at: string;
+}
+
+export interface DocumentLabel {
+  /** False when Claude could not label it: it is searched, unlabelled. */
+  checked: boolean;
+  kind?: LabelKind;
+  /** The pin Cortex thinks it belongs on; null for material that is not MRV. */
+  pin?: string | null;
+  appliesTo?: "every_project" | "one_project" | null;
+  title?: string;
+  issuer?: string;
+  version?: string;
+  summary?: string;
+  reason?: string;
+  /** Title and version as Cortex compares them ("general rules", "4.4"). */
+  titleKey?: string;
+  versionKey?: string;
+  /** Why it is held out of search, if it is. */
+  held?: "not_mrv" | "same_as" | null;
+  sameAs?: { key: string; title?: string; version?: string } | null;
+  /** Someone kept it in Cortex although it was held. */
+  released?: Decision | null;
+  /** Someone kept it where it is although Cortex suggested a move. */
+  placementKept?: Decision | null;
+  labelledAt: string;
+}
+
+function str(value: unknown): string | undefined {
+  return typeof value === "string" ? value : undefined;
+}
+
+function decision(value: unknown): Decision | null {
+  if (!value || typeof value !== "object") return null;
+  const { by, at } = value as Record<string, unknown>;
+  return typeof at === "string" ? { by: str(by) ?? "", at } : null;
+}
+
+/** A label file (labels/<key>.json, snake_case) as the web uses it; null when it is not one. */
+export function parseLabel(raw: unknown): DocumentLabel | null {
+  if (!raw || typeof raw !== "object") return null;
+  const value = raw as Record<string, unknown>;
+  const labelledAt = str(value.labelled_at);
+  if (!labelledAt || typeof value.checked !== "boolean") return null;
+  const kind = str(value.kind);
+  const held = value.held === "not_mrv" || value.held === "same_as" ? value.held : null;
+  const sameAs = value.same_as && typeof value.same_as === "object" ? (value.same_as as Record<string, unknown>) : null;
+  return {
+    checked: value.checked,
+    kind: kind && LABEL_KINDS.has(kind) ? (kind as LabelKind) : undefined,
+    pin: str(value.pin) ?? null,
+    appliesTo: value.applies_to === "every_project" || value.applies_to === "one_project" ? value.applies_to : null,
+    title: str(value.title),
+    issuer: str(value.issuer),
+    version: str(value.version),
+    summary: str(value.summary),
+    reason: str(value.reason),
+    titleKey: str(value.title_key),
+    versionKey: str(value.version_key),
+    held,
+    sameAs: sameAs && str(sameAs.key) ? { key: str(sameAs.key) as string, title: str(sameAs.title), version: str(sameAs.version) } : null,
+    released: decision(value.released),
+    placementKept: decision(value.placement_kept),
+    labelledAt,
+  };
+}
+
+/** Held out of search, and nobody has kept it in Cortex since. */
+export function isHeld(label: DocumentLabel | null | undefined): boolean {
+  return Boolean(label?.held) && !label?.released;
+}
+
+/**
+ * A document's status once its label is known. A label written before the document
+ * was last admitted belongs to an earlier file of that name, so it is ignored until
+ * the new one is labelled.
+ */
+export function withLabel(
+  doc: { status: DocumentStatus; detail: string },
+  label: DocumentLabel | null,
+  admittedAt?: Date,
+): { status: DocumentStatus; detail: string; label: DocumentLabel | null } {
+  if (!label || doc.status !== "in_cortex") return { ...doc, label: null };
+  if (admittedAt && new Date(label.labelledAt).getTime() < admittedAt.getTime() - 1000) return { ...doc, label: null };
+  if (isHeld(label)) {
+    return {
+      status: "held",
+      detail:
+        label.held === "not_mrv"
+          ? "Held out of search: it does not look like MRV material."
+          : "Held out of search: Cortex already has this document.",
+      label,
+    };
+  }
+  return { status: "in_cortex", detail: "In search.", label };
+}
+
+/** "General Rules 4.4 (Puro.earth)" */
+export function labelTitle(label: DocumentLabel): string {
+  const title = [label.title, label.version].filter(Boolean).join(" ");
+  return label.issuer && title ? `${title} (${label.issuer})` : title || label.issuer || "";
+}
+
+/** What Cortex suggests for one document, if anything. */
+export type Advice =
+  | { kind: "held"; text: string; canDecide: boolean }
+  | { kind: "move"; text: string; to: { pin: CapabilityId; scope: DocumentScope }; action: string; canDecide: boolean };
+
+/**
+ * Held documents ask whether to keep them in search. A document on a pin other than
+ * the one its kind belongs on, or given to one project when it applies to every
+ * project (registry rules, procedures), gets a move, until someone keeps it where it is.
+ */
+export function adviceFor(
+  doc: { scope: KnowledgeDocument["scope"]; pin: string | null; label?: DocumentLabel | null },
+  context: { canUpload: boolean; canShare: boolean; placeOf: (key: string) => string },
+): Advice | null {
+  const label = doc.label;
+  if (doc.scope === "shared" || !label?.checked || !label.kind) return null;
+  const canChange = context.canUpload && (doc.scope === "project" || context.canShare);
+  const titled = labelTitle(label);
+
+  if (isHeld(label)) {
+    const text =
+      label.held === "same_as" && label.sameAs
+        ? `Held out of search: it looks like ${titled || "a document"}, which Cortex already has in ${context.placeOf(label.sameAs.key)}. Searching both would cite the same rules twice.`
+        : `Held out of search: it does not look like MRV material${label.summary ? ` (${label.summary.replace(/\.$/, "")})` : ""}. Keep it if Cortex should read it.`;
+    return { kind: "held", text, canDecide: canChange };
+  }
+
+  if (label.placementKept || !label.pin || !isCapabilityId(label.pin) || !DOCUMENT_PINS.has(label.pin)) return null;
+  const pin = label.pin;
+  let scope: DocumentScope = doc.scope;
+  if (label.appliesTo === "every_project" && ORGANISATION_PINS.has(pin) && context.canShare) scope = "tenant";
+  if (label.appliesTo === "one_project" || !ORGANISATION_PINS.has(pin)) scope = "project";
+  if (pin === doc.pin && scope === doc.scope) return null;
+
+  const pinName = CAPABILITY_BY_ID[pin].name;
+  const where =
+    scope === "tenant"
+      ? `the ${pinName} pin, for every project`
+      : doc.scope === "tenant"
+        ? `this project's ${pinName} pin`
+        : `the ${pinName} pin`;
+  return {
+    kind: "move",
+    text: `Looks like ${KIND_PHRASE[label.kind]}${titled ? `: ${titled}` : ""}. It belongs on ${where}.`,
+    to: { pin, scope },
+    action: scope === "tenant" ? `Move to ${pinName} · every project` : `Move to ${pinName}`,
+    canDecide: canChange && (scope === "project" || context.canShare),
+  };
 }
 
 // ── Duplicates ──────────────────────────────────────────────────────────────
@@ -197,6 +388,20 @@ export function documentPlace(doc: Pick<KnowledgeDocument, "scope" | "pin" | "me
   return pin ? `the ${pin} pin of ${projectName}` : projectName;
 }
 
+/** Where a document key is, in words (documentPlace for a key alone). */
+export function placeOfKey(key: string, projectName: string): string {
+  const shared = sharedPlace(key);
+  if (shared) return documentPlace({ scope: "shared", pin: null, ...shared }, projectName);
+  const parts = key.split("/");
+  if (parts[0] === "tenants" && parts[2] === "tenant") {
+    return documentPlace({ scope: "tenant", pin: parts.length > 4 ? parts[3] : null }, projectName);
+  }
+  if (parts[0] === "tenants" && parts[2] === "projects") {
+    return documentPlace({ scope: "project", pin: parts.length > 5 ? parts[4] : null }, projectName);
+  }
+  return "another place";
+}
+
 /** Files that appear more than once among the documents a project searches (by file name). */
 export function duplicateNames(names: readonly string[]): Set<string> {
   const seen = new Set<string>();
@@ -209,12 +414,63 @@ export function duplicateNames(names: readonly string[]): Set<string> {
   return twice;
 }
 
+/** Kinds a title and version identify (labels.py: IDENTIFIED_BY_TITLE). */
+const IDENTIFIED_BY_TITLE: ReadonlySet<LabelKind | undefined> = new Set<LabelKind>([
+  "registry_rules",
+  "organisation_procedure",
+  "reference",
+  "project_design",
+]);
+
+/**
+ * Warnings about what a project searches more than once: two editions of the same
+ * rules (search may cite the superseded one), the same document in two places (the
+ * pipeline only holds back a copy within one place), and, for documents not yet
+ * labelled, the same file name twice.
+ */
+export function duplicateNotes(documents: readonly KnowledgeDocument[], placeOf: (doc: KnowledgeDocument) => string): string[] {
+  const notes: string[] = [];
+  const covered = new Set<string>();
+  const searched = documents.filter((doc) => doc.status === "in_cortex");
+
+  const byTitle = new Map<string, KnowledgeDocument[]>();
+  for (const doc of searched) {
+    const label = doc.label;
+    if (!label?.checked || !IDENTIFIED_BY_TITLE.has(label.kind) || (label.titleKey ?? "").length < 6) continue;
+    byTitle.set(label.titleKey as string, [...(byTitle.get(label.titleKey as string) ?? []), doc]);
+  }
+  for (const docs of byTitle.values()) {
+    if (docs.length < 2) continue;
+    const issuers = new Set(docs.map((doc) => (doc.label?.issuer ?? "").toLowerCase()).filter(Boolean));
+    if (issuers.size > 1) continue;
+    const title = docs[0].label?.title || docs[0].name;
+    const listed = docs.map((doc) => `${doc.name}${doc.label?.version ? ` (${doc.label.version})` : ""} in ${placeOf(doc)}`);
+    const versions = new Set(docs.map((doc) => doc.label?.versionKey ?? ""));
+    if (versions.size > 1) {
+      notes.push(`Cortex searches more than one edition of ${title}: ${listed.join("; ")}. Remove the editions not in force, or answers may cite superseded rules.`);
+    } else {
+      notes.push(`${title} is in Cortex more than once: ${listed.join("; ")}. Search can return the same rule twice; remove the extra copy.`);
+    }
+    for (const doc of docs) covered.add(doc.key);
+  }
+
+  // Held copies are not searched, so they do not count twice.
+  const rest = documents.filter((doc) => !covered.has(doc.key) && doc.status !== "held");
+  const twice = duplicateNames(rest.map((doc) => doc.name));
+  for (const name of twice) {
+    const docs = rest.filter((doc) => doc.name.toLowerCase() === name);
+    notes.push(`${docs[0].name} is in Cortex more than once (${docs.map(placeOf).join("; ")}), so search can return the same rule twice. Remove the extra copy.`);
+  }
+  return notes;
+}
+
 // ── Status ──────────────────────────────────────────────────────────────────
 
 /** GuardDuty Malware Protection for S3 writes its verdict as this object tag. */
 export const SCAN_TAG = "GuardDutyMalwareScanStatus";
 
-export type DocumentStatus = "scanning" | "admitting" | "in_cortex" | "rejected";
+/** held: admitted, but kept out of search until someone decides (see Labels). */
+export type DocumentStatus = "scanning" | "admitting" | "in_cortex" | "held" | "rejected";
 
 export interface CortexDocument {
   key: string;
@@ -223,6 +479,8 @@ export interface CortexDocument {
   uploadedAt: string;
   status: DocumentStatus;
   detail: string;
+  /** What Cortex made of it; null until labelled (or for documents admitted before labels). */
+  label?: DocumentLabel | null;
 }
 
 /** Longer than this without a verdict or admission means something went wrong. */
@@ -262,5 +520,5 @@ export function documentStatus(input: {
 }
 
 export function isSettled(status: DocumentStatus): boolean {
-  return status === "in_cortex" || status === "rejected";
+  return status === "in_cortex" || status === "held" || status === "rejected";
 }
