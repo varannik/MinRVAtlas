@@ -396,6 +396,9 @@ export class CortexAgentStack extends Ew2Stack {
           COGNITO_CLIENT_IDS: cdk.Fn.join(",", allowedClients),
         },
       });
+      // AgentCore checks it can pull the image as this role when the runtime is created, so the
+      // role's permissions (its DefaultPolicy, a separate resource) must exist first.
+      this.runtime.node.addDependency(runtimeRole);
       new cdk.CfnOutput(this, "RuntimeArn", { value: this.runtime.attrAgentRuntimeArn });
 
       // The web app finds the runtime here (its id is generated) and calls it with the user's token.
