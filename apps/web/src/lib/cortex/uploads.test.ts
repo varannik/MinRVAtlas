@@ -6,11 +6,19 @@ import {
   DOCUMENT_PINS,
   MAX_UPLOAD_BYTES,
   allowedProjects,
+  canShareAcrossOrganisation,
   canUploadAs,
   documentKey,
+  documentPlace,
   documentStatus,
+  duplicateNames,
+  isSha256,
+  organisationPrefix,
+  pinAndName,
   safeFileName,
   sameDocument,
+  searchesShared,
+  sharedPlace,
   uploadProblem,
   uploadType,
 } from "./uploads";
@@ -95,5 +103,80 @@ describe("how far an upload has got", () => {
     assert.equal(documentStatus({ intakeAt: minutesAgo(2), scan: "UNSUPPORTED", now }).status, "rejected");
     assert.equal(documentStatus({ intakeAt: minutesAgo(20), scan: "NO_THREATS_FOUND", now }).status, "rejected");
     assert.equal(documentStatus({ intakeAt: minutesAgo(45), now }).status, "rejected");
+  });
+});
+
+describe("documents for the whole organisation", () => {
+  it("go under the tenant, for method and rule pins only", () => {
+    assert.equal(
+      documentKey("fourfourone", "fujairah-mineral", "protocols", "Sampling SOP.pdf", "tenant"),
+      "tenants/fourfourone/tenant/protocols/Sampling_SOP.pdf",
+    );
+    assert.equal(organisationPrefix("fourfourone", "knowledge"), "tenants/fourfourone/tenant/knowledge/");
+    assert.throws(() => organisationPrefix("fourfourone", "evidence"), /only takes project documents/);
+    assert.throws(() => organisationPrefix("../other", "knowledge"), /Unknown tenant/);
+  });
+
+  it("are added and removed by admins only", () => {
+    assert.equal(canShareAcrossOrganisation("tenant_admin"), true);
+    assert.equal(canShareAcrossOrganisation("platform_admin"), true);
+    assert.equal(canShareAcrossOrganisation("quality_engineer"), false);
+    assert.equal(canShareAcrossOrganisation("operator"), false);
+  });
+});
+
+describe("what a project searches", () => {
+  const project = { methodology: "puro-geologically-stored-carbon", edition: "2024-v5" };
+
+  it("reads a registry document's place from its key", () => {
+    assert.deepEqual(sharedPlace("shared/puro/puro-geologically-stored-carbon/2024-v5/GSC.pdf"), {
+      registry: "puro",
+      methodology: "puro-geologically-stored-carbon",
+      edition: "2024-v5",
+      name: "GSC.pdf",
+    });
+    assert.equal(sharedPlace("shared/puro/GSC.pdf"), null);
+    assert.equal(sharedPlace("tenants/x/tenant/a.pdf"), null);
+  });
+
+  it("includes registry documents for its methodology and edition, or filed under any", () => {
+    assert.equal(searchesShared(project, { methodology: "puro-geologically-stored-carbon", edition: "2024-v5" }), true);
+    assert.equal(searchesShared(project, { methodology: "any", edition: "any" }), true);
+    assert.equal(searchesShared(project, { methodology: "puro-geologically-stored-carbon", edition: "2023-v4" }), false);
+    assert.equal(searchesShared(project, { methodology: "isometric-bioccs", edition: "any" }), false);
+    assert.equal(searchesShared({}, { methodology: "isometric-bioccs", edition: "v1.5" }), true);
+  });
+
+  it("splits the pin from the file name", () => {
+    assert.deepEqual(pinAndName("knowledge/General_Rules_4_4.pdf"), { pin: "knowledge", name: "General_Rules_4_4.pdf" });
+    assert.deepEqual(pinAndName("Policy.pdf"), { pin: null, name: "Policy.pdf" });
+  });
+
+  it("finds a file given twice", () => {
+    assert.deepEqual(
+      [...duplicateNames(["General_Rules_4_4.pdf", "GSC.pdf", "general_rules_4_4.pdf"])],
+      ["general_rules_4_4.pdf"],
+    );
+  });
+});
+
+describe("duplicates", () => {
+  it("accepts only a base64 SHA-256", () => {
+    assert.equal(isSha256("X8OrcflKmD6B52ogUUDXmQaZB9qpE8fM4HeKl9U+aUU="), true);
+    assert.equal(isSha256("X8OrcflKmD6B52ogUUDXmQaZB9qpE8fM4HeKl9U+aUU"), false);
+    assert.equal(isSha256("5fc3ab71f94a983e81e76a2051"), false);
+    assert.equal(isSha256(undefined), false);
+  });
+
+  it("says where a document already is", () => {
+    assert.equal(
+      documentPlace({ scope: "project", pin: "protocols" }, "Fujairah"),
+      "the Protocols pin of Fujairah",
+    );
+    assert.equal(documentPlace({ scope: "tenant", pin: "knowledge" }, "Fujairah"), "your organisation's Knowledge documents");
+    assert.equal(
+      documentPlace({ scope: "shared", pin: null, methodology: "puro-geologically-stored-carbon", edition: "2024-v5" }, "Fujairah"),
+      "the registry documents (puro-geologically-stored-carbon 2024-v5)",
+    );
   });
 });

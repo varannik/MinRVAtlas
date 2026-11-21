@@ -21,6 +21,8 @@ export interface ProjectsReply {
   projects: CortexProjectOption[];
   canUpload: boolean;
   canRemove: boolean;
+  /** May add and remove documents every project in the organisation searches (admins). */
+  canShare: boolean;
 }
 
 export async function readJson<T>(response: Response): Promise<T> {

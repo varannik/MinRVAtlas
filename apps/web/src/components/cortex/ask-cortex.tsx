@@ -12,7 +12,6 @@ import {
   type AskSource,
 } from "@/lib/cortex/ask";
 import { useCortex, type ChatTurn } from "@/store/cortex-store";
-import { ProjectPicker, noProjectReason, useCortexProjects } from "./cortex-projects";
 
 /**
  * Ask Cortex about a project: the agent searches the registry, organisation and
@@ -146,7 +145,8 @@ function Turn({ turn }: { turn: ChatTurn }) {
   );
 }
 
-function Conversation({ projectId, projectName }: { projectId: string; projectName: string }) {
+/** One project's conversation with Cortex. The core panel picks the project. */
+export function AskCortex({ projectId, projectName }: { projectId: string; projectName: string }) {
   const chat = useCortex((state) => state.chats[projectId]);
   const askStarted = useCortex((state) => state.askStarted);
   const askUpdated = useCortex((state) => state.askUpdated);
@@ -289,28 +289,6 @@ function Conversation({ projectId, projectName }: { projectId: string; projectNa
           )}
         </div>
       </form>
-    </div>
-  );
-}
-
-export function AskCortex() {
-  const { reply, error } = useCortexProjects();
-  const stored = useCortex((state) => state.projectId);
-  const setProject = useCortex((state) => state.setProject);
-  const chats = useCortex((state) => state.chats);
-
-  if (!reply) {
-    return <p className="text-[12px] text-mist">{error ? `Cortex is unavailable (${error}).` : "Connecting to Cortex…"}</p>;
-  }
-  const project = reply.projects.find((item) => item.id === stored) ?? reply.projects[0];
-  const why = noProjectReason(reply, project);
-  if (why || !project) return <p className="text-[12px] text-mist">{why}</p>;
-  const asking = Object.values(chats).some((chat) => chat.turns.some((turn) => turn.state === "asking"));
-
-  return (
-    <div className="grid min-w-0 gap-3">
-      <ProjectPicker projects={reply.projects} value={project.id} onChange={setProject} disabled={asking} />
-      <Conversation key={project.id} projectId={project.id} projectName={project.name} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-"""Removal only ever touches the requesting project's own documents (no AWS needed)."""
+"""Removal only ever touches the requesting project's or tenant's own documents (no AWS needed)."""
 
 import os
 import sys
@@ -26,8 +26,14 @@ class RemovalScopeTest(unittest.TestCase):
             ingest_remove.check({**REQUEST, "project_id": "oman-basalt"})
         with self.assertRaises(ingest_remove.NotAllowed):
             ingest_remove.check({**REQUEST, "tenant_id": "someone-else"})
+
+    def test_an_organisation_document_of_the_requesting_tenant(self):
+        own = "tenants/fourfourone/tenant/protocols/Sampling_SOP.pdf"
+        self.assertEqual(ingest_remove.check({**REQUEST, "key": own}), own)
+
+    def test_never_another_tenants_organisation_document(self):
         with self.assertRaises(ingest_remove.NotAllowed):
-            ingest_remove.check({**REQUEST, "key": "tenants/fourfourone/tenant/policy.pdf"})
+            ingest_remove.check({**REQUEST, "key": "tenants/someone-else/tenant/protocols/Sampling_SOP.pdf"})
 
     def test_never_a_metadata_file_or_a_folder(self):
         for key in (f"{KEY}.metadata.json", "tenants/fourfourone/projects/fujairah-mineral/evidence/", f"{KEY}/../x.pdf"):

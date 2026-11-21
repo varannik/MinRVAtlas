@@ -26,7 +26,9 @@ import {
 } from "@/lib/cortex/capabilities";
 import { stagedFor, useCortex, type StagedItem } from "@/store/cortex-store";
 import { AskCortex } from "./ask-cortex";
+import { ProjectPicker, noProjectReason, useCortexProjects } from "./cortex-projects";
 import { DocumentIntake } from "./document-intake";
+import { KnowledgeList } from "./knowledge-list";
 
 const TIME = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -540,6 +542,48 @@ export function CapabilityPanel({ capability }: { capability: Capability }) {
   );
 }
 
+/** One project picker for asking Cortex and for seeing everything it holds for that project. */
+function ProjectSections() {
+  const { reply, error } = useCortexProjects();
+  const stored = useCortex((state) => state.projectId);
+  const setProject = useCortex((state) => state.setProject);
+  const asking = useCortex((state) =>
+    Object.values(state.chats).some((chat) => chat.turns.some((turn) => turn.state === "asking")),
+  );
+
+  if (!reply) {
+    return (
+      <section className="grid min-w-0 gap-2.5" aria-label="Ask Cortex">
+        <SectionTitle>Ask Cortex</SectionTitle>
+        <p className="text-[12px] text-mist">{error ? `Cortex is unavailable (${error}).` : "Connecting to Cortex…"}</p>
+      </section>
+    );
+  }
+  const project = reply.projects.find((item) => item.id === stored) ?? reply.projects[0];
+  const why = noProjectReason(reply, project);
+  if (why || !project) {
+    return (
+      <section className="grid min-w-0 gap-2.5" aria-label="Ask Cortex">
+        <SectionTitle>Ask Cortex</SectionTitle>
+        <p className="text-[12px] text-mist">{why}</p>
+      </section>
+    );
+  }
+  return (
+    <>
+      <ProjectPicker projects={reply.projects} value={project.id} onChange={setProject} disabled={asking} />
+      <section className="grid min-w-0 gap-2.5" aria-label="Ask Cortex">
+        <SectionTitle>Ask Cortex</SectionTitle>
+        <AskCortex key={project.id} projectId={project.id} projectName={project.name} />
+      </section>
+      <section className="grid min-w-0 gap-2.5" aria-label="What Cortex knows">
+        <SectionTitle>What Cortex knows for this project</SectionTitle>
+        <KnowledgeList key={project.id} project={project} canRemove={reply.canRemove} canShare={reply.canShare} />
+      </section>
+    </>
+  );
+}
+
 export function CorePanel() {
   const titleId = useId();
   const select = useCortex((state) => state.select);
@@ -564,10 +608,7 @@ export function CorePanel() {
       summary="The AI expert at the centre of MinRV data quality. Ask it about your registry rules and project documents, or feed a pin to teach it."
       onClose={() => select(null)}
     >
-      <section className="grid min-w-0 gap-2.5" aria-label="Ask Cortex">
-        <SectionTitle>Ask Cortex</SectionTitle>
-        <AskCortex />
-      </section>
+      <ProjectSections />
 
       <section className="grid gap-2.5">
         <SectionTitle>Staged in this browser</SectionTitle>

@@ -7,7 +7,7 @@
  * and indexes them (infra/lib/cortex/knowledge-stack.ts).
  */
 
-import { CAPABILITIES, type CapabilityId } from "./capabilities";
+import { CAPABILITIES, CAPABILITY_BY_ID, isCapabilityId, type CapabilityId } from "./capabilities";
 
 /** What Bedrock Data Automation parses into rule passages today. */
 export const UPLOAD_TYPES: Readonly<Record<string, string>> = {
@@ -33,6 +33,24 @@ export const DOCUMENT_PINS: ReadonlySet<CapabilityId> = new Set(
 
 export function canUploadAs(role: string): boolean {
   return UPLOAD_ROLES.has(role);
+}
+
+/**
+ * Where a document is given: one project, or the whole organisation (every project
+ * in the tenant searches it). Registry documents (shared/) are added by operators.
+ */
+export type DocumentScope = "project" | "tenant";
+
+/** Pins whose documents can apply across projects: methods and rules, not one site's evidence. */
+export const ORGANISATION_PINS: ReadonlySet<CapabilityId> = new Set<CapabilityId>(["knowledge", "protocols", "reviewer"]);
+
+/** Organisation-wide documents reach every project, so only admins add or remove them. */
+export function canShareAcrossOrganisation(role: string): boolean {
+  return TENANT_WIDE_ROLES.has(role);
+}
+
+export function isDocumentScope(value: unknown): value is DocumentScope {
+  return value === "project" || value === "tenant";
 }
 
 /** Projects a user may work on inside their tenant. A grant for a project the tenant no longer has does not count. */
@@ -90,8 +108,105 @@ export function documentPrefix(tenantId: string, projectId: string, pin: Capabil
   return `tenants/${tenantId}/projects/${projectId}/${pin}/`;
 }
 
-export function documentKey(tenantId: string, projectId: string, pin: CapabilityId, fileName: string): string {
-  return `${documentPrefix(tenantId, projectId, pin)}${safeFileName(fileName)}`;
+/** Where an organisation's document for one pin goes: tenants/<tenant>/tenant/<pin>/ (scope "tenant" in Cortex). */
+export function organisationPrefix(tenantId: string, pin: CapabilityId): string {
+  if (!CORTEX_ID.test(tenantId)) throw new Error("Unknown tenant.");
+  if (!ORGANISATION_PINS.has(pin)) throw new Error("This pin only takes project documents.");
+  return `tenants/${tenantId}/tenant/${pin}/`;
+}
+
+export function scopePrefix(scope: DocumentScope, tenantId: string, projectId: string, pin: CapabilityId): string {
+  return scope === "tenant" ? organisationPrefix(tenantId, pin) : documentPrefix(tenantId, projectId, pin);
+}
+
+export function documentKey(
+  tenantId: string,
+  projectId: string,
+  pin: CapabilityId,
+  fileName: string,
+  scope: DocumentScope = "project",
+): string {
+  return `${scopePrefix(scope, tenantId, projectId, pin)}${safeFileName(fileName)}`;
+}
+
+// ── What a project searches ────────────────────────────────────────────────
+
+/** A registry document's place: shared/<registry>/<methodology>/<edition>/<file>. */
+export function sharedPlace(key: string): { registry: string; methodology: string; edition: string; name: string } | null {
+  const parts = key.split("/");
+  if (parts[0] !== "shared" || parts.length < 5 || key.endsWith("/")) return null;
+  const [, registry, methodology, edition, ...rest] = parts;
+  return { registry, methodology, edition, name: rest.join("/") };
+}
+
+/**
+ * Whether a project searches a registry document. Same rule as the search filter
+ * (infra/lib/cortex/lambda/access.py, retrieval_filter): the project's methodology
+ * and edition, or documents filed under "any".
+ */
+export function searchesShared(
+  project: { methodology?: string; edition?: string },
+  place: { methodology: string; edition: string },
+): boolean {
+  const methodology = !project.methodology || place.methodology === project.methodology || place.methodology === "any";
+  const edition = !project.edition || place.edition === project.edition || place.edition === "any";
+  return methodology && edition;
+}
+
+/** "knowledge/General_Rules_4_4.pdf" under a project or organisation prefix: the pin and the file. */
+export function pinAndName(rest: string): { pin: string | null; name: string } {
+  const slash = rest.indexOf("/");
+  return slash < 0 ? { pin: null, name: rest } : { pin: rest.slice(0, slash), name: rest.slice(slash + 1) };
+}
+
+/** One document a project's searches read, from any scope. */
+export interface KnowledgeDocument {
+  key: string;
+  name: string;
+  /** shared: registry document; tenant: every project in the organisation; project: this project. */
+  scope: "shared" | DocumentScope;
+  pin: string | null;
+  size: number;
+  uploadedAt: string;
+  status: DocumentStatus;
+  detail: string;
+  /** Rule passages Cortex made from it; null when not counted (still processing, or no access yet). */
+  passages: number | null;
+  registry?: string;
+  methodology?: string;
+  edition?: string;
+}
+
+// ── Duplicates ──────────────────────────────────────────────────────────────
+
+/** A SHA-256 digest in base64, as S3 checks it (x-amz-checksum-sha256). */
+const SHA256_BASE64 = /^[A-Za-z0-9+/]{43}=$/;
+
+export function isSha256(value: unknown): value is string {
+  return typeof value === "string" && SHA256_BASE64.test(value);
+}
+
+/** Where a document already is, in words: "the Protocols pin of Fujairah", "the registry (…)". */
+export function documentPlace(doc: Pick<KnowledgeDocument, "scope" | "pin" | "methodology" | "edition">, projectName: string): string {
+  const pin = doc.pin && isCapabilityId(doc.pin) ? CAPABILITY_BY_ID[doc.pin].name : doc.pin;
+  if (doc.scope === "shared") {
+    const edition = [doc.methodology, doc.edition].filter(Boolean).join(" ");
+    return edition ? `the registry documents (${edition})` : "the registry documents";
+  }
+  if (doc.scope === "tenant") return pin ? `your organisation's ${pin} documents` : "your organisation's documents";
+  return pin ? `the ${pin} pin of ${projectName}` : projectName;
+}
+
+/** Files that appear more than once among the documents a project searches (by file name). */
+export function duplicateNames(names: readonly string[]): Set<string> {
+  const seen = new Set<string>();
+  const twice = new Set<string>();
+  for (const name of names) {
+    const key = name.toLowerCase();
+    if (seen.has(key)) twice.add(key);
+    seen.add(key);
+  }
+  return twice;
 }
 
 // ── Status ──────────────────────────────────────────────────────────────────

@@ -9,7 +9,9 @@ import {
   safeFileName,
   sameDocument,
   uploadProblem,
+  ORGANISATION_PINS,
   type CortexDocument,
+  type DocumentScope,
   type DocumentStatus,
 } from "@/lib/cortex/uploads";
 import { useCortex } from "@/store/cortex-store";
@@ -34,6 +36,8 @@ interface InFlight {
   id: string;
   name: string;
   progress: number;
+  /** Fingerprinting the file and checking Cortex does not have it already. */
+  checking?: boolean;
   error?: string;
 }
 
@@ -80,6 +84,14 @@ function postToStorage(form: UploadForm, file: File, onProgress: (fraction: numb
   });
 }
 
+/** The file's SHA-256 in base64: Cortex refuses a file it already has, and S3 refuses one that does not match. */
+async function sha256Of(file: File): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", await file.arrayBuffer()));
+  let binary = "";
+  for (const byte of digest) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
 function newId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -95,7 +107,7 @@ const STATUS: Record<DocumentStatus, { label: string; tone: string; Icon: typeof
   rejected: { label: "Not admitted", tone: "text-signal-rose", Icon: CircleAlert },
 };
 
-function StatusChip({ status }: { status: DocumentStatus }) {
+export function StatusChip({ status }: { status: DocumentStatus }) {
   const { label, tone, Icon } = STATUS[status];
   return (
     <span className={`inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold ${tone}`}>
@@ -139,12 +151,16 @@ function Row({
 
 // ── Intake ──────────────────────────────────────────────────────────────────
 
-/** Documents already given for one project and pin, refreshed while any is still moving. */
+/**
+ * Documents already given for one pin, refreshed while any is still moving: the
+ * project's own, or (scope "tenant") the organisation's, which every project searches.
+ */
 function ProjectDocuments({
   capability,
   lobe,
   projectId,
-  projectName,
+  owner,
+  scope,
   canUpload,
   canRemove,
   renderDropzone,
@@ -152,7 +168,9 @@ function ProjectDocuments({
   capability: Capability;
   lobe: Lobe;
   projectId: string;
-  projectName: string;
+  /** Whose documents these are, for the copy: the project's name or "your organisation". */
+  owner: string;
+  scope: DocumentScope;
   canUpload: boolean;
   canRemove: boolean;
   renderDropzone: (onFiles: (files: File[]) => void) => React.ReactNode;
@@ -170,7 +188,7 @@ function ProjectDocuments({
 
   useEffect(() => {
     const controller = new AbortController();
-    const query = new URLSearchParams({ project: projectId, pin: capability.id });
+    const query = new URLSearchParams({ project: projectId, pin: capability.id, scope });
     fetch(`/api/cortex/documents?${query}`, { signal: controller.signal })
       .then((response) => readJson<{ documents: CortexDocument[] }>(response))
       .then((body) => {
@@ -181,7 +199,7 @@ function ProjectDocuments({
         if (!controller.signal.aborted) setListError(failure.message);
       });
     return () => controller.abort();
-  }, [capability.id, projectId, refresh]);
+  }, [capability.id, projectId, scope, refresh]);
 
   const moving =
     uploads.some((upload) => !upload.error) ||
@@ -203,15 +221,17 @@ function ProjectDocuments({
       delete next[name]; // a fresh upload of a removed name starts clean
       return next;
     });
-    setUploads((current) => [...current, { id, name: file.name, progress: 0 }]);
+    setUploads((current) => [...current, { id, name: file.name, progress: 0, checking: true }]);
     try {
+      const sha256 = await sha256Of(file);
       const form = await readJson<UploadForm>(
         await fetch("/api/cortex/uploads", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ projectId, pin: capability.id, fileName: file.name, size: file.size }),
+          body: JSON.stringify({ projectId, pin: capability.id, fileName: file.name, size: file.size, sha256, scope }),
         }),
       );
+      progress(id, { checking: false });
       await postToStorage(form, file, (fraction) => progress(id, { progress: fraction }));
       setUploads((current) => current.filter((upload) => upload.id !== id));
       setRefresh((value) => value + 1);
@@ -244,7 +264,7 @@ function ProjectDocuments({
     setConfirmRemove(null);
     setRemoving((current) => ({ ...current, [doc.name]: "" }));
     try {
-      const query = new URLSearchParams({ project: projectId, pin: capability.id, name: doc.name });
+      const query = new URLSearchParams({ project: projectId, pin: capability.id, name: doc.name, scope });
       await readJson(await fetch(`/api/cortex/documents?${query}`, { method: "DELETE" }));
       setRefresh((value) => value + 1);
     } catch (failure) {
@@ -254,7 +274,14 @@ function ProjectDocuments({
 
   return (
     <div className="grid gap-2">
-      {renderDropzone(take)}
+      {scope === "tenant" && !canUpload ? (
+        <p className="rounded-xl border border-dashed border-line px-3.5 py-3 text-[12px] leading-snug text-shale">
+          Documents here are searched by every project in your organisation. Only organisation admins add or remove
+          them.
+        </p>
+      ) : (
+        renderDropzone(take)
+      )}
       {kept.length > 0 && (
         <p className="text-[11.5px] leading-snug text-shale" role="status">
           Kept in this browser, not sent: {kept.join("; ")}.
@@ -265,7 +292,7 @@ function ProjectDocuments({
         return (
           <div key={id} className="grid gap-2 rounded-xl border border-line bg-white px-3 py-2.5" role="alertdialog">
             <p className="text-[12px] leading-snug text-rock">
-              <span className="font-semibold">{existing.name}</span> is already in Cortex for {projectName} (
+              <span className="font-semibold">{existing.name}</span> is already in Cortex for {owner} (
               {STATUS[existing.status].label.toLowerCase()}, {TIME.format(new Date(existing.uploadedAt))}).{" "}
               {busy
                 ? "It is still being processed; drop the file again once that has finished."
@@ -286,7 +313,7 @@ function ProjectDocuments({
       })}
 
       <div className="flex items-baseline justify-between gap-2 pt-1">
-        <span className="text-[11.5px] font-semibold text-rock">In Cortex for {projectName}</span>
+        <span className="text-[11.5px] font-semibold text-rock">In Cortex for {owner}</span>
         {moving && <span className="text-[11px] text-mist">Updating…</span>}
       </div>
       {listError && (
@@ -300,7 +327,10 @@ function ProjectDocuments({
             key={upload.id}
             lobe={lobe}
             name={upload.name}
-            meta={upload.error ?? `Uploading · ${Math.round(upload.progress * 100)}%`}
+            meta={
+              upload.error ??
+              (upload.checking ? "Checking Cortex does not have it already…" : `Uploading · ${Math.round(upload.progress * 100)}%`)
+            }
             aside={
               upload.error ? (
                 <button
@@ -365,7 +395,7 @@ function ProjectDocuments({
               {confirmRemove === doc.key && (
                 <div className="grid gap-2 border-t border-line pt-2" role="alertdialog">
                   <p className="text-[11.5px] leading-snug text-rock">
-                    Remove {doc.name} from Cortex for {projectName}? Search stops using it within a few minutes. The
+                    Remove {doc.name} from Cortex for {owner}? Search stops using it within a few minutes. The
                     original is kept as a deleted version for audit.
                   </p>
                   <div className="flex gap-1.5">
@@ -384,7 +414,7 @@ function ProjectDocuments({
       </ul>
       {documents && documents.length === 0 && uploads.length === 0 && (
         <p className="rounded-xl border border-dashed border-line px-3.5 py-3 text-[12.5px] text-shale">
-          No documents for {capability.name} on this project yet.
+          No documents for {capability.name} {scope === "tenant" ? "for your organisation" : "on this project"} yet.
         </p>
       )}
     </div>
@@ -408,7 +438,9 @@ export function DocumentIntake({
   const stored = useCortex((state) => state.projectId);
   const setProject = useCortex((state) => state.setProject);
   const stageFiles = useCortex((state) => state.stageFiles);
+  const [scope, setScope] = useState<DocumentScope>("project");
   const stageLocally = (files: File[]) => stageFiles(capability.id, "document", files);
+  const sharable = ORGANISATION_PINS.has(capability.id);
 
   if (!reply) {
     return (
@@ -431,17 +463,50 @@ export function DocumentIntake({
     );
   }
 
+  const forOrganisation = sharable && scope === "tenant";
   return (
     <div className="grid gap-2.5">
       <ProjectPicker projects={reply.projects} value={project.id} onChange={setProject} />
+      {sharable && (
+        <div className="grid gap-1">
+          <span className="text-[11.5px] font-medium text-shale">Give to</span>
+          <div role="radiogroup" aria-label="Give documents to" className="grid grid-cols-2 gap-1 rounded-lg bg-ink-700 p-0.5">
+            {(
+              [
+                ["project", "This project"],
+                ["tenant", "Every project"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={scope === value}
+                onClick={() => setScope(value)}
+                className={`h-7 rounded-md text-[12px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-rock ${
+                  scope === value ? "bg-white text-rock shadow-sm" : "text-shale hover:text-rock"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {forOrganisation && (
+            <span className="text-[11px] leading-snug text-mist">
+              Every project in your organisation searches these, alongside its own documents.
+            </span>
+          )}
+        </div>
+      )}
       <ProjectDocuments
-        key={`${capability.id}:${project.id}`}
+        key={`${capability.id}:${project.id}:${forOrganisation ? "tenant" : "project"}`}
         capability={capability}
         lobe={lobe}
         projectId={project.id}
-        projectName={project.name}
-        canUpload={reply.canUpload}
-        canRemove={reply.canRemove}
+        owner={forOrganisation ? "your organisation" : project.name}
+        scope={forOrganisation ? "tenant" : "project"}
+        canUpload={forOrganisation ? reply.canShare : reply.canUpload}
+        canRemove={forOrganisation ? reply.canShare && reply.canRemove : reply.canRemove}
         renderDropzone={renderDropzone}
       />
     </div>

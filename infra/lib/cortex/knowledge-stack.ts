@@ -793,6 +793,32 @@ export class CortexKnowledgeStack extends Ew2Stack {
         },
       }),
     );
+    // The Cortex page lists everything a project searches: the registry documents every
+    // tenant may read, and how many rule passages each document became.
+    this.tenantSessionRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: "ListSharedKnowledge",
+        actions: ["s3:ListBucket"],
+        resources: [this.knowledgeBucket.bucketArn],
+        conditions: { StringLike: { "s3:prefix": ["shared/*"] } },
+      }),
+    );
+    this.tenantSessionRole.addToPolicy(
+      new iam.PolicyStatement({
+        sid: "CountPassagesOfVisibleDocuments",
+        actions: ["s3:ListBucket"],
+        resources: [this.parsedBucket.bucketArn],
+        conditions: {
+          StringLike: {
+            "s3:prefix": [
+              "chunks/shared/*",
+              `chunks/tenants/${TENANT_TAG}/tenant/*`,
+              `chunks/tenants/${TENANT_TAG}/projects/${PROJECT_TAG}/*`,
+            ],
+          },
+        },
+      }),
+    );
     this.tenantSessionRole.addToPolicy(
       new iam.PolicyStatement({
         sid: "ReadSharedOwnTenantOrGrantedProject",

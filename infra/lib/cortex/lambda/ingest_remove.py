@@ -1,7 +1,8 @@
-"""Step Functions task: take one project document out of Cortex.
+"""Step Functions task: take one project or organisation document out of Cortex.
 
 Started by the web app (cortex-removal state machine) for a user who may add
-to the project. Deletes the admitted document and its metadata file, the intake
+to the project, or, for an organisation document (tenants/<tenant>/tenant/),
+an organisation admin. Deletes the admitted document and its metadata file, the intake
 copy, the rule passages and the Data Automation output; the index sync that
 follows drops the passages from search. Both buckets with originals are
 versioned, so the deleted file survives as a noncurrent version for its
@@ -17,7 +18,7 @@ _s3 = None
 
 
 class NotAllowed(Exception):
-    """The request is not for this project's own document. Step Functions catches this by name."""
+    """The request is not for the requesting tenant's or project's own document. Step Functions catches this by name."""
 
 
 def s3():
@@ -30,12 +31,16 @@ def s3():
 
 
 def check(event):
-    """The key must be a project document of the tenant and project named in the request."""
+    """The key must be a document of the tenant named in the request: one of the named
+    project's, or one of the tenant's own (the web lets only organisation admins ask
+    for those). Never a shared registry document."""
     key = event.get("key")
     try:
         scope = access.key_scope(key)
     except ValueError as error:
         raise NotAllowed(str(error)) from None
+    if scope["scope"] == "tenant" and scope["tenant_id"] == event.get("tenant_id"):
+        return key
     if (
         scope["scope"] != "project"
         or scope["tenant_id"] != event.get("tenant_id")

@@ -1,7 +1,16 @@
 import "server-only";
 
 import { DynamoDBClient, GetItemCommand, QueryCommand, type AttributeValue } from "@aws-sdk/client-dynamodb";
-import { GetObjectTaggingCommand, ListObjectsV2Command, S3Client, type _Object } from "@aws-sdk/client-s3";
+import { createHash } from "node:crypto";
+
+import {
+  GetObjectCommand,
+  GetObjectTaggingCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
+  S3Client,
+  type _Object,
+} from "@aws-sdk/client-s3";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { SFNClient, StartExecutionCommand } from "@aws-sdk/client-sfn";
 import { AssumeRoleCommand, STSClient } from "@aws-sdk/client-sts";
@@ -13,17 +22,26 @@ import {
   CORTEX_ID,
   DOCUMENT_PINS,
   MAX_UPLOAD_BYTES,
+  ORGANISATION_PINS,
   SCAN_TAG,
   allowedProjects,
+  canShareAcrossOrganisation,
   canUploadAs,
   documentKey,
-  documentPrefix,
+  documentPlace,
   documentStatus,
   isSettled,
+  isSha256,
+  pinAndName,
   safeFileName,
+  scopePrefix,
+  searchesShared,
+  sharedPlace,
   uploadProblem,
   uploadType,
   type CortexDocument,
+  type DocumentScope,
+  type KnowledgeDocument,
 } from "./uploads";
 
 /**
@@ -46,6 +64,8 @@ export interface CortexEnv {
   sessionRoleArn: string;
   /** Removal state machine; without it documents can be added but not removed. */
   removalArn?: string;
+  /** Rule passages; without it the knowledge list shows no passage counts. */
+  parsedBucket?: string;
 }
 
 export interface CortexProject {
@@ -73,7 +93,8 @@ export function cortexEnv(): CortexEnv | null {
   const sessionRoleArn = process.env.CORTEX_TENANT_SESSION_ROLE_ARN?.trim();
   if (!intakeBucket || !knowledgeBucket || !tenancyTable || !sessionRoleArn) return null;
   const removalArn = process.env.CORTEX_REMOVAL_STATE_MACHINE_ARN?.trim() || undefined;
-  return { intakeBucket, knowledgeBucket, tenancyTable, sessionRoleArn, removalArn };
+  const parsedBucket = process.env.CORTEX_PARSED_BUCKET?.trim() || undefined;
+  return { intakeBucket, knowledgeBucket, tenancyTable, sessionRoleArn, removalArn, parsedBucket };
 }
 
 export async function currentSession(): Promise<SessionPayload | null> {
@@ -160,6 +181,15 @@ function requirePin(pin: string): CapabilityId {
   return pin as CapabilityId;
 }
 
+/** Organisation-wide documents: method and rule pins only, changed by admins only. */
+function requireScope(session: SessionPayload, scope: DocumentScope, pin: CapabilityId, changing: boolean): void {
+  if (scope !== "tenant") return;
+  if (!ORGANISATION_PINS.has(pin)) throw new CortexRefusal("This pin only takes project documents.", 400);
+  if (changing && !canShareAcrossOrganisation(session.role)) {
+    throw new CortexRefusal("Only organisation admins add or remove documents for every project.", 403);
+  }
+}
+
 // ── Tenant-scoped session ───────────────────────────────────────────────────
 
 let sts: STSClient | null = null;
@@ -219,29 +249,42 @@ export interface UploadForm {
 export async function signUpload(
   session: SessionPayload,
   env: CortexEnv,
-  input: { projectId: string; pin: string; fileName: string; size: number },
+  input: { projectId: string; pin: string; fileName: string; size: number; sha256: string; scope?: DocumentScope },
 ): Promise<UploadForm> {
   if (!canUploadAs(session.role)) throw new CortexRefusal("Your role can read Cortex but not add to it.", 403);
   const pin = requirePin(input.pin);
+  const scope = input.scope ?? "project";
+  requireScope(session, scope, pin, true);
   const problem = uploadProblem({ name: input.fileName, size: input.size });
   if (problem) throw new CortexRefusal(`${input.fileName}: ${problem}.`, 400);
-  await requireProject(session, env, input.projectId);
+  if (!isSha256(input.sha256)) throw new CortexRefusal("The file's fingerprint is missing. Reload the page and try again.", 400);
+  // An organisation document is signed with the session of a project the user holds:
+  // that session may also write the tenant's own prefix, and nothing else.
+  const project = await requireProject(session, env, input.projectId);
 
-  const key = documentKey(session.tenantId, input.projectId, pin, input.fileName);
+  const key = documentKey(session.tenantId, input.projectId, pin, input.fileName, scope);
   const contentType = uploadType(key) as string;
   const s3 = await projectClient(session, env, input.projectId);
   // Same name, same pin: this upload replaces that document. Not while it is still
   // being scanned or admitted, or two runs would race for its passages.
-  const existing = (await documentsIn(s3, env, documentPrefix(session.tenantId, input.projectId, pin))).find(
+  const existing = (await documentsIn(s3, env, scopePrefix(scope, session.tenantId, input.projectId, pin))).find(
     (doc) => doc.key === key,
   );
   if (existing && !isSettled(existing.status)) {
     throw new CortexRefusal(`${existing.name} is still being processed. Replace it once that has finished.`, 409);
   }
+  await refuseDuplicate(session, env, s3, project, { scope, fileName: input.fileName, sha256: input.sha256 });
   const { url, fields } = await createPresignedPost(s3, {
     Bucket: env.intakeBucket,
     Key: key,
-    Fields: { "Content-Type": contentType },
+    // S3 refuses the file unless its SHA-256 is this one, and keeps it with the
+    // object (as a checksum and as metadata that admission copies along).
+    Fields: {
+      "Content-Type": contentType,
+      "x-amz-checksum-algorithm": "SHA256",
+      "x-amz-checksum-sha256": input.sha256,
+      "x-amz-meta-sha256": input.sha256,
+    },
     Conditions: [
       ["content-length-range", 1, MAX_UPLOAD_BYTES],
       ["eq", "$Content-Type", contentType],
@@ -273,12 +316,14 @@ async function scanVerdict(s3: S3Client, bucket: string, key: string): Promise<s
 export async function listDocuments(
   session: SessionPayload,
   env: CortexEnv,
-  input: { projectId: string; pin: string },
+  input: { projectId: string; pin: string; scope?: DocumentScope },
 ): Promise<CortexDocument[]> {
   const pin = requirePin(input.pin);
+  const scope = input.scope ?? "project";
+  requireScope(session, scope, pin, false);
   await requireProject(session, env, input.projectId);
   const s3 = await projectClient(session, env, input.projectId);
-  return documentsIn(s3, env, documentPrefix(session.tenantId, input.projectId, pin));
+  return documentsIn(s3, env, scopePrefix(scope, session.tenantId, input.projectId, pin));
 }
 
 async function documentsIn(s3: S3Client, env: CortexEnv, prefix: string): Promise<CortexDocument[]> {
@@ -317,6 +362,184 @@ async function documentsIn(s3: S3Client, env: CortexEnv, prefix: string): Promis
   return documents.sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt));
 }
 
+// ── Everything a project searches ───────────────────────────────────────────
+
+export interface ProjectKnowledge {
+  documents: KnowledgeDocument[];
+  /** Parts that could not be read with this session ("registry", "passages"); the rest is still listed. */
+  gaps: string[];
+}
+
+function isDenied(error: unknown): boolean {
+  const name = (error as { name?: string })?.name ?? "";
+  return name === "AccessDenied" || name === "AccessDeniedException" || name === "Forbidden";
+}
+
+/** Registry documents the project's searches include (same rule as the search filter). */
+async function sharedDocuments(s3: S3Client, env: CortexEnv, project: CortexProject): Promise<KnowledgeDocument[]> {
+  const objects = await listAll(s3, env.knowledgeBucket, "shared/");
+  const documents: KnowledgeDocument[] = [];
+  for (const object of objects) {
+    if (!object.Key || object.Key.endsWith(".metadata.json")) continue;
+    const place = sharedPlace(object.Key);
+    if (!place || !searchesShared(project, place)) continue;
+    documents.push({
+      key: object.Key,
+      name: place.name,
+      scope: "shared",
+      pin: null,
+      size: object.Size ?? 0,
+      uploadedAt: (object.LastModified ?? new Date()).toISOString(),
+      status: "in_cortex",
+      detail: "Registry document. Every organisation's projects on this methodology search it.",
+      passages: null,
+      registry: place.registry,
+      methodology: place.methodology,
+      edition: place.edition,
+    });
+  }
+  return documents;
+}
+
+/** How many rule passages the chunk step wrote for a document (one file each, plus its metadata file). */
+async function passageCount(s3: S3Client, bucket: string, key: string): Promise<number> {
+  let count = 0;
+  let token: string | undefined;
+  let pages = 0;
+  do {
+    const page = await s3.send(
+      new ListObjectsV2Command({ Bucket: bucket, Prefix: `chunks/${key}/`, ContinuationToken: token }),
+    );
+    count += (page.Contents ?? []).filter((object) => !object.Key?.endsWith(".metadata.json")).length;
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+    pages += 1;
+  } while (token && pages < 20);
+  return count;
+}
+
+/**
+ * Every document a project's searches read: registry documents for its methodology
+ * and edition, the organisation's documents and the project's own, across all pins.
+ */
+/** Every document a project's searches read, without passage counts. */
+async function searchedDocuments(
+  session: SessionPayload,
+  env: CortexEnv,
+  s3: S3Client,
+  project: CortexProject,
+  gaps: Set<string>,
+): Promise<KnowledgeDocument[]> {
+  const projectPrefix = `tenants/${session.tenantId}/projects/${project.id}/`;
+  const organisationPrefix = `tenants/${session.tenantId}/tenant/`;
+  const [own, organisation, shared] = await Promise.all([
+    documentsIn(s3, env, projectPrefix),
+    documentsIn(s3, env, organisationPrefix),
+    sharedDocuments(s3, env, project).catch((error: unknown) => {
+      if (!isDenied(error)) throw error;
+      gaps.add("registry");
+      return [] as KnowledgeDocument[];
+    }),
+  ]);
+  const scoped = (docs: CortexDocument[], scope: DocumentScope, prefix: string): KnowledgeDocument[] =>
+    docs.map((doc) => ({ ...doc, ...pinAndName(doc.key.slice(prefix.length)), scope, passages: null }));
+  return [...shared, ...scoped(organisation, "tenant", organisationPrefix), ...scoped(own, "project", projectPrefix)];
+}
+
+/**
+ * Every document a project's searches read: registry documents for its methodology
+ * and edition, the organisation's documents and the project's own, across all pins.
+ */
+export async function projectKnowledge(
+  session: SessionPayload,
+  env: CortexEnv,
+  projectId: string,
+): Promise<ProjectKnowledge> {
+  const project = await requireProject(session, env, projectId);
+  const s3 = await projectClient(session, env, projectId);
+  const gaps = new Set<string>();
+  const documents = await searchedDocuments(session, env, s3, project, gaps);
+
+  if (env.parsedBucket) {
+    const bucket = env.parsedBucket;
+    await Promise.all(
+      documents
+        .filter((doc) => doc.status === "in_cortex")
+        .map(async (doc) => {
+          try {
+            doc.passages = await passageCount(s3, bucket, doc.key);
+          } catch (error) {
+            if (!isDenied(error)) throw error;
+            gaps.add("passages");
+          }
+        }),
+    );
+  }
+  return { documents, gaps: [...gaps] };
+}
+
+// ── Duplicates ──────────────────────────────────────────────────────────────
+
+/** Content fingerprints of documents uploaded before fingerprints were kept, by bucket/key/ETag. */
+const computed = new Map<string, string>();
+
+/**
+ * A document's SHA-256 (base64). Uploads carry it as x-amz-meta-sha256, which S3 checked
+ * against the file and admission copies along; older documents are read and hashed once.
+ */
+async function fingerprintOf(s3: S3Client, env: CortexEnv, doc: KnowledgeDocument): Promise<string | null> {
+  const bucket = doc.status === "in_cortex" || doc.scope === "shared" ? env.knowledgeBucket : env.intakeBucket;
+  const head = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: doc.key }));
+  const stored = head.Metadata?.sha256;
+  if (isSha256(stored)) return stored;
+  const cacheKey = `${bucket}/${doc.key}@${head.ETag ?? ""}`;
+  const known = computed.get(cacheKey);
+  if (known) return known;
+  const object = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: doc.key }));
+  const body = object.Body as AsyncIterable<Uint8Array> | undefined;
+  if (!body) return null;
+  const hash = createHash("sha256");
+  for await (const chunk of body) hash.update(chunk);
+  const digest = hash.digest("base64");
+  if (computed.size > 2000) computed.clear();
+  computed.set(cacheKey, digest);
+  return digest;
+}
+
+/**
+ * Refuse a file whose exact content the project already searches. A project upload is
+ * checked against the project (every pin), its organisation and the registry; an
+ * organisation upload against the organisation and the registry, so a document can
+ * move up from one project to every project.
+ */
+async function refuseDuplicate(
+  session: SessionPayload,
+  env: CortexEnv,
+  s3: S3Client,
+  project: CortexProject,
+  input: { scope: DocumentScope; fileName: string; sha256: string },
+): Promise<void> {
+  const documents = await searchedDocuments(session, env, s3, project, new Set());
+  const candidates = documents.filter(
+    (doc) => doc.status !== "rejected" && (input.scope === "project" || doc.scope !== "project"),
+  );
+  const fingerprints = await Promise.all(
+    candidates.map((doc) =>
+      fingerprintOf(s3, env, doc).catch((error: unknown) => {
+        if (isDenied(error)) return null; // cannot read it with this session: do not block on it
+        throw error;
+      }),
+    ),
+  );
+  const match = candidates.find((_, index) => fingerprints[index] === input.sha256);
+  if (match) {
+    throw new CortexRefusal(
+      `${input.fileName} is already in Cortex as ${match.name}, in ${documentPlace(match, project.name)}. ` +
+        "Cortex searches it from there, so it was not added again.",
+      409,
+    );
+  }
+}
+
 // ── Removal ─────────────────────────────────────────────────────────────────
 
 let sfn: SFNClient | null = null;
@@ -329,19 +552,23 @@ let sfn: SFNClient | null = null;
 export async function removeDocument(
   session: SessionPayload,
   env: CortexEnv,
-  input: { projectId: string; pin: string; name: string },
+  input: { projectId: string; pin: string; name: string; scope?: DocumentScope },
 ): Promise<{ key: string }> {
   if (!env.removalArn) throw new CortexRefusal("Removing documents is not set up on this deployment.", 503);
   if (!canUploadAs(session.role)) throw new CortexRefusal("Your role can read Cortex but not change it.", 403);
   const pin = requirePin(input.pin);
+  const scope = input.scope ?? "project";
+  requireScope(session, scope, pin, true);
   if (!input.name || safeFileName(input.name) !== input.name) throw new CortexRefusal("Unknown document.", 400);
   await requireProject(session, env, input.projectId);
 
-  const prefix = documentPrefix(session.tenantId, input.projectId, pin);
+  const prefix = scopePrefix(scope, session.tenantId, input.projectId, pin);
   const key = `${prefix}${input.name}`;
   const s3 = await projectClient(session, env, input.projectId);
   const doc = (await documentsIn(s3, env, prefix)).find((item) => item.key === key);
-  if (!doc) throw new CortexRefusal("That document is not in Cortex for this project.", 404);
+  if (!doc) {
+    throw new CortexRefusal(`That document is not in Cortex for ${scope === "tenant" ? "your organisation" : "this project"}.`, 404);
+  }
   if (!isSettled(doc.status)) {
     throw new CortexRefusal(`${doc.name} is still being processed. Remove it once that has finished.`, 409);
   }

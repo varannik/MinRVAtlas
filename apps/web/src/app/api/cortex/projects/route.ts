@@ -1,5 +1,5 @@
 import { cortexEnv, currentSession, describeFailure, projectsFor } from "@/lib/cortex/intake.server";
-import { canUploadAs } from "@/lib/cortex/uploads";
+import { canShareAcrossOrganisation, canUploadAs } from "@/lib/cortex/uploads";
 
 /** Projects the signed-in user may give documents to, from the Cortex tenancy table. */
 
@@ -14,7 +14,7 @@ export async function GET() {
   const env = cortexEnv();
   if (!env) {
     return Response.json(
-      { configured: false, tenantStatus: "unknown", projects: [], canUpload: false, canRemove: false },
+      { configured: false, tenantStatus: "unknown", projects: [], canUpload: false, canRemove: false, canShare: false },
       { headers: NO_STORE },
     );
   }
@@ -27,6 +27,8 @@ export async function GET() {
         projects,
         canUpload: canUploadAs(session.role),
         canRemove: canUploadAs(session.role) && Boolean(env.removalArn),
+        // Documents for every project in the organisation (admins).
+        canShare: canUploadAs(session.role) && canShareAcrossOrganisation(session.role),
       },
       { headers: NO_STORE },
     );
