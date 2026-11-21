@@ -96,7 +96,7 @@ def searches_shared(project, shared_key):
     if place["scope"] != "shared":
         return False
     project = project or {}
-    for field in ("methodology", "edition"):
+    for field in access.SHARED_PLACE:
         if project.get(field) and place[field] not in (project[field], "any"):
             return False
     return True

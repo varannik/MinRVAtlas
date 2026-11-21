@@ -134,7 +134,7 @@ describe("documents for the whole organisation", () => {
 });
 
 describe("what a project searches", () => {
-  const project = { methodology: "puro-geologically-stored-carbon", edition: "2024-v5" };
+  const project = { registry: "puro", methodology: "puro-geologically-stored-carbon", edition: "2024-v5" };
 
   it("reads a registry document's place from its key", () => {
     assert.deepEqual(sharedPlace("shared/puro/puro-geologically-stored-carbon/2024-v5/GSC.pdf"), {
@@ -147,12 +147,15 @@ describe("what a project searches", () => {
     assert.equal(sharedPlace("tenants/x/tenant/a.pdf"), null);
   });
 
-  it("includes registry documents for its methodology and edition, or filed under any", () => {
-    assert.equal(searchesShared(project, { methodology: "puro-geologically-stored-carbon", edition: "2024-v5" }), true);
-    assert.equal(searchesShared(project, { methodology: "any", edition: "any" }), true);
-    assert.equal(searchesShared(project, { methodology: "puro-geologically-stored-carbon", edition: "2023-v4" }), false);
-    assert.equal(searchesShared(project, { methodology: "isometric-bioccs", edition: "any" }), false);
-    assert.equal(searchesShared({}, { methodology: "isometric-bioccs", edition: "v1.5" }), true);
+  it("includes registry documents for its registry, methodology and edition, or filed under any", () => {
+    const puro = (methodology: string, edition: string) => ({ registry: "puro", methodology, edition });
+    assert.equal(searchesShared(project, puro("puro-geologically-stored-carbon", "2024-v5")), true);
+    assert.equal(searchesShared(project, puro("any", "any")), true);
+    assert.equal(searchesShared(project, puro("puro-geologically-stored-carbon", "2023-v4")), false);
+    assert.equal(searchesShared(project, puro("isometric-bioccs", "any")), false);
+    assert.equal(searchesShared(project, { registry: "isometric", methodology: "any", edition: "any" }), false);
+    assert.equal(searchesShared(project, { registry: "any", methodology: "any", edition: "any" }), true);
+    assert.equal(searchesShared({}, { registry: "isometric", methodology: "isometric-bioccs", edition: "v1.5" }), true);
   });
 
   it("splits the pin from the file name", () => {

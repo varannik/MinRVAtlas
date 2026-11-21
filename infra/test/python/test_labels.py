@@ -58,6 +58,8 @@ class PlaceTest(unittest.TestCase):
         self.assertTrue(labels.searches_shared(FUJAIRAH, SHARED_KEY))
         self.assertTrue(labels.searches_shared(FUJAIRAH, "shared/puro/any/any/General_Rules.pdf"))
         self.assertFalse(labels.searches_shared(FUJAIRAH, "shared/puro/puro-biochar/2024-v1/Biochar.pdf"))
+        self.assertFalse(labels.searches_shared(FUJAIRAH, "shared/isometric/any/any/Isometric_Standard.pdf"))
+        self.assertTrue(labels.searches_shared(FUJAIRAH, "shared/any/any/any/IPCC_SRCCS_Ch7.pdf"))
 
     def test_label_file_key_round_trip(self):
         self.assertEqual(labels.document_key(labels.label_key(PROJECT_KEY)), PROJECT_KEY)

@@ -138,6 +138,19 @@ class KnowledgeScopeTests(unittest.TestCase):
         self.assertNotIn("oman-pilot", text)
         self.assertIn('"puro-gsc"', text)
 
+    def test_shared_documents_are_narrowed_to_the_projects_registry_too(self):
+        f = access.retrieval_filter(CALLER, {"registry": "puro", "methodology": "puro-gsc", "edition": "2024-v5"})
+        shared = f["orAll"][0]["andAll"]
+        self.assertEqual(shared[0], {"equals": {"key": "scope", "value": "shared"}})
+        self.assertEqual(
+            shared[1:],
+            [
+                {"in": {"key": "registry", "value": ["puro", "any"]}},
+                {"in": {"key": "methodology", "value": ["puro-gsc", "any"]}},
+                {"in": {"key": "edition", "value": ["2024-v5", "any"]}},
+            ],
+        )
+
     def test_filter_without_project_has_no_project_clause(self):
         f = access.retrieval_filter({**CALLER, "project_id": None})
         self.assertEqual(len(f["orAll"]), 2)

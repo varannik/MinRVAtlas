@@ -18,6 +18,10 @@ ROLES = ("platform_admin", "tenant_admin", "quality_engineer", "operator", "view
 # Roles that see every project inside their own tenant (never another tenant).
 TENANT_WIDE_ROLES = frozenset({"platform_admin", "tenant_admin"})
 SCOPES = ("shared", "tenant", "project")
+# Where a shared (registry) document is filed: shared/<registry>/<methodology>/<edition>/<file>.
+# A project searches those filed under its own values or under "any" (shared/any/any/any/
+# holds public references every project searches).
+SHARED_PLACE = ("registry", "methodology", "edition")
 # The argument the gateway interceptor sets on every tool call. Whatever a
 # client sends under this name is thrown away first.
 CALLER_ARG = "caller"
@@ -157,15 +161,16 @@ def _eq(key, value):
 
 def retrieval_filter(caller, project=None):
     """Bedrock Knowledge Bases filter: shared documents (for the project's
-    methodology and edition when a project is given), the tenant's own
-    documents, and the requested project's documents. Nothing else."""
+    registry, methodology and edition when a project is given, or filed under
+    "any"), the tenant's own documents, and the requested project's documents.
+    Nothing else."""
     tenant = caller["tenant_id"]
     shared = _eq("scope", "shared")
-    narrowing = []
-    if project and project.get("methodology"):
-        narrowing.append({"in": {"key": "methodology", "value": [project["methodology"], "any"]}})
-    if project and project.get("edition"):
-        narrowing.append({"in": {"key": "edition", "value": [project["edition"], "any"]}})
+    narrowing = [
+        {"in": {"key": field, "value": [project[field], "any"]}}
+        for field in SHARED_PLACE
+        if project and project.get(field)
+    ]
     if narrowing:
         shared = {"andAll": [shared, *narrowing]}
     clauses = [shared, {"andAll": [_eq("scope", "tenant"), _eq("tenant_id", tenant)]}]

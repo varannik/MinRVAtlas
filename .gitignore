@@ -38,6 +38,11 @@ yarn-error.log*
 
 # local operator overlays (lat/lng) when not running on ECS
 .data/
+
+# Cortex library: third-party documents to upload, kept out of git (their README is tracked)
+docs/cortex-library/**/*.pdf
+docs/cortex-library/**/*.docx
+docs/cortex-library/**/*.doc
 apps/web/.data/
 
 # capture output (not product assets)

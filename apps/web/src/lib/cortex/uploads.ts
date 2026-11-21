@@ -145,12 +145,12 @@ export function sharedPlace(key: string): { registry: string; methodology: strin
  * and edition, or documents filed under "any".
  */
 export function searchesShared(
-  project: { methodology?: string; edition?: string },
-  place: { methodology: string; edition: string },
+  project: { registry?: string; methodology?: string; edition?: string },
+  place: { registry: string; methodology: string; edition: string },
 ): boolean {
-  const methodology = !project.methodology || place.methodology === project.methodology || place.methodology === "any";
-  const edition = !project.edition || place.edition === project.edition || place.edition === "any";
-  return methodology && edition;
+  const matches = (field: "registry" | "methodology" | "edition") =>
+    !project[field] || place[field] === project[field] || place[field] === "any";
+  return matches("registry") && matches("methodology") && matches("edition");
 }
 
 /** "knowledge/General_Rules_4_4.pdf" under a project or organisation prefix: the pin and the file. */

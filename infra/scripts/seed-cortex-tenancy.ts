@@ -15,10 +15,12 @@
  * items again, so it is safe to repeat.
  *
  * A project's registry, methodology and edition are slugs. Knowledge search
- * narrows shared documents to the project's methodology and edition, so shared
- * documents for a project must be uploaded under
+ * narrows shared documents to the project's registry, methodology and edition,
+ * so shared documents for a project must be uploaded under
  *   shared/<registry>/<methodology>/<edition>/<file>
- * with exactly these values (see key_scope in lib/cortex/lambda/access.py).
+ * with exactly these values, or "any" in a place that applies to all of them
+ * (shared/puro/any/any/ for every Puro project, shared/any/any/any/ for every
+ * project). See key_scope and retrieval_filter in lib/cortex/lambda/access.py.
  */
 import { REGION, TENANT_ID_PATTERN } from "../lib/config";
 import { COGNITO_GROUPS } from "../lib/identity-stack";
