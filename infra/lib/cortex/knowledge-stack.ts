@@ -24,11 +24,13 @@ import {
   CORTEX_EMBEDDING_DIMENSIONS,
   CORTEX_EMBEDDING_MODEL,
   CORTEX_LABEL_MODEL,
+  CORTEX_PROPOSE_MODEL,
   bdaProfileArn,
   cfnStackName,
   cortexBucketName,
   cortexMoveStateMachineName,
   cortexRemovalStateMachineName,
+  cortexProposeStateMachineName,
   cortexReviewStateMachineName,
   cortexTenantSessionRoleName,
   logGroupName,
@@ -78,6 +80,8 @@ export interface CortexKnowledgeStackProps extends Ew2StackProps {
   checkpointsTable: dynamodb.ITable;
   /** Each project's journey; the tenant session reads and writes its own project's items. */
   journeysTable: dynamodb.ITable;
+  /** Registry values per edition; the proposer records Cortex's proposals there. */
+  requirementsTable: dynamodb.ITable;
   eventBus: events.IEventBus;
 }
 
@@ -100,6 +104,8 @@ export class CortexKnowledgeStack extends Ew2Stack {
   public readonly ingestion: sfn.StateMachine;
   /** Takes one project document out of Cortex; the web starts it for the user. */
   public readonly removal: sfn.StateMachine;
+  /** Proposes registry values from the rules; the web starts it for platform admins. */
+  public readonly propose: sfn.StateMachine;
   /** Records a person's decision on a labelled document; the web starts it. */
   public readonly review: sfn.StateMachine;
   /** Moves a document to another pin, or to or from every project; the web starts it. */
@@ -1120,6 +1126,93 @@ export class CortexKnowledgeStack extends Ew2Stack {
       }),
     );
 
+    // ── Registry values: Cortex proposes each from the rules; a platform admin approves ──
+    const proposeFn = new lambda.Function(this, "ProposeRequirement", {
+      functionName: resourceName(stage, "cortex-propose-requirement"),
+      description: "Propose one registry value (with its clause, page and a quote) from the registry's documents",
+      runtime: PYTHON,
+      handler: "requirement_propose.handler",
+      code,
+      layers: [anthropicSdk],
+      timeout: cdk.Duration.minutes(3),
+      memorySize: 512,
+      logGroup: fnLog("ProposeRequirement"),
+      environment: {
+        KNOWLEDGE_BASE_ID: this.knowledgeBase.attrKnowledgeBaseId,
+        KNOWLEDGE_BUCKET: this.knowledgeBucket.bucketName,
+        REQUIREMENTS_TABLE: props.requirementsTable.tableName,
+        PROPOSE_MODEL: CORTEX_PROPOSE_MODEL,
+      },
+    });
+    proposeFn.addToRolePolicy(
+      new iam.PolicyStatement({ actions: ["bedrock:Retrieve"], resources: [this.knowledgeBase.attrKnowledgeBaseArn] }),
+    );
+    proposeFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel"],
+        resources: [
+          `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/${CORTEX_PROPOSE_MODEL}`,
+          `arn:aws:bedrock:eu-*::foundation-model/${CORTEX_PROPOSE_MODEL.replace(/^eu\./, "")}`,
+        ],
+      }),
+    );
+    // Proposals only: approving is the web's, for platform admins.
+    proposeFn.addToRolePolicy(
+      new iam.PolicyStatement({ actions: ["dynamodb:PutItem"], resources: [props.requirementsTable.tableArn] }),
+    );
+    props.requirementsTable.encryptionKey?.grantEncryptDecrypt(proposeFn);
+
+    const proposeOne = new tasks.LambdaInvoke(this, "ProposeOne", {
+      lambdaFunction: proposeFn,
+      payloadResponseOnly: true,
+      retryOnServiceExceptions: true,
+    });
+    // The knowledge database resuming from auto-pause: wait and try again.
+    proposeOne.addRetry({ errors: ["Resuming"], interval: cdk.Duration.seconds(20), maxAttempts: 3, backoffRate: 1.5 });
+    // One value that cannot be proposed does not stop the others.
+    proposeOne.addCatch(new sfn.Pass(this, "NotProposed", { result: sfn.Result.fromObject({ status: "failed" }) }), {
+      errors: ["States.ALL"],
+    });
+    const proposeEach = new sfn.Map(this, "ProposeEach", {
+      itemsPath: "$.requirements",
+      maxConcurrency: 3,
+      itemSelector: {
+        "pk.$": "$.pk",
+        "scope.$": "$.scope",
+        "requested_by.$": "$.requested_by",
+        "run.$": "$$.Execution.Name",
+        "requirement.$": "$$.Map.Item.Value",
+      },
+      resultPath: sfn.JsonPath.DISCARD,
+    });
+    proposeEach.itemProcessor(proposeOne);
+    const runFinished = (id: string, status: string) =>
+      new tasks.DynamoUpdateItem(this, id, {
+        table: props.requirementsTable,
+        key: {
+          pk: tasks.DynamoAttributeValue.fromString(sfn.JsonPath.stringAt("$.pk")),
+          sk: tasks.DynamoAttributeValue.fromString("RUN"),
+        },
+        updateExpression: "SET #status = :status, finished_at = :at",
+        expressionAttributeNames: { "#status": "status" },
+        expressionAttributeValues: {
+          ":status": tasks.DynamoAttributeValue.fromString(status),
+          ":at": tasks.DynamoAttributeValue.fromString(sfn.JsonPath.stringAt("$$.State.EnteredTime")),
+        },
+        resultPath: sfn.JsonPath.DISCARD,
+      });
+    proposeEach.addCatch(
+      runFinished("ProposalsFailed", "failed").next(new sfn.Fail(this, "ProposingFailed", { error: "ProposingFailed" })),
+      { errors: ["States.ALL"], resultPath: "$.error" },
+    );
+    this.propose = new sfn.StateMachine(this, "ProposeStateMachine", {
+      stateMachineName: cortexProposeStateMachineName(stage),
+      definitionBody: sfn.DefinitionBody.fromChainable(proposeEach.next(runFinished("ProposalsDone", "done"))),
+      tracingEnabled: true,
+      logs: runLogs("Proposals"),
+    });
+    props.requirementsTable.encryptionKey?.grantEncryptDecrypt(this.propose);
+
     // ── Web app: signs document uploads as the user's tenant and project ──
     // The web checks the user's project grant in the tenancy table, then assumes the
     // tenant-session role tagged with that tenant and project and signs the upload
@@ -1138,7 +1231,25 @@ export class CortexKnowledgeStack extends Ew2Stack {
         new iam.PolicyStatement({
           sid: "StartRemovalsReviewsAndMoves",
           actions: ["states:StartExecution"],
-          resources: [this.removal.stateMachineArn, this.review.stateMachineArn, this.move.stateMachineArn],
+          resources: [
+            this.removal.stateMachineArn,
+            this.review.stateMachineArn,
+            this.move.stateMachineArn,
+            this.propose.stateMachineArn,
+          ],
+        }),
+        // Registry values: shared by every organisation on an edition, so the web's own role
+        // reads them and (for platform admins, checked in the app) records decisions.
+        new iam.PolicyStatement({
+          sid: "RegistryValues",
+          actions: ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:ConditionCheckItem"],
+          resources: [props.requirementsTable.tableArn],
+        }),
+        new iam.PolicyStatement({
+          sid: "RegistryValuesKey",
+          actions: ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey"],
+          resources: [props.keyArn],
+          conditions: { StringEquals: { "kms:ViaService": `dynamodb.${this.region}.amazonaws.com` } },
         }),
         // Tenant status, its projects and the user's grants (the web role already
         // decrypts with the stage key; see compute-stack.ts).
@@ -1161,6 +1272,7 @@ export class CortexKnowledgeStack extends Ew2Stack {
     new cdk.CfnOutput(this, "IngestionStateMachineArn", { value: this.ingestion.stateMachineArn });
     new cdk.CfnOutput(this, "RemovalStateMachineArn", { value: this.removal.stateMachineArn });
     new cdk.CfnOutput(this, "ReviewStateMachineArn", { value: this.review.stateMachineArn });
+    new cdk.CfnOutput(this, "ProposeStateMachineArn", { value: this.propose.stateMachineArn });
     new cdk.CfnOutput(this, "MoveStateMachineArn", { value: this.move.stateMachineArn });
     new cdk.CfnOutput(this, "MalwareProtectionPlanId", { value: scanPlan.attrMalwareProtectionPlanId });
     new cdk.CfnOutput(this, "TenantSessionRoleArn", { value: this.tenantSessionRole.roleArn });

@@ -29,6 +29,7 @@ import { AskCortex } from "./ask-cortex";
 import { ProjectPicker, noProjectReason, useCortexProjects } from "./cortex-projects";
 import { DocumentIntake } from "./document-intake";
 import { KnowledgeList } from "./knowledge-list";
+import { RegistryValues } from "./registry-values";
 
 const TIME = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -511,6 +512,13 @@ export function CapabilityPanel({ capability }: { capability: Capability }) {
           />
         )}
       </section>
+
+      {capability.id === "protocols" && (
+        <section className="grid gap-2.5" aria-label="Registry values">
+          <SectionTitle>Registry values the checks use</SectionTitle>
+          <RegistryValues />
+        </section>
+      )}
 
       <section className="grid gap-2.5">
         <SectionTitle>Staged for {capability.name}</SectionTitle>

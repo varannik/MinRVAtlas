@@ -7,7 +7,7 @@ import * as pipes from "aws-cdk-lib/aws-pipes";
 import * as scheduler from "aws-cdk-lib/aws-scheduler";
 import * as avp from "aws-cdk-lib/aws-verifiedpermissions";
 import { Construct } from "constructs";
-import { cfnStackName, cortexJourneyTableName, cortexTenancyTableName, resourceName } from "../config";
+import { cfnStackName, cortexJourneyTableName, cortexRequirementsTableName, cortexTenancyTableName, resourceName } from "../config";
 import { Ew2Stack, type Ew2StackProps } from "../ew2-stack";
 
 export interface CortexCoreStackProps extends Ew2StackProps {
@@ -26,6 +26,8 @@ export class CortexCoreStack extends Ew2Stack {
   public readonly checkpointsTable: dynamodb.Table;
   /** Each project's journey (pk TENANT#<t>#PROJECT#<p>): sk JOURNEY, and CHANGE#<version> per change. */
   public readonly journeysTable: dynamodb.Table;
+  /** Registry values per edition (pk REQ#<registry>#<methodology>#<edition>): approved values and proposals. */
+  public readonly requirementsTable: dynamodb.Table;
   public readonly eventBus: events.EventBus;
   public readonly scheduleGroup: scheduler.ScheduleGroup;
   public readonly policyStore: avp.CfnPolicyStore;
@@ -75,6 +77,20 @@ export class CortexCoreStack extends Ew2Stack {
       sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
       // Change records flow from here to the event bus (JourneyChanges below).
       stream: dynamodb.StreamViewType.NEW_IMAGE,
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
+      encryptionKey: key,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      deletionProtection: cfg.deletionProtection,
+      removalPolicy: removal,
+    });
+
+    // Shared by every organisation on an edition: the web writes it with its own role,
+    // platform admins only (apps/web/src/lib/requirements/store.server.ts).
+    this.requirementsTable = new dynamodb.Table(this, "Requirements", {
+      tableName: cortexRequirementsTableName(cfg.stageName),
+      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
       encryptionKey: key,

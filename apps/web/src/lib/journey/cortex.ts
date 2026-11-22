@@ -1,3 +1,4 @@
+import { requirementValue, type ApprovedValues } from "@/lib/requirements/catalog";
 import { STEP_DEFS } from "./definition";
 import { answerLabel, planFor, type Plan } from "./steps";
 import type { JourneyTask, TaskState } from "./types";
@@ -22,6 +23,8 @@ export interface CheckContext {
   /** Monitoring periods already closed. */
   laps: number;
   now?: number;
+  /** Registry values approved for the project's methodology and edition (lib/requirements); built-in values otherwise. */
+  values?: ApprovedValues;
 }
 
 const DAY = 86_400_000;
@@ -131,6 +134,8 @@ type Check = (input: {
   plan: Plan;
   laps: number;
   now: number;
+  /** A registry value (lib/requirements/catalog.ts): the approved one, or the built-in one. */
+  rule: (id: string) => number;
   pass: (note?: string) => Verdict;
   flag: (note: string) => Verdict;
 }) => Verdict;
@@ -153,10 +158,10 @@ const CHECKS: Record<string, Check> = {
     return pass(`${next.methodology.lock ?? ""} I've built the next steps from it: ${count} items from onboarding to issuance.`.trim());
   },
 
-  "other-schemes": ({ value, plan, pass, flag }) => {
+  "other-schemes": ({ value, plan, rule, pass, flag }) => {
     if (value.startsWith("Failed")) {
       return isPuro(plan)
-        ? flag("Puro refuses a project that failed another scheme's audit in the past three years (CP 9.8.21). Settle it with Puro in writing before you spend on an audit.")
+        ? flag(`Puro refuses a project that failed another scheme's audit in the past ${rule("puro.other_scheme_failure_years")} years (CP 9.8.21). Settle it with Puro in writing before you spend on an audit.`)
         : flag("Disclose it in the PDD (R-Q3JN-0). Isometric will weigh it at the eligibility review.");
     }
     if (value.startsWith("Registered")) {
@@ -172,12 +177,13 @@ const CHECKS: Record<string, Check> = {
     return pass(value === "Signed offtake" ? "Good: that's what Isometric looks for in a late-entry project." : "Tell Isometric's team about it early; they weigh offtakes at onboarding.");
   },
 
-  "fossil-share": ({ value, pass, flag }) => {
+  "fossil-share": ({ value, rule, pass, flag }) => {
     const share = Number(value);
-    if (share > 5) {
-      return flag(`${share}% is above BioCCS's 5% line, so the PDD needs a justification (R-YJJC-0). With RDF in the mix, F_B must come from Method A sampling.`);
+    const limit = rule("isometric.fossil_limit_percent");
+    if (share > limit) {
+      return flag(`${share}% is above BioCCS's ${limit}% line, so the PDD needs a justification (R-YJJC-0). With RDF in the mix, F_B must come from Method A sampling.`);
     }
-    return pass("Under 5%: no justification needed.");
+    return pass(`Under ${limit}%: no justification needed.`);
   },
 
   "review-status": ({ value, plan, pass, flag }) => {
@@ -198,28 +204,31 @@ const CHECKS: Record<string, Check> = {
     return pass("Request validation is open.");
   },
 
-  "public-comment": ({ value, pass, flag }) => {
+  "public-comment": ({ value, rule, pass, flag }) => {
     const [start, end] = splitPeriod(value);
     const a = parseDay(start);
     const b = parseDay(end);
     if (a == null || b == null || b <= a) return flag("Both dates are needed, the end after the start.");
     const days = Math.round((b - a) / DAY);
-    if (days < 10) return flag(`${days} days is short of the 10-day public comment period.`);
+    const minimum = rule("isometric.public_comment_days");
+    if (days < minimum) return flag(`${days} days is short of the ${minimum}-day public comment period.`);
     return pass(`${days} days. If material comments arrive, Isometric extends it to 30.`);
   },
 
-  "validation-window": ({ value, answers, pass, flag }) => {
+  "validation-window": ({ value, answers, rule, pass, flag }) => {
     const audit = parseDay(value);
     const committed = parseDay(answers["setup.commitment"]?.value);
     if (audit == null) return flag("That isn't a date.");
     if (committed == null) return flag("I need the Commitment Date from Project setup to check the window.");
-    const three = addMonths(committed, 36);
-    const five = addMonths(committed, 60);
-    if (audit <= three) return pass(`Inside the 3-year window, which closes ${LONG.format(three)}.`);
+    const general = rule("puro.validation_window_years");
+    const geological = rule("puro.geological_validation_window_years");
+    const three = addMonths(committed, 12 * general);
+    const five = addMonths(committed, 12 * geological);
+    if (audit <= three) return pass(`Inside the ${general}-year window, which closes ${LONG.format(three)}.`);
     if (audit <= five) {
-      return flag(`Past the 3-year window of GR 2.2.3 (closed ${LONG.format(three)}) but inside CP 5.3.9's 5 years for geological storage (${LONG.format(five)}). The two rules conflict: get Puro's ruling in writing before booking.`);
+      return flag(`Past the ${general}-year window of GR 2.2.3 (closed ${LONG.format(three)}) but inside CP 5.3.9's ${geological} years for geological storage (${LONG.format(five)}). The two rules conflict: get Puro's ruling in writing before booking.`);
     }
-    return flag(`Past both windows: 3 years closed ${LONG.format(three)} and 5 years ${LONG.format(five)}.`);
+    return flag(`Past both windows: ${general} years closed ${LONG.format(three)} and ${geological} years ${LONG.format(five)}.`);
   },
 
   findings: ({ task, value, plan, pass, flag }) => {
@@ -239,12 +248,13 @@ const CHECKS: Record<string, Check> = {
     return pass("Clean audit.");
   },
 
-  "crediting-start": ({ value, plan, now, pass, flag }) => {
+  "crediting-start": ({ value, plan, now, rule, pass, flag }) => {
     const start = parseDay(value);
     if (start == null) return flag("That isn't a date.");
-    const end = addMonths(start, 180);
-    if (!isPuro(plan) && start < addMonths(now, -60)) {
-      return flag("Isometric lets the crediting period start at most 5 years before the first registry submission.");
+    const end = addMonths(start, isPuro(plan) ? 12 * rule("puro.crediting_period_years") : 180);
+    const lookback = rule("isometric.crediting_lookback_years");
+    if (!isPuro(plan) && start < addMonths(now, -12 * lookback)) {
+      return flag(`Isometric lets the crediting period start at most ${lookback} years before the first registry submission.`);
     }
     return pass(`The crediting period runs to ${LONG.format(end)}.`);
   },
@@ -262,10 +272,14 @@ const CHECKS: Record<string, Check> = {
     return pass();
   },
 
-  buffer: ({ value, pass }) =>
-    pass(value.startsWith("Recognised") ? "No buffer deduction. Isometric must accept the regime as equivalent." : "1% of each issuance goes to the buffer."),
+  buffer: ({ value, rule, pass }) =>
+    pass(
+      value.startsWith("Recognised")
+        ? "No buffer deduction. Isometric must accept the regime as equivalent."
+        : `${rule("isometric.buffer_percent")}% of each issuance goes to the buffer.`,
+    ),
 
-  "period-length": ({ value, plan, laps, pass, flag }) => {
+  "period-length": ({ value, plan, laps, rule, pass, flag }) => {
     const [start, end] = splitPeriod(value);
     const a = parseDay(start);
     const b = parseDay(end);
@@ -273,30 +287,39 @@ const CHECKS: Record<string, Check> = {
     if (b <= a) return flag("The end date is before the start date.");
     const days = Math.round((b - a) / DAY) + 1;
     const first = laps === 0;
+    const longest = isPuro(plan) ? rule("puro.period_max_months") : 12;
     if (isPuro(plan) && first) {
-      if (b > addMonths(a, 18)) return flag(`${days} days is longer than the 18 months GR 2.4.2 allows for a first period (CP 5.4.5 says 24; ask Puro which applies).`);
-      if (b > addMonths(a, 12)) return pass(`${days} days. Longer than a year is allowed only for the first period.`);
-    } else if (b > addMonths(a, 12)) {
-      return flag(`${days} days is more than a year. ${isPuro(plan) ? "An output report is due at least every 12 months." : "Verify at least once a year."} Split it into two periods.`);
+      const firstLongest = rule("puro.first_period_max_months");
+      if (b > addMonths(a, firstLongest)) {
+        return flag(`${days} days is longer than the ${firstLongest} months GR 2.4.2 allows for a first period (CP 5.4.5 says 24; ask Puro which applies).`);
+      }
+      if (b > addMonths(a, longest)) return pass(`${days} days. Longer than ${longest} months is allowed only for the first period.`);
+    } else if (b > addMonths(a, longest)) {
+      return flag(`${days} days is more than ${longest} months. ${isPuro(plan) ? `An output report is due at least every ${longest} months.` : "Verify at least once a year."} Split it into two periods.`);
     }
     return pass(`${days} days.`);
   },
 
-  "bubble-point": ({ value, plan, pass, flag }) => {
+  "bubble-point": ({ value, plan, rule, pass, flag }) => {
     const margin = Number(value);
-    if (margin <= 5) {
+    const needed = rule(isPuro(plan) ? "puro.bubble_point_margin_bar" : "isometric.bubble_point_margin_bar");
+    if (margin <= needed) {
       return flag(
         isPuro(plan)
-          ? `${margin} bar is not more than 5 bar above the bubble point. CO₂ injected while the margin was breached counts as a reversal.`
-          : `${margin} bar is not more than 5 bar above the bubble point the module requires.`,
+          ? `${margin} bar is not more than ${needed} bar above the bubble point. CO₂ injected while the margin was breached counts as a reversal.`
+          : `${margin} bar is not more than ${needed} bar above the bubble point the module requires.`,
       );
     }
     return pass(`${margin} bar of margin.`);
   },
 
-  "reversal-notice": ({ value, plan, pass, flag }) => {
+  "reversal-notice": ({ value, plan, rule, pass, flag }) => {
     if (value === "Reversal not yet reported") {
-      return flag(isPuro(plan) ? "Report it to Puro within 5 days." : "Report it to Isometric within 1 business day (3 at most).");
+      return flag(
+        isPuro(plan)
+          ? `Report it to Puro within ${rule("puro.reversal_notice_days")} days.`
+          : "Report it to Isometric within 1 business day (3 at most).",
+      );
     }
     if (value === "Reversal reported to the registry") return pass("I'll carry it into E_reversal for the period.");
     return pass();
@@ -310,7 +333,7 @@ const CHECKS: Record<string, Check> = {
     return pass("Per-CORC service fees apply, invoiced when the CORCs are sold or retired.");
   },
 
-  "issued-count": ({ value, plan, pass, flag }) => {
+  "issued-count": ({ value, plan, rule, pass, flag }) => {
     const number = Number(value);
     if (isPuro(plan)) {
       if (!Number.isInteger(number)) {
@@ -318,8 +341,9 @@ const CHECKS: Record<string, Check> = {
       }
       return pass("I'll add them to the removal ledger.");
     }
-    const buffer = number * 0.01;
-    return pass(`About ${buffer.toFixed(2)} t goes to the 1% buffer and ${(number - buffer).toFixed(2)} t to your account.`);
+    const share = rule("isometric.buffer_percent");
+    const buffer = (number * share) / 100;
+    return pass(`About ${buffer.toFixed(2)} t goes to the ${share}% buffer and ${(number - buffer).toFixed(2)} t to your account.`);
   },
 
   vintage: ({ value, answers, pass, flag }) => {
@@ -418,6 +442,7 @@ export function checkAnswer(task: JourneyTask, state: TaskState, answers: Answer
     plan: context.plan,
     laps: context.laps,
     now: context.now ?? Date.now(),
+    rule: (id) => requirementValue(id, context.values),
     pass,
     flag,
   });

@@ -209,6 +209,15 @@ export function cortexRemovalStateMachineName(stage: StageName): string {
 }
 
 /** State machine the web starts when a person decides on a labelled document (keep it in search, keep it where it is). */
+/** Registry values the journey checks with: approved values and Cortex's proposals, per edition. */
+export function cortexRequirementsTableName(stage: StageName): string {
+  return resourceName(stage, "cortex-requirements");
+}
+
+export function cortexProposeStateMachineName(stage: StageName): string {
+  return resourceName(stage, "cortex-propose-requirements");
+}
+
 export function cortexReviewStateMachineName(stage: StageName): string {
   return resourceName(stage, "cortex-review");
 }
@@ -260,6 +269,12 @@ export const CORTEX_AGENT_EFFORT = "medium";
  * Haiku 4.5, the newest small Claude this account is allowed (Nov 2026).
  */
 export const CORTEX_LABEL_MODEL = "eu.anthropic.claude-haiku-4-5-20251001-v1:0";
+
+/**
+ * Claude for proposing registry values (a number, its clause and a quoted sentence)
+ * from the rules: precision matters more than speed, so the agent's model.
+ */
+export const CORTEX_PROPOSE_MODEL = CORTEX_AGENT_MODEL;
 
 /**
  * SSM parameter holding the Cortex agent runtime's ARN. AgentCore generates the

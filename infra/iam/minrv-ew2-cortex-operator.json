@@ -4,8 +4,11 @@
     {
       "Sid": "CortexTenancyTable",
       "Effect": "Allow",
-      "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query"],
-      "Resource": "arn:aws:dynamodb:eu-west-2:625239230739:table/minrv-ew2-*-cortex-tenancy"
+      "Action": ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:Query", "dynamodb:UpdateItem", "dynamodb:ConditionCheckItem"],
+      "Resource": [
+        "arn:aws:dynamodb:eu-west-2:625239230739:table/minrv-ew2-*-cortex-tenancy",
+        "arn:aws:dynamodb:eu-west-2:625239230739:table/minrv-ew2-*-cortex-requirements"
+      ]
     },
     {
       "Sid": "CortexTenantSessionForLocalWeb",
@@ -20,7 +23,8 @@
       "Resource": [
         "arn:aws:states:eu-west-2:625239230739:stateMachine:minrv-ew2-*-cortex-removal",
         "arn:aws:states:eu-west-2:625239230739:stateMachine:minrv-ew2-*-cortex-review",
-        "arn:aws:states:eu-west-2:625239230739:stateMachine:minrv-ew2-*-cortex-move"
+        "arn:aws:states:eu-west-2:625239230739:stateMachine:minrv-ew2-*-cortex-move",
+        "arn:aws:states:eu-west-2:625239230739:stateMachine:minrv-ew2-*-cortex-propose-requirements"
       ]
     },
     {

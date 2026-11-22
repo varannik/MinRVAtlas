@@ -144,6 +144,7 @@ export class MinrvStage extends cdk.Stage {
       tenancyTable: core.tenancyTable,
       checkpointsTable: core.checkpointsTable,
       journeysTable: core.journeysTable,
+      requirementsTable: core.requirementsTable,
       eventBus: core.eventBus,
     });
     knowledge.addStackDependency(this.network);

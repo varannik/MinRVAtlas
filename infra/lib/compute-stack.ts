@@ -21,6 +21,8 @@ import {
   cortexAgentRuntimeParamName,
   cortexBucketName,
   cortexJourneyTableName,
+  cortexProposeStateMachineName,
+  cortexRequirementsTableName,
   cortexMoveStateMachineName,
   cortexRemovalStateMachineName,
   cortexReviewStateMachineName,
@@ -222,6 +224,9 @@ export class ComputeStack extends Ew2Stack {
               CORTEX_PARSED_BUCKET: cortexBucketName(cfg.stageName, "parsed"),
               CORTEX_TENANCY_TABLE: cortexTenancyTableName(cfg.stageName),
               CORTEX_JOURNEY_TABLE: cortexJourneyTableName(cfg.stageName),
+              // Registry values the journey checks with; platform admins approve Cortex's proposals.
+              CORTEX_REQUIREMENTS_TABLE: cortexRequirementsTableName(cfg.stageName),
+              CORTEX_PROPOSE_STATE_MACHINE_ARN: `arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:${cortexProposeStateMachineName(cfg.stageName)}`,
               CORTEX_TENANT_SESSION_ROLE_ARN: `arn:aws:iam::${ACCOUNT}:role/${cortexTenantSessionRoleName(cfg.stageName)}`,
               CORTEX_REMOVAL_STATE_MACHINE_ARN: `arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:${cortexRemovalStateMachineName(cfg.stageName)}`,
               CORTEX_REVIEW_STATE_MACHINE_ARN: `arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:${cortexReviewStateMachineName(cfg.stageName)}`,

@@ -1,6 +1,7 @@
 import { checkAnswer, draftFor } from "./cortex";
 import { ALL_TASK_IDS, CHOICE_TASKS, VERIFICATION_STEPS, nextStep, planOf, stepIndex } from "./steps";
 import { isSha256 } from "@/lib/cortex/uploads";
+import type { ApprovedValues } from "@/lib/requirements/catalog";
 import type { FiledFile, JourneyStep, StepId, TaskState } from "./types";
 
 /**
@@ -79,17 +80,23 @@ function taskOf(tasks: Tasks, taskId: string) {
 }
 
 /** Cortex's verdict on a pending answer, as the stored task. */
-function settled(record: JourneyRecord, taskId: string, pending: TaskState, now: string): Outcome {
+function settled(record: JourneyRecord, taskId: string, pending: TaskState, now: string, values?: ApprovedValues): Outcome {
   const answers: Tasks = { ...record.tasks, [taskId]: { ...pending, status: "checking", note: undefined } };
   const plan = planOf(answers);
   const task = plan.taskById[taskId];
   if (!task) throw new JourneyRefusal("That task is not part of this project's journey.");
-  const verdict = checkAnswer(task, pending, answers, { plan, laps: record.laps });
+  const verdict = checkAnswer(task, pending, answers, { plan, laps: record.laps, values });
   const state: TaskState = { ...pending, status: verdict.ok ? "done" : "flagged", note: verdict.note || undefined, at: now };
   return { record: { ...record, tasks: { ...record.tasks, [taskId]: state } }, taskId, ok: verdict.ok };
 }
 
-function answer(record: JourneyRecord, taskId: string, given: { value?: string; files?: FileAnswer[] }, now: string): Outcome {
+function answer(
+  record: JourneyRecord,
+  taskId: string,
+  given: { value?: string; files?: FileAnswer[] },
+  now: string,
+  values?: ApprovedValues,
+): Outcome {
   const task = taskOf(record.tasks, taskId);
   if (given.value !== undefined && given.value.length > MAX_VALUE_CHARS) throw new JourneyRefusal("That answer is too long.");
   if (given.files && given.files.length > MAX_FILES) throw new JourneyRefusal("Too many files for one task.");
@@ -110,7 +117,7 @@ function answer(record: JourneyRecord, taskId: string, given: { value?: string; 
   if (task.cortex.role === "none") {
     // Nothing for Cortex to check: the input's own check, then done.
     const plan = planOf({ ...tasks, [taskId]: pending });
-    const verdict = checkAnswer(task, pending, tasks, { plan, laps });
+    const verdict = checkAnswer(task, pending, tasks, { plan, laps, values });
     const state: TaskState = {
       ...pending,
       status: verdict.ok ? "done" : "flagged",
@@ -119,15 +126,15 @@ function answer(record: JourneyRecord, taskId: string, given: { value?: string; 
     };
     return { record: { current, laps, tasks: { ...tasks, [taskId]: state } }, taskId, ok: verdict.ok };
   }
-  return settled({ current, laps, tasks }, taskId, pending, now);
+  return settled({ current, laps, tasks }, taskId, pending, now, values);
 }
 
-function draft(record: JourneyRecord, taskId: string, now: string): Outcome {
+function draft(record: JourneyRecord, taskId: string, now: string, values?: ApprovedValues): Outcome {
   const task = taskOf(record.tasks, taskId);
   if (task.input.type !== "draft") throw new JourneyRefusal("Cortex drafts only the documents it writes.");
   const plan = planOf(record.tasks);
   const pending: TaskState = { ...taskState(record.tasks, taskId), draft: draftFor(task, record.tasks, plan) };
-  return settled(record, taskId, pending, now);
+  return settled(record, taskId, pending, now, values);
 }
 
 /** Keep an answer Cortex flagged: a person's call, recorded as theirs. */
@@ -157,17 +164,18 @@ function advance(record: JourneyRecord): Outcome {
   return { record: { ...record, current: next } };
 }
 
-export function applyAction(record: JourneyRecord, action: JourneyAction, now: string): Outcome {
+/** values: registry values approved for the project (lib/requirements); the built-in ones apply otherwise. */
+export function applyAction(record: JourneyRecord, action: JourneyAction, now: string, values?: ApprovedValues): Outcome {
   switch (action.action) {
     case "answer": {
       // Only what was given: an answer without files keeps the files given before, and the reverse.
       const given: { value?: string; files?: FileAnswer[] } = {};
       if (action.value !== undefined) given.value = action.value;
       if (action.files !== undefined) given.files = action.files;
-      return answer(record, action.taskId, given, now);
+      return answer(record, action.taskId, given, now, values);
     }
     case "draft":
-      return draft(record, action.taskId, now);
+      return draft(record, action.taskId, now, values);
     case "accept":
       return accept(record, action.taskId, now);
     case "advance":

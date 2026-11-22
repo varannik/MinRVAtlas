@@ -13,6 +13,7 @@ import {
 import { canUploadAs } from "@/lib/cortex/uploads";
 import { JourneyRefusal, applyAction, parseAction } from "@/lib/journey/engine";
 import { JourneyConflict, loadJourney, saveJourney } from "@/lib/journey/storage.server";
+import { approvedValues, requirementsEnv } from "@/lib/requirements/store.server";
 
 /**
  * A project's journey, stored per project (lib/journey/storage.server.ts).
@@ -92,8 +93,14 @@ export async function POST(request: NextRequest, { params }: Context) {
     if (action.action === "answer" && action.files) await checkFilings(session, env, project.id, action.files);
     const from = await loadJourney(dynamo, table, session.tenantId, project.id);
     if (from.version !== version) throw new JourneyConflict(from);
+    // Cortex checks with the registry values approved for the project's edition (built-in ones otherwise).
+    const store = requirementsEnv();
+    const values =
+      store && project.registry && project.methodology && project.edition
+        ? await approvedValues(store, { registry: project.registry, methodology: project.methodology, edition: project.edition })
+        : undefined;
     const now = new Date().toISOString();
-    const outcome = applyAction(from, action, now);
+    const outcome = applyAction(from, action, now, values);
     const journey = await saveJourney(dynamo, table, {
       tenantId: session.tenantId,
       projectId: project.id,
