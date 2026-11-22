@@ -1,7 +1,15 @@
 import type { NextRequest } from "next/server";
 
 import { isBrowserSameOrigin } from "@/lib/auth/session";
-import { CortexRefusal, cortexEnv, currentSession, describeFailure, projectDynamo, requireProject } from "@/lib/cortex/intake.server";
+import {
+  CortexRefusal,
+  checkFilings,
+  cortexEnv,
+  currentSession,
+  describeFailure,
+  projectDynamo,
+  requireProject,
+} from "@/lib/cortex/intake.server";
 import { canUploadAs } from "@/lib/cortex/uploads";
 import { JourneyRefusal, applyAction, parseAction } from "@/lib/journey/engine";
 import { JourneyConflict, loadJourney, saveJourney } from "@/lib/journey/storage.server";
@@ -10,6 +18,8 @@ import { JourneyConflict, loadJourney, saveJourney } from "@/lib/journey/storage
  * A project's journey, stored per project (lib/journey/storage.server.ts).
  * GET: where the project stands and every answer, and whether this user may change it.
  * POST { version, action, taskId?, value?, files? }: answer, draft, accept or advance.
+ *   files: [{ name, size, key?, sha256? }]; a document Cortex reads must already be
+ *   uploaded (key), and the server checks it is one this project searches.
  *   The server runs Cortex's check, so the stored status is always its verdict.
  *   409 when someone saved first, with the journey as it now is.
  */
@@ -77,7 +87,9 @@ export async function POST(request: NextRequest, { params }: Context) {
     if ("failure" in ready) return ready.failure;
     if (!canUploadAs(ready.session.role)) throw new CortexRefusal("Your role can read this journey but not change it.", 403);
 
-    const { session, dynamo, table, project } = ready;
+    const { session, env, dynamo, table, project } = ready;
+    // Files given on a saved project are Cortex documents it searches (spreadsheets by name).
+    if (action.action === "answer" && action.files) await checkFilings(session, env, project.id, action.files);
     const from = await loadJourney(dynamo, table, session.tenantId, project.id);
     if (from.version !== version) throw new JourneyConflict(from);
     const now = new Date().toISOString();

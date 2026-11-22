@@ -30,6 +30,7 @@ import {
   documentKey,
   documentPlace,
   documentStatus,
+  filingProblem,
   isHeld,
   isSettled,
   isSha256,
@@ -41,6 +42,7 @@ import {
   sharedPlace,
   uploadProblem,
   uploadType,
+  type Filing,
   withLabel,
   type CortexDocument,
   type DocumentLabel,
@@ -86,11 +88,12 @@ export interface CortexProject {
   edition?: string;
 }
 
-/** A refusal whose message is safe to show the user. */
+/** A refusal whose message is safe to show the user; `detail` tells a caller what to do instead. */
 export class CortexRefusal extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly detail?: Record<string, string>,
   ) {
     super(message);
   }
@@ -285,7 +288,16 @@ export interface UploadForm {
 export async function signUpload(
   session: SessionPayload,
   env: CortexEnv,
-  input: { projectId: string; pin: string; fileName: string; size: number; sha256: string; scope?: DocumentScope },
+  input: {
+    projectId: string;
+    pin: string;
+    fileName: string;
+    size: number;
+    sha256: string;
+    scope?: DocumentScope;
+    /** False: refuse rather than replace a different document of the same name (journey filings). */
+    replace?: boolean;
+  },
 ): Promise<UploadForm> {
   if (!canUploadAs(session.role)) throw new CortexRefusal("Your role can read Cortex but not add to it.", 403);
   const pin = requirePin(input.pin);
@@ -306,10 +318,18 @@ export async function signUpload(
   const existing = (await documentsIn(s3, env, scopePrefix(scope, session.tenantId, input.projectId, pin))).find(
     (doc) => doc.key === key,
   );
+  // The same content first: a file Cortex already has (even one still being read) is that document.
+  await refuseDuplicate(session, env, s3, project, { scope, fileName: input.fileName, sha256: input.sha256 });
   if (existing && !isSettled(existing.status)) {
     throw new CortexRefusal(`${existing.name} is still being processed. Replace it once that has finished.`, 409);
   }
-  await refuseDuplicate(session, env, s3, project, { scope, fileName: input.fileName, sha256: input.sha256 });
+  if (existing && input.replace === false) {
+    throw new CortexRefusal(
+      `${CAPABILITY_BY_ID[pin].name} already has a different ${existing.name}. Rename your file, or replace that one from the Cortex page.`,
+      409,
+      { reason: "name_taken", key: existing.key },
+    );
+  }
   const { url, fields } = await createPresignedPost(s3, {
     Bucket: env.intakeBucket,
     Key: key,
@@ -624,8 +644,34 @@ async function refuseDuplicate(
       `${input.fileName} is already in Cortex as ${match.name}, in ${documentPlace(match, project.name)}. ` +
         "Cortex searches it from there, so it was not added again.",
       409,
+      { reason: "duplicate", key: match.key, name: match.name },
     );
   }
+}
+
+// ── Journey filings ─────────────────────────────────────────────────────────
+
+/**
+ * Check what a journey answer says was filed: every file Cortex reads must be a
+ * document this project searches that is in Cortex now (filingProblem has the
+ * rule); files Cortex does not read (spreadsheets) carry no key.
+ */
+export async function checkFilings(session: SessionPayload, env: CortexEnv, projectId: string, files: readonly Filing[]): Promise<void> {
+  for (const file of files) {
+    const problem = filingProblem(file, session.tenantId, projectId);
+    if (problem) throw new CortexRefusal(problem, 400);
+  }
+  const filed = files.filter((file) => file.key);
+  if (filed.length === 0) return;
+  const s3 = await projectClient(session, env, projectId);
+  await Promise.all(
+    filed.map(async (file) => {
+      const found = await Promise.any(
+        [env.knowledgeBucket, env.intakeBucket].map((bucket) => s3.send(new HeadObjectCommand({ Bucket: bucket, Key: file.key }))),
+      ).catch(() => null);
+      if (!found) throw new CortexRefusal(`${file.name} is not in Cortex (it may have been removed). Give it again.`, 409);
+    }),
+  );
 }
 
 // ── Removal, decisions and moves ────────────────────────────────────────────
@@ -758,8 +804,8 @@ export async function moveDocument(
 }
 
 /** A message for an AWS failure that does not leak internals. */
-export function describeFailure(error: unknown): { message: string; status: number } {
-  if (error instanceof CortexRefusal) return { message: error.message, status: error.status };
+export function describeFailure(error: unknown): { message: string; status: number; detail?: Record<string, string> } {
+  if (error instanceof CortexRefusal) return { message: error.message, status: error.status, detail: error.detail };
   const name = (error as { name?: string })?.name ?? "";
   if (name === "AccessDenied" || name === "AccessDeniedException") {
     return { message: "Cortex refused the request for this project (access denied).", status: 403 };

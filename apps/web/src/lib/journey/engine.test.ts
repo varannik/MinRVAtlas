@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 
 import { JourneyRefusal, applyAction, parseAction, settledTasks, type JourneyRecord } from "./engine";
 import { SCENARIO_BY_ID } from "./scenarios";
-import { nextStep, planOf, stepIndex } from "./steps";
+import { nextStep, planFor, planOf, stepIndex } from "./steps";
 
 const NOW = "2026-11-21T12:00:00.000Z";
 
@@ -120,6 +120,25 @@ describe("requests", () => {
     assert.deepEqual(parseAction({ action: "advance", taskId: "ignored" }), { action: "advance" });
   });
 
+  it("reads where a filed document is in Cortex and its fingerprint", () => {
+    const sha256 = "A".repeat(43) + "=";
+    const key = "tenants/fourfourone/projects/fujairah-mineral/evidence/kyc.pdf";
+    assert.deepEqual(parseAction({ action: "answer", taskId: "onboarding.kyc", files: [{ name: "kyc.pdf", size: 10, key, sha256 }] }), {
+      action: "answer",
+      taskId: "onboarding.kyc",
+      value: undefined,
+      files: [{ name: "kyc.pdf", size: 10, key, sha256 }],
+    });
+    for (const file of [
+      { name: "a.pdf", size: 1, key: "tenants/x/projects/y/../z/a.pdf" },
+      { name: "a.pdf", size: 1, key: "/tenants/x/a.pdf" },
+      { name: "a.pdf", size: 1, key: 7 },
+      { name: "a.pdf", size: 1, sha256: "not-a-hash" },
+    ]) {
+      assert.equal(parseAction({ action: "answer", taskId: "onboarding.kyc", files: [file] }), null, JSON.stringify(file));
+    }
+  });
+
   it("refuses anything else", () => {
     for (const body of [
       null,
@@ -140,5 +159,20 @@ describe("requests", () => {
       a: { status: "open", value: "x", note: undefined },
       b: { status: "done" },
     });
+  });
+});
+
+describe("where filed documents go", () => {
+  it("files each document where Cortex's labels would put it", () => {
+    const pinOf = (registry: string, methodology: string, taskId: string) => {
+      const input = planFor(registry, methodology).taskById[taskId]?.input;
+      return input?.type === "file" ? input.pin : null;
+    };
+    assert.equal(pinOf("puro", "puro-gsc", "onboarding.kyc"), "evidence");
+    assert.equal(pinOf("puro", "puro-gsc", "package.monitoring"), "knowledge");
+    assert.equal(pinOf("puro", "puro-gsc", "monitor.calibration"), "calibration");
+    assert.equal(pinOf("puro", "puro-gsc", "validation.report"), "reviewer");
+    assert.equal(pinOf("puro", "puro-gsc", "onboarding.jurisdiction"), "reviewer");
+    assert.equal(pinOf("isometric", "isometric-bioccs", "package.ownership"), "evidence");
   });
 });

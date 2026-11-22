@@ -18,7 +18,11 @@
 #   input      text | choice | date | number | period | file | draft | location
 #              choice options come from `options` or from `source`
 #              (categories | registries | methodologies)
-#              file `accept` is docs | sheets | docs-sheets
+#              file `accept` is docs | sheets | docs-sheets; `files_to` is the
+#              Cortex pin a saved project's documents go to: evidence (default),
+#              knowledge (project design: plans, site descriptions, LCA),
+#              calibration, or reviewer (registry and verifier correspondence).
+#              Spreadsheets are kept by name and fingerprint; Cortex reads PDF and Word.
 #   cortex     none: you fill it in, Cortex stays out of it
 #              check: Cortex checks the answer against the registry's rules
 #                     (`check` names a rule in src/lib/journey/cortex.ts)
@@ -247,7 +251,7 @@ steps:
         label: Preliminary Assessment
         ask: Do you have Puro's Preliminary Assessment? Upload it here if you asked for one.
         why: Optional before operation. It confirms eligibility, finds gaps early and can list the project as a Future Facility.
-        input: { type: file, accept: docs }
+        input: { type: file, accept: docs, files_to: reviewer }
         cortex:
           role: check
           uses:
@@ -261,7 +265,7 @@ steps:
         label: Eligibility report
         ask: Do you have Isometric's eligibility report? Upload it here if you asked for one.
         why: Optional. Isometric reviews your design documents. For a cement kiln, ask first whether the source qualifies under BioCCS.
-        input: { type: file, accept: docs }
+        input: { type: file, accept: docs, files_to: reviewer }
         cortex:
           role: check
           uses:
@@ -384,7 +388,7 @@ steps:
         ask: Upload Puro's written approval of the host country's legal framework, or show the site is in a pre-approved jurisdiction.
         why: GSC accepts storage outright only in the USA, the EEA, the UK, Alberta, Saskatchewan and British Columbia. Elsewhere the framework must meet all eight rows of Table 1, and Puro decides before the audit.
         rule: GSC 3.2.11 · Table 1
-        input: { type: file, accept: docs }
+        input: { type: file, accept: docs, files_to: reviewer }
         cortex:
           role: check
           uses:
@@ -468,7 +472,7 @@ steps:
         ask: Upload the BioCCS process diagram, solvent use and CO₂ purity, and the estimated biogenic fraction.
         why: The PDD must carry an estimated average F_B at validation.
         rule: G-JSJB-0 · R-0T9J-0
-        input: { type: file, accept: docs-sheets }
+        input: { type: file, accept: docs-sheets, files_to: knowledge }
         blocks: true
         cortex:
           role: check
@@ -530,7 +534,7 @@ steps:
         label: LCA
         ask: Upload the life-cycle assessment.
         why: The LCA sets the project emissions subtracted from every credit.
-        input: { type: file, accept: sheets }
+        input: { type: file, accept: sheets, files_to: knowledge }
         cortex:
           role: check
           uses:
@@ -552,7 +556,7 @@ steps:
         label: Monitoring plan
         ask: Upload the monitoring plan and the storage monitoring plan.
         why: The auditor checks every term of the credit equation can be measured.
-        input: { type: file, accept: docs-sheets }
+        input: { type: file, accept: docs-sheets, files_to: knowledge }
         cortex:
           role: check
           uses:
@@ -575,7 +579,7 @@ steps:
         ask: Upload the capture site, logistic chain and storage site descriptions, with the biomass sourcing form and the radiocarbon sampling plan.
         why: Puro's templates describe each part of the chain, and the capture module needs Puro's own biomass sourcing form, not a summary.
         rule: Audit index · modules 04–06
-        input: { type: file, accept: docs-sheets }
+        input: { type: file, accept: docs-sheets, files_to: knowledge }
         cortex:
           role: check
           uses:
@@ -589,7 +593,7 @@ steps:
         ask: Upload the storage baseline and the Risk of Reversal questionnaire.
         why: Divalent cation content, reactive surface area, a regional seismicity study and a PHREEQC bubble-point calculation, plus the durability threshold.
         rule: In-situ Mineralization v1.2 · R-7C8E-1
-        input: { type: file, accept: docs-sheets }
+        input: { type: file, accept: docs-sheets, files_to: knowledge }
         cortex:
           role: check
           uses:
@@ -925,7 +929,7 @@ steps:
         label: Validation report
         ask: Upload the validation report once the registry has accepted it.
         why: Acceptance marks the project Validated.
-        input: { type: file, accept: docs }
+        input: { type: file, accept: docs, files_to: reviewer }
         cortex:
           role: check
           uses:
@@ -1186,7 +1190,7 @@ steps:
         label: Calibration
         ask: Upload the calibration certificates for every meter and lab used this period.
         why: An uncalibrated meter can't be used for credits.
-        input: { type: file, accept: docs }
+        input: { type: file, accept: docs, files_to: calibration }
         cortex:
           role: check
           uses:
@@ -1304,7 +1308,7 @@ steps:
         label: Uncertainty
         ask: Upload the updated uncertainty assessment.
         why: Credits rest on conservative estimates.
-        input: { type: file, accept: sheets }
+        input: { type: file, accept: sheets, files_to: knowledge }
         cortex:
           role: check
           uses:
@@ -1463,7 +1467,7 @@ steps:
         label: Verification statement
         ask: Upload the verification statement once the registry has reviewed it.
         why: The registry issues credits on it.
-        input: { type: file, accept: docs }
+        input: { type: file, accept: docs, files_to: reviewer }
         cortex:
           role: check
           uses:

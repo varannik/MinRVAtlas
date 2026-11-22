@@ -31,7 +31,8 @@ export type TaskInput =
   | { type: "date" }
   | { type: "number"; unit: string; placeholder?: string }
   | { type: "period" }
-  | { type: "file"; accept: string; formats: string }
+  /** pin: where a filed document goes in Cortex (journey.yaml files_to, Evidence by default). */
+  | { type: "file"; accept: string; formats: string; pin: CapabilityId }
   | { type: "draft" }
   | { type: "location" };
 
@@ -129,10 +130,23 @@ export interface Methodology {
 
 export type TaskStatus = "open" | "checking" | "flagged" | "done";
 
+/**
+ * A file given on a task. On a saved project, a document Cortex reads is uploaded
+ * to the task's pin and `key` is where Cortex keeps it; a spreadsheet keeps its
+ * name and fingerprint only. Practice journeys keep the name and size.
+ */
+export interface FiledFile {
+  name: string;
+  size: number;
+  key?: string;
+  /** SHA-256 (base64) of what was given. */
+  sha256?: string;
+}
+
 export interface TaskState {
   status: TaskStatus;
   value?: string;
-  files?: { name: string; size: number }[];
+  files?: FiledFile[];
   /** Draft lines Cortex produced for a generate task. */
   draft?: string[];
   /** Cortex's verdict on the last answer. */

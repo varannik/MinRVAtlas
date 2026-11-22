@@ -20,6 +20,7 @@ import {
   documentPlace,
   documentStatus,
   duplicateNames,
+  filingProblem,
   isSha256,
   organisationPrefix,
   pinAndName,
@@ -328,5 +329,29 @@ describe("searched more than once", () => {
   it("says where a key is", () => {
     assert.equal(placeOfKey("tenants/t1/projects/p1/evidence/a.pdf", "Fujairah"), "the Evidence pin of Fujairah");
     assert.equal(placeOfKey("shared/puro/any/any/a.pdf", "Fujairah"), "the registry documents (any any)");
+  });
+});
+
+describe("journey filings", () => {
+  const T = "fourfourone";
+  const P = "fujairah-mineral";
+  const doc = (key?: string) => ({ name: "kyc.pdf", size: 10, key });
+
+  it("files a document this project searches", () => {
+    assert.equal(filingProblem(doc(`tenants/${T}/projects/${P}/evidence/kyc.pdf`), T, P), null);
+    assert.equal(filingProblem(doc(`tenants/${T}/tenant/knowledge/kyc.pdf`), T, P), null);
+    assert.equal(filingProblem(doc("shared/puro/any/any/kyc.pdf"), T, P), null);
+  });
+
+  it("refuses a document of another project or organisation, or one with no key", () => {
+    assert.match(filingProblem(doc(`tenants/${T}/projects/oman-pilot/evidence/kyc.pdf`), T, P) ?? "", /not a document this project searches/);
+    assert.match(filingProblem(doc(`tenants/other/projects/${P}/evidence/kyc.pdf`), T, P) ?? "", /not a document this project searches/);
+    assert.match(filingProblem(doc(`tenants/${T}/projects/${P}/../oman-pilot/kyc.pdf`), T, P) ?? "", /not a document this project searches/);
+    assert.match(filingProblem(doc(), T, P) ?? "", /not reached Cortex/);
+  });
+
+  it("keeps a spreadsheet by name, never as a Cortex document", () => {
+    assert.equal(filingProblem({ name: "tickets.xlsx", size: 5 }, T, P), null);
+    assert.match(filingProblem({ name: "tickets.xlsx", size: 5, key: `tenants/${T}/projects/${P}/evidence/tickets.xlsx` }, T, P) ?? "", /not a document Cortex reads/);
   });
 });

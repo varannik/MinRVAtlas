@@ -50,6 +50,9 @@ const STEP_IDS: StepId[] = [
   "issued",
 ];
 
+/** Project pins a journey task can file a document to (the kinds Cortex's labels put there). */
+const FILING_PINS: ReadonlySet<CapabilityId> = new Set<CapabilityId>(["evidence", "calibration", "knowledge", "reviewer"]);
+
 const ACCEPT: Record<string, { accept: string; formats: string }> = {
   docs: { accept: ".pdf,.docx,.doc", formats: "PDF or Word" },
   sheets: { accept: ".xlsx,.xlsm,.xls,.csv", formats: "Excel or CSV" },
@@ -99,7 +102,9 @@ function input(raw: unknown, where: string): TaskInput {
     case "file": {
       const preset = ACCEPT[String(spec.accept)];
       if (!preset) fail(where, `file accept must be one of ${Object.keys(ACCEPT).join(", ")}`);
-      return { type: "file", ...preset };
+      const pin = String(spec.files_to ?? "evidence");
+      if (!FILING_PINS.has(pin as CapabilityId)) fail(where, `files_to must be one of ${[...FILING_PINS].join(", ")}`);
+      return { type: "file", ...preset, pin: pin as CapabilityId };
     }
     default:
       fail(where, `unknown input type "${String(spec.type)}"`);

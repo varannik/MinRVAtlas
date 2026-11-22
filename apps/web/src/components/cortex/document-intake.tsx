@@ -17,6 +17,7 @@ import {
   type DocumentScope,
   type DocumentStatus,
 } from "@/lib/cortex/uploads";
+import { postToStorage, sha256Of, type UploadForm } from "@/lib/cortex/upload-client";
 import { useCortex } from "@/store/cortex-store";
 import { ProjectPicker, noProjectReason, readJson, useCortexProjects } from "./cortex-projects";
 import { DocumentAdvice, useDocumentActions } from "./document-advice";
@@ -31,12 +32,6 @@ import { DocumentAdvice, useDocumentActions } from "./document-advice";
  * another pin (document-advice.tsx).
  * Anything Cortex cannot read yet stays staged in this browser, as before.
  */
-
-interface UploadForm {
-  url: string;
-  fields: Record<string, string>;
-  key: string;
-}
 
 interface InFlight {
   id: string;
@@ -63,39 +58,6 @@ const POLL_MS = 8000;
 function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-/** S3 answers a refused POST with XML; show its message. */
-function storageError(xml: string, status: number): string {
-  const message = /<Message>([^<]*)<\/Message>/.exec(xml)?.[1];
-  return message ? `Storage refused the file: ${message}` : `Storage refused the file (${status}).`;
-}
-
-function postToStorage(form: UploadForm, file: File, onProgress: (fraction: number) => void): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const body = new FormData();
-    for (const [name, value] of Object.entries(form.fields)) body.append(name, value);
-    body.append("file", file); // S3 ignores fields after the file
-    const request = new XMLHttpRequest();
-    request.open("POST", form.url);
-    request.upload.onprogress = (event) => {
-      if (event.lengthComputable) onProgress(event.loaded / event.total);
-    };
-    request.onload = () =>
-      request.status >= 200 && request.status < 300
-        ? resolve()
-        : reject(new Error(storageError(request.responseText, request.status)));
-    request.onerror = () => reject(new Error("The file did not reach storage. Check the connection and try again."));
-    request.send(body);
-  });
-}
-
-/** The file's SHA-256 in base64: Cortex refuses a file it already has, and S3 refuses one that does not match. */
-async function sha256Of(file: File): Promise<string> {
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", await file.arrayBuffer()));
-  let binary = "";
-  for (const byte of digest) binary += String.fromCharCode(byte);
-  return btoa(binary);
 }
 
 function newId(): string {

@@ -9,13 +9,13 @@ import {
   RotateCcw,
   Sparkles,
   TriangleAlert,
-  Upload,
 } from "lucide-react";
 
 import { formatAnswer, splitPeriod } from "@/lib/journey/cortex";
 import { CHOICE_TASKS, choiceOptions } from "@/lib/journey/steps";
 import type { CortexRole, JourneyTask, TaskKind, TaskState } from "@/lib/journey/types";
 import { laterAnswers, usePlan, useJourney } from "@/store/journey-store";
+import { FileDrop, FiledList } from "./filings";
 import { LocationPicker } from "./location-picker";
 
 export const KIND_ICON: Record<TaskKind, typeof FileText> = {
@@ -112,14 +112,9 @@ function Given({ task, state, indent }: { task: JourneyTask; state: TaskState; i
       <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-white px-3 py-2 text-[12.5px] leading-snug text-[#141235]">
         {text ? <p>{text}</p> : null}
         {files.length > 0 ? (
-          <ul className={`grid gap-0.5 ${text ? "mt-1" : ""}`}>
-            {files.map((file) => (
-              <li key={file.name} className="flex items-center gap-1.5 text-[12px]">
-                <FileText className="size-3 shrink-0 opacity-70" />
-                <span className="truncate">{file.name}</span>
-              </li>
-            ))}
-          </ul>
+          <div className={text ? "mt-1" : ""}>
+            <FiledList files={files} />
+          </div>
         ) : null}
       </div>
     </div>
@@ -241,7 +236,6 @@ function AnswerInput({ task, state, onSent }: { task: JourneyTask; state: TaskSt
   const [text, setText] = useState(state.value ?? "");
   const [start, setStart] = useState(splitPeriod(state.value)[0]);
   const [end, setEnd] = useState(splitPeriod(state.value)[1]);
-  const [over, setOver] = useState(false);
 
   switch (input.type) {
     case "draft":
@@ -265,49 +259,8 @@ function AnswerInput({ task, state, onSent }: { task: JourneyTask; state: TaskSt
     case "choice":
       return <ChoiceInput task={task} state={state} submitLabel={submitLabel} onAnswer={(value) => answer({ value })} />;
 
-    case "file": {
-      const take = (list: FileList | null) => {
-        const files = Array.from(list ?? []).map((file) => ({ name: file.name, size: file.size }));
-        if (files.length > 0) answer({ files });
-      };
-      return (
-        <label
-          htmlFor={inputId}
-          onDragOver={(event) => {
-            event.preventDefault();
-            setOver(true);
-          }}
-          onDragLeave={() => setOver(false)}
-          onDrop={(event) => {
-            event.preventDefault();
-            setOver(false);
-            take(event.dataTransfer.files);
-          }}
-          className={`flex cursor-pointer items-center gap-3 rounded-xl border border-dashed px-3 py-2.5 transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-white ${
-            over ? "border-[#A99BFF] bg-[#8F7DF7]/20" : "border-white/20 bg-white/[0.04] hover:bg-white/[0.08]"
-          }`}
-        >
-          <input
-            id={inputId}
-            type="file"
-            multiple
-            accept={input.accept}
-            className="sr-only"
-            onChange={(event) => {
-              take(event.target.files);
-              event.target.value = "";
-            }}
-          />
-          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#8F7DF7]/25 text-[#D9D2FF]">
-            <Upload className="size-4" />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-[12.5px] font-semibold text-white">Choose or drop files</span>
-            <span className="block text-[11px] text-white/55">{input.formats} · only the name and size stay in this browser</span>
-          </span>
-        </label>
-      );
-    }
+    case "file":
+      return <FileDrop task={task} input={input} onAnswer={(files) => answer({ files })} />;
 
     case "period":
       return (

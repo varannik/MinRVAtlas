@@ -1,6 +1,7 @@
 import { checkAnswer, draftFor } from "./cortex";
 import { ALL_TASK_IDS, CHOICE_TASKS, VERIFICATION_STEPS, nextStep, planOf, stepIndex } from "./steps";
-import type { JourneyStep, StepId, TaskState } from "./types";
+import { isSha256 } from "@/lib/cortex/uploads";
+import type { FiledFile, JourneyStep, StepId, TaskState } from "./types";
 
 /**
  * What happens to a project's journey when someone answers, asks for a draft,
@@ -19,7 +20,7 @@ export interface JourneyRecord {
   tasks: Tasks;
 }
 
-export type FileAnswer = { name: string; size: number };
+export type FileAnswer = FiledFile;
 
 export type JourneyAction =
   | { action: "answer"; taskId: string; value?: string; files?: FileAnswer[] }
@@ -193,10 +194,18 @@ export function parseAction(body: unknown): JourneyAction | null {
         if (!Array.isArray(raw.files)) return null;
         files = [];
         for (const file of raw.files) {
-          const name = (file as Record<string, unknown>)?.name;
-          const size = (file as Record<string, unknown>)?.size;
+          const { name, size, key, sha256 } = (file ?? {}) as Record<string, unknown>;
           if (typeof name !== "string" || !name || name.length > 255 || typeof size !== "number" || !(size >= 0)) return null;
-          files.push({ name, size });
+          const filed: FileAnswer = { name, size };
+          if (key !== undefined) {
+            if (typeof key !== "string" || !key || key.length > 1024 || key.includes("..") || key.startsWith("/")) return null;
+            filed.key = key;
+          }
+          if (sha256 !== undefined) {
+            if (!isSha256(sha256)) return null;
+            filed.sha256 = sha256;
+          }
+          files.push(filed);
         }
       }
       if (value === undefined && files === undefined) return null;

@@ -153,6 +153,31 @@ export function searchesShared(
   return matches("registry") && matches("methodology") && matches("edition");
 }
 
+/** A file given on a journey task: a Cortex document (key) when Cortex reads its type. */
+export interface Filing {
+  name: string;
+  size: number;
+  key?: string;
+  sha256?: string;
+}
+
+/**
+ * Why a journey filing cannot be recorded, or null. A document Cortex reads must
+ * carry the key of one this project searches (its own, its organisation's or a
+ * registry's); a file Cortex does not read (a spreadsheet) carries none.
+ */
+export function filingProblem(file: Filing, tenantId: string, projectId: string): string | null {
+  if (!uploadType(file.name)) {
+    return file.key ? `${file.name} is not a document Cortex reads, so it cannot be filed as one.` : null;
+  }
+  if (!file.key) return `${file.name} has not reached Cortex yet. Give it again.`;
+  const searched = [`tenants/${tenantId}/projects/${projectId}/`, `tenants/${tenantId}/tenant/`, "shared/"];
+  if (file.key.includes("..") || !searched.some((prefix) => file.key!.startsWith(prefix))) {
+    return `${file.name} is not a document this project searches.`;
+  }
+  return null;
+}
+
 /** "knowledge/General_Rules_4_4.pdf" under a project or organisation prefix: the pin and the file. */
 export function pinAndName(rest: string): { pin: string | null; name: string } {
   const slash = rest.indexOf("/");
