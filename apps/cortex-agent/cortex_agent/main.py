@@ -70,12 +70,20 @@ def parse(payload) -> Ask:
 
 
 class ProjectKnowledge:
-    """knowledge___search for one project, as the signed-in user."""
+    """knowledge___search and journey___status for one project, as the signed-in user."""
 
     def __init__(self, gateway: Gateway, project_id: str):
         self.gateway = gateway
         self.project_id = project_id
         self.calls: list[dict] = []
+        self.journey_reads: list[str] = []
+
+    async def journey(self, step: str) -> dict:
+        arguments: dict = {"project_id": self.project_id}
+        if step:
+            arguments["step"] = step
+        self.journey_reads.append(step or "overview")
+        return await self.gateway.call_tool("journey___status", arguments)
 
     async def search(self, query: str) -> list[dict]:
         payload = await self.gateway.call_tool(
@@ -138,6 +146,7 @@ class Cortex:
                 start = {"messages": [{"role": "user", "content": content}], "turns": 1, "rounds": 0}
                 if not before.get("system"):
                     start["system"] = prompt.system_prompt(project, me.get("tenant_name"))
+                    start["tools"] = prompt.TOOLS
 
                 sources: dict[str, knowledge.Source] = {}
                 usage = {"input": 0, "output": 0, "cache_read": 0}
@@ -161,7 +170,7 @@ class Cortex:
                 earlier = [known[source_id] for source_id in cited if source_id not in sources]
                 if earlier:
                     yield {"type": "sources", "sources": earlier}
-                record.update(outcome="answered", stop_reason=after.get("stop_reason"), searches=tools.calls,
+                record.update(outcome="answered", stop_reason=after.get("stop_reason"), searches=tools.calls, journey_reads=tools.journey_reads,
                               read=list(sources), cited=cited, usage=usage)
                 yield {"type": "done", "turn": after.get("turns") or 1, "cited": cited}
         except (BadRequest, Unauthorized, ToolError) as error:

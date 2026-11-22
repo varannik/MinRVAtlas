@@ -28,6 +28,8 @@ export interface CortexAgentStackProps extends Ew2StackProps {
   clients: cognito.IUserPoolClient[];
   tenancyTable: dynamodb.ITable;
   checkpointsTable: dynamodb.ITable;
+  /** Each project's journey; the journey tool reads the caller's project's summary. */
+  journeysTable: dynamodb.ITable;
   eventBus: events.IEventBus;
   tenantSessionRole: iam.IRole;
   searchFn: lambda.IFunction;
@@ -115,6 +117,28 @@ export class CortexAgentStack extends Ew2Stack {
     });
     props.tenancyTable.grantReadData(whoamiFn);
 
+    // Where a project stands: reads the summary the web saves with each journey change.
+    const journeyFn = new lambda.Function(this, "JourneyStatus", {
+      functionName: resourceName(stage, "cortex-tool-journey"),
+      description: "MCP journey.status: where the caller's project stands on its registry journey",
+      runtime: PYTHON,
+      handler: "journey_tool.handler",
+      code,
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 128,
+      logGroup: new logs.LogGroup(this, "JourneyStatusLogs", {
+        logGroupName: logGroupName(stage, "cortex-tool-journey"),
+        retention,
+        removalPolicy: removal,
+      }),
+      environment: { JOURNEY_TABLE: props.journeysTable.tableName },
+    });
+    // One item per call, keyed by the caller the interceptor checked; no scans.
+    journeyFn.addToRolePolicy(
+      new iam.PolicyStatement({ actions: ["dynamodb:GetItem"], resources: [props.journeysTable.tableArn] }),
+    );
+    props.journeysTable.encryptionKey?.grantDecrypt(journeyFn);
+
     const targets: ToolTarget[] = [
       {
         name: "tenancy",
@@ -151,6 +175,27 @@ export class CortexAgentStack extends Ew2Stack {
         ],
       },
     ];
+    targets.push({
+      name: "journey",
+      description: "Where a project stands on its registry journey",
+      fn: journeyFn,
+      tools: [
+        {
+          name: "status",
+          description:
+            "The project's saved journey: each step's progress, the work left in the current step and every answer Cortex flagged. With step, that step's tasks in full: answers, files and Cortex's notes.",
+          inputSchema: {
+            type: "object",
+            required: ["project_id"],
+            properties: {
+              project_id: PROJECT_PROPERTY,
+              step: { type: "string", description: "A step's id or name, for its tasks in full." },
+              caller: CALLER_PROPERTY,
+            },
+          },
+        },
+      ],
+    });
     if (props.traceFn) {
       targets.push({
         name: "graph",

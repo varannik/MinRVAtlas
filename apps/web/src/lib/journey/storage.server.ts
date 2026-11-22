@@ -10,13 +10,15 @@ import {
 
 import { settledTasks, type JourneyAction, type JourneyRecord, type Outcome, type Tasks } from "./engine";
 import { SCENARIO_BY_ID } from "./scenarios";
+import { journeySummary } from "./summary";
 import type { StepId } from "./types";
 
 /**
  * A project's journey in the Cortex journeys table (infra/lib/cortex/core-stack.ts).
  *
  *   pk TENANT#<tenant>#PROJECT#<project>
- *     sk JOURNEY            where the project stands: current step, periods closed, every task, version
+ *     sk JOURNEY            where the project stands: current step, periods closed, every task, version,
+ *                           and `summary` (summary.ts), which Cortex's journey___status tool reads
  *     sk CHANGE#<version>   one per change: what was done to which task, by whom, when
  *
  * The client comes from the tenant session (intake.server.ts projectDynamo), whose
@@ -133,6 +135,7 @@ export async function saveJourney(
                 current: { S: record.current },
                 laps: { N: String(record.laps) },
                 tasks: { S: JSON.stringify(record.tasks) },
+                summary: { S: JSON.stringify(journeySummary(record)) },
                 version: { N: String(version) },
                 updatedAt: { S: input.now },
                 updatedBy: { S: input.by },

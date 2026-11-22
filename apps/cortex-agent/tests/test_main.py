@@ -7,7 +7,7 @@ from cortex_agent import main
 from cortex_agent.identity import Caller, Unauthorized
 from cortex_agent.settings import Settings
 
-from .fakes import PASSAGE, FakeClaude, gateway_transport, message, text, thinking, tool_use
+from .fakes import JOURNEY, PASSAGE, FakeClaude, gateway_transport, journey_use, message, text, thinking, tool_use
 
 SETTINGS = Settings(
     region="eu-west-2",
@@ -88,6 +88,22 @@ def test_an_answer_streams_status_sources_text_then_done():
     # Searches are for the project asked about, and the gateway sets the caller itself.
     search = next(entry for entry in seen if entry["body"].get("params", {}).get("name") == "knowledge___search")
     assert search["body"]["params"]["arguments"] == {"query": "crediting period", "project_id": "fujairah-mineral", "top_k": 6}
+
+
+def test_a_new_conversation_can_read_the_projects_journey():
+    seen = []
+    claude = FakeClaude(
+        message([thinking(), journey_use("Monitor")], "tool_use"),
+        message([thinking(), text("Calibration is still open in Monitor.")]),
+    )
+    tools = {"tenancy___whoami": WHOAMI, "knowledge___search": {"results": [PASSAGE]}, "journey___status": JOURNEY}
+    events = ask(cortex(claude, tools=tools, seen=seen), question="What is left in Monitor?")
+    assert [e["type"] for e in events] == ["status", "text", "text", "done"]
+    assert events[0]["text"] == "Reading the project's journey: Monitor"
+    assert [tool["name"] for tool in claude.requests[0]["tools"]] == ["search_knowledge", "journey_status"]
+    assert "journey_status" in claude.requests[0]["system"][0]["text"]
+    call = next(entry for entry in seen if entry["body"].get("params", {}).get("name") == "journey___status")
+    assert call["body"]["params"]["arguments"] == {"project_id": "fujairah-mineral", "step": "Monitor"}
 
 
 def test_a_conversation_continues_with_its_history():

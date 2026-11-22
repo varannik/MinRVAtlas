@@ -162,6 +162,7 @@ export class MinrvStage extends cdk.Stage {
       clients: [this.identity.userPoolClient, this.identity.mcpClient],
       tenancyTable: core.tenancyTable,
       checkpointsTable: core.checkpointsTable,
+      journeysTable: core.journeysTable,
       eventBus: core.eventBus,
       tenantSessionRole: knowledge.tenantSessionRole,
       searchFn: knowledge.searchFn,

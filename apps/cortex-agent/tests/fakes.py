@@ -30,6 +30,10 @@ def tool_use(query: str, tool_id: str = "toolu_1") -> dict:
     return {"type": "tool_use", "id": tool_id, "name": "search_knowledge", "input": {"query": query}}
 
 
+def journey_use(step: str = "", tool_id: str = "toolu_j") -> dict:
+    return {"type": "tool_use", "id": tool_id, "name": "journey_status", "input": {"step": step}}
+
+
 def text(value: str) -> dict:
     return {"type": "text", "text": value}
 
@@ -72,11 +76,29 @@ class FakeClaude:
         return _Stream(self.replies.pop(0))
 
 
+JOURNEY = {
+    "saved": True,
+    "saved_at": "2026-11-22T10:00:00Z",
+    "registry": "Puro.earth",
+    "current_step": {"id": "monitor", "label": "Monitor"},
+    "left_in_current_step": [{"id": "monitor.calibration", "label": "Calibration", "status": "open", "step": "Monitor"}],
+    "flagged": [],
+}
+
+
 class FakeKnowledge:
-    def __init__(self, results: list[dict] | None = None, error: Exception | None = None):
+    def __init__(self, results: list[dict] | None = None, error: Exception | None = None, journey: dict | None = None):
         self.results = results or []
         self.error = error
         self.queries: list[str] = []
+        self.journey_result = journey if journey is not None else JOURNEY
+        self.journey_steps: list[str] = []
+
+    async def journey(self, step: str) -> dict:
+        self.journey_steps.append(step)
+        if self.error:
+            raise self.error
+        return self.journey_result
 
     async def search(self, query: str) -> list[dict]:
         self.queries.append(query)

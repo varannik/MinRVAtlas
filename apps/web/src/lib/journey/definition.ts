@@ -165,6 +165,9 @@ if (!journeyFile || typeof journeyFile !== "object") throw new Error("journey.ya
 const doc = journeyFile as Raw;
 const catalog = (doc.catalog ?? {}) as Raw;
 
+/** journey.yaml's own version (its `version:` line), recorded with every summary built from it. */
+export const JOURNEY_VERSION = String(doc.version ?? "");
+
 export const CATEGORIES: Category[] = (catalog.categories as Raw[]).map((entry) => ({
   id: String(entry.id),
   label: text(entry.label, `category ${entry.id}`, "label"),

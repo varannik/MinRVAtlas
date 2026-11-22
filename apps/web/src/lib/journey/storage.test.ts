@@ -94,6 +94,11 @@ describe("saving a change", () => {
     assert.equal(start.Put.Item.scenario.S, "fujairah-mineral");
     assert.equal(journey.Put.ConditionExpression, "attribute_not_exists(pk)");
     assert.equal(journey.Put.Item.version.N, "1");
+    // What Cortex's journey tool reads: every step, with the answer just given.
+    const summary = JSON.parse(journey.Put.Item.summary.S ?? "{}");
+    assert.equal(summary.current, "monitor");
+    const name = summary.steps[0].tasks.find((task: { id: string }) => task.id === "setup.name");
+    assert.deepEqual([name.status, name.answer], ["done", "Fujairah Peridotite"]);
     assert.equal(change.Put.Item.sk.S, "CHANGE#00000001");
     assert.deepEqual(
       [change.Put.Item.action.S, change.Put.Item.taskId.S, change.Put.Item.status.S, change.Put.Item.value.S, change.Put.Item.by.S],

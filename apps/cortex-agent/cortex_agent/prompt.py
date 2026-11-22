@@ -2,32 +2,57 @@
 
 Both must stay byte-identical for the life of a conversation: the model's
 thinking blocks are only valid against the exact prefix that produced them. The
-system prompt is written once, on a conversation's first turn, and kept in the
-conversation's state; change TOOLS only together with a new conversation.
+system prompt and the tool list are written once, on a conversation's first
+turn, and kept in the conversation's state. A conversation begun before a tool
+was added keeps the list it began with (SEARCH_ONLY), so never edit a list in
+place: add a new one.
 """
 
 SEARCH_TOOL = "search_knowledge"
+JOURNEY_TOOL = "journey_status"
 
-TOOLS = [
-    {
-        "name": SEARCH_TOOL,
-        "description": (
-            "Search the registry methodology documents, your organisation's documents and this project's "
-            "documents. Returns numbered passages; each starts with its rule number, section, document, page "
-            "and whether it is a registry, organisation or project document. Write the query in the words a "
-            "methodology would use (for example 'crediting period renewal')."
-        ),
-        "strict": True,
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "query": {"type": "string", "description": "What to look for, in a methodology's own words."},
-            },
-            "required": ["query"],
-            "additionalProperties": False,
+_SEARCH = {
+    "name": SEARCH_TOOL,
+    "description": (
+        "Search the registry methodology documents, your organisation's documents and this project's "
+        "documents. Returns numbered passages; each starts with its rule number, section, document, page "
+        "and whether it is a registry, organisation or project document. Write the query in the words a "
+        "methodology would use (for example 'crediting period renewal')."
+    ),
+    "strict": True,
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "What to look for, in a methodology's own words."},
         },
+        "required": ["query"],
+        "additionalProperties": False,
     },
-]
+}
+
+_JOURNEY = {
+    "name": JOURNEY_TOOL,
+    "description": (
+        "Read where this project stands on its registry journey, as saved on MinRV's journey page: each step's "
+        "progress, the work left in the current step, the answers Cortex flagged and why, and the answers, dates "
+        "and files given so far. Give an empty step for the overview, or a step's name (for example 'Monitor' or "
+        "'Project documents') for its tasks in full."
+    ),
+    "strict": True,
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "step": {"type": "string", "description": "A step's name or id, or an empty string for the overview."},
+        },
+        "required": ["step"],
+        "additionalProperties": False,
+    },
+}
+
+# The tools of conversations begun before the journey tool: kept exactly as they were.
+SEARCH_ONLY = [_SEARCH]
+# The tools a new conversation begins with.
+TOOLS = [_SEARCH, _JOURNEY]
 
 
 def _project_line(project: dict) -> str:
@@ -45,6 +70,7 @@ def system_prompt(project: dict, tenant_name: str | None) -> str:
 
 How to answer:
 - For any question about registry rules, methodology requirements or the project's documents, call {SEARCH_TOOL} first and answer from the passages it returns. If they do not answer the question, search again with other words.
+- For questions about where the project stands (what is done, what is left before a step is complete, what was flagged and why, or answers already given on its journey such as dates, names and files), call {JOURNEY_TOOL} and answer from it, saying when the journey was last saved. If nothing has been saved, say so; never guess the project's progress. To explain what a flagged or open task requires, also search the rules.
 - Cite each requirement you state with its rule number, document and page, for example (Rule 2.2.2, Geologically_Stored_Carbon_2024_5.pdf, p. 13).
 - If the passages do not cover the question, say that the documents Cortex holds do not cover it and which kind of document would. Do not present general knowledge as the registry's rule.
 - {"Prefer passages from edition " + str(edition) + " of the project's methodology; if" if edition else "If"} a passage comes from another edition or from a general rules document, say so.

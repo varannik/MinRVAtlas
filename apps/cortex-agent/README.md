@@ -4,8 +4,11 @@ Answers questions on the Cortex page from the knowledge Cortex holds, citing the
 It runs on Amazon Bedrock AgentCore Runtime in eu-west-2 (`infra/lib/cortex/agent-stack.ts`).
 
 - **Model:** Claude through the Anthropic SDK's Bedrock client, on the EU inference profile, so prompts stay in EU regions. The model is `CORTEX_AGENT_MODEL` in `infra/lib/config.ts`.
-- **Steps:** a LangGraph graph (`cortex_agent/graph.py`). Claude thinks, Cortex tools act, and this repeats until Claude answers, with at most four searches per question.
-- **Tools:** the Cortex tool gateway, called with the signed-in user's own token. The gateway checks the tenant and project grant on every call.
+- **Steps:** a LangGraph graph (`cortex_agent/graph.py`). Claude thinks, Cortex tools act, and this repeats until Claude answers, with at most four rounds of tool calls per question.
+- **Tools:** the Cortex tool gateway, called with the signed-in user's own token. The gateway checks the tenant and project grant on every call. Claude has two:
+  - `search_knowledge` (`knowledge___search`): registry, organisation and project documents, cited by rule and page.
+  - `journey_status` (`journey___status`): where the project stands on its saved journey, what is left and what Cortex flagged.
+- **Tool list per conversation:** a conversation keeps the tools it began with (`prompt.py`). A conversation begun before `journey_status` keeps searching only, so its thinking blocks stay valid.
 - **Conversations:** LangGraph checkpoints in DynamoDB, reached only through the tenant-session role tagged with the user's tenant.
 - **Answer log:** one `cortex_answer` JSON line per question. It records who asked, what was searched, the passages read and the ones cited. It never records the question or answer text.
 

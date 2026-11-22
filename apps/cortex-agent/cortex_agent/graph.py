@@ -9,10 +9,11 @@ unchanged history that produced them. LangGraph checkpoints the state after
 every step, so a conversation continues on the next request.
 
 Nodes report progress through LangGraph's custom stream: text as Claude writes
-it, a status line per search, and the sources each search found.
+it, a status line per tool call, and the sources each search found.
 """
 
 import asyncio
+import json
 import operator
 from typing import Annotated, Any, Protocol, TypedDict
 
@@ -21,15 +22,15 @@ from langgraph.graph import END, START, StateGraph
 
 from . import knowledge
 from .gateway import ToolError
-from .prompt import SEARCH_TOOL, TOOLS
+from .prompt import JOURNEY_TOOL, SEARCH_ONLY
 
 # Searches Claude may run for one question before it must answer.
 MAX_TOOL_ROUNDS = 4
 MAX_TOKENS = 16000
 
 
-def _keep_first(current: str | None, new: str | None) -> str | None:
-    """The system prompt is set on the first turn and never replaced."""
+def _keep_first(current, new):
+    """The system prompt and the tool list are set on the first turn and never replaced."""
     return current or new
 
 
@@ -43,6 +44,9 @@ def _merge(current: dict | None, new: dict | None) -> dict:
 
 class Conversation(TypedDict, total=False):
     system: Annotated[str, _keep_first]
+    # The tools offered to Claude, as on the first turn (prompt.TOOLS then). A conversation
+    # without them began before they were stored and keeps prompt.SEARCH_ONLY.
+    tools: Annotated[list[dict], _keep_first]
     messages: Annotated[list[dict], operator.add]
     turns: Annotated[int, _add]
     # Every passage the conversation has read, by id, so a follow-up answered from
@@ -55,6 +59,13 @@ class Conversation(TypedDict, total=False):
 
 class Knowledge(Protocol):
     async def search(self, query: str) -> list[dict]: ...
+
+    async def journey(self, step: str) -> dict: ...
+
+
+def journey_text(result: dict) -> str:
+    """The journey tool's answer for Claude: the saved journey as compact JSON."""
+    return json.dumps(result, ensure_ascii=False, separators=(",", ":"))
 
 
 def unanswered_tool_uses(messages: list[dict]) -> list[str]:
@@ -97,7 +108,7 @@ def build(model: Any, model_id: str, effort: str, tools: Knowledge) -> StateGrap
             "model": model_id,
             "max_tokens": MAX_TOKENS,
             "system": [{"type": "text", "text": state["system"], "cache_control": {"type": "ephemeral"}}],
-            "tools": TOOLS,
+            "tools": state.get("tools") or SEARCH_ONLY,
             # After MAX_TOOL_ROUNDS searches Claude answers with what it has.
             "tool_choice": {"type": "none"} if rounds >= MAX_TOOL_ROUNDS else {"type": "auto"},
             "thinking": {"type": "adaptive"},
@@ -136,10 +147,22 @@ def build(model: Any, model_id: str, effort: str, tools: Knowledge) -> StateGrap
     async def act(state: Conversation) -> dict:
         write = get_stream_writer()
         calls = [block for block in state["messages"][-1]["content"] if block.get("type") == "tool_use"]
+        offered = {tool["name"] for tool in state.get("tools") or SEARCH_ONLY}
+
+        async def journey(call: dict) -> dict:
+            step = str((call.get("input") or {}).get("step") or "").strip()
+            write({"type": "status", "text": f"Reading the project's journey: {step}" if step else "Reading the project's journey"})
+            try:
+                result = await tools.journey(step)
+            except ToolError as error:
+                return {"type": "tool_result", "tool_use_id": call["id"], "is_error": True, "content": str(error)}
+            return {"type": "tool_result", "tool_use_id": call["id"], "content": journey_text(result)}
 
         async def run(call: dict, seen: dict[str, dict]) -> dict:
-            if call.get("name") != SEARCH_TOOL:
+            if call.get("name") not in offered:
                 return not_run([call["id"]], f"There is no tool called {call.get('name')}.")[0]
+            if call.get("name") == JOURNEY_TOOL:
+                return await journey(call)
             query = str((call.get("input") or {}).get("query") or "").strip()
             if not query:
                 return not_run([call["id"]], "Give a query to search for.")[0]

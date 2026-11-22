@@ -1,20 +1,24 @@
 import asyncio
+import json
 
 from langgraph.checkpoint.memory import InMemorySaver
 
 from cortex_agent.gateway import ToolError
 from cortex_agent.graph import MAX_TOOL_ROUNDS, answer_text, build, unanswered_tool_uses
+from cortex_agent.prompt import SEARCH_ONLY, TOOLS
 
-from .fakes import PASSAGE, FakeClaude, FakeKnowledge, message, text, thinking, tool_use
+from .fakes import JOURNEY, PASSAGE, FakeClaude, FakeKnowledge, journey_use, message, text, thinking, tool_use
 
 CONFIG = {"configurable": {"thread_id": "fourfourone#fujairah-mineral#user-1#c1"}, "recursion_limit": 20}
 
 
-def run_turn(claude, tools, question, saver, first=True):
+def run_turn(claude, tools, question, saver, first=True, offered=None):
     graph = build(claude, "eu.anthropic.claude-sonnet-4-6", "medium", tools).compile(checkpointer=saver)
     start = {"messages": [{"role": "user", "content": [text(question)]}], "turns": 1, "rounds": 0}
     if first:
         start["system"] = "SYSTEM"
+        if offered is not None:
+            start["tools"] = offered
 
     async def go():
         events = [event async for event in graph.astream(start, CONFIG, stream_mode="custom")]
@@ -98,3 +102,49 @@ def test_unanswered_tool_uses_finds_calls_left_open():
     messages = [{"role": "user", "content": [text("q")]}, {"role": "assistant", "content": [thinking(), tool_use("q")]}]
     assert unanswered_tool_uses(messages) == ["toolu_1"]
     assert unanswered_tool_uses(messages[:1]) == []
+
+
+def test_claude_reads_the_journey_then_answers():
+    claude = FakeClaude(
+        message([thinking(), journey_use("")], "tool_use"),
+        message([thinking(), text("Calibration is left in Monitor.")]),
+    )
+    tools = FakeKnowledge()
+    events, state = run_turn(claude, tools, "What is left this period?", InMemorySaver(), offered=TOOLS)
+
+    shown = [event for event in events if event["type"] != "_usage"]
+    assert shown[0] == {"type": "status", "text": "Reading the project's journey"}
+    assert tools.journey_steps == [""]
+    result = state["messages"][2]["content"][0]
+    assert result["tool_use_id"] == "toolu_j" and json.loads(result["content"]) == JOURNEY
+    assert [tool["name"] for tool in claude.requests[0]["tools"]] == ["search_knowledge", "journey_status"]
+    assert state["tools"] == TOOLS
+
+
+def test_a_conversation_keeps_the_tools_it_began_with():
+    saver = InMemorySaver()
+    claude = FakeClaude(message([text("First.")]), message([text("Second.")]))
+    run_turn(claude, FakeKnowledge(), "One", saver, offered=TOOLS)
+    run_turn(claude, FakeKnowledge(), "Two", saver, first=False)
+    assert claude.requests[1]["tools"] == claude.requests[0]["tools"] == json.loads(json.dumps(TOOLS))
+
+
+def test_a_conversation_begun_before_the_journey_tool_keeps_search_only():
+    claude = FakeClaude(
+        message([thinking(), journey_use("")], "tool_use"),
+        message([thinking(), text("I can only search.")]),
+    )
+    tools = FakeKnowledge()
+    _, state = run_turn(claude, tools, "Where are we?", InMemorySaver())
+    assert claude.requests[0]["tools"] == json.loads(json.dumps(SEARCH_ONLY))
+    assert tools.journey_steps == []
+    result = state["messages"][2]["content"][0]
+    assert result["is_error"] and "no tool called journey_status" in result["content"]
+
+
+def test_a_journey_failure_goes_back_to_claude_as_an_error_result():
+    claude = FakeClaude(message([journey_use("Monitor")], "tool_use"), message([text("Could not read it.")]))
+    _, state = run_turn(claude, FakeKnowledge(error=ToolError("Gateway refused")), "q", InMemorySaver(), offered=TOOLS)
+    result = state["messages"][2]["content"][0]
+    assert result["is_error"] and result["content"] == "Gateway refused"
+
