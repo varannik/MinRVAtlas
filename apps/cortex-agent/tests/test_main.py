@@ -7,7 +7,7 @@ from cortex_agent import main
 from cortex_agent.identity import Caller, Unauthorized
 from cortex_agent.settings import Settings
 
-from .fakes import JOURNEY, PASSAGE, FakeClaude, gateway_transport, journey_use, message, text, thinking, tool_use
+from .fakes import EVIDENCE, JOURNEY, PASSAGE, FakeClaude, evidence_use, gateway_transport, journey_use, message, text, thinking, tool_use
 
 SETTINGS = Settings(
     region="eu-west-2",
@@ -100,10 +100,23 @@ def test_a_new_conversation_can_read_the_projects_journey():
     events = ask(cortex(claude, tools=tools, seen=seen), question="What is left in Monitor?")
     assert [e["type"] for e in events] == ["status", "text", "text", "done"]
     assert events[0]["text"] == "Reading the project's journey: Monitor"
-    assert [tool["name"] for tool in claude.requests[0]["tools"]] == ["search_knowledge", "journey_status"]
+    assert [tool["name"] for tool in claude.requests[0]["tools"]] == ["search_knowledge", "journey_status", "evidence_links"]
     assert "journey_status" in claude.requests[0]["system"][0]["text"]
     call = next(entry for entry in seen if entry["body"].get("params", {}).get("name") == "journey___status")
     assert call["body"]["params"]["arguments"] == {"project_id": "fujairah-mineral", "step": "Monitor"}
+
+
+def test_evidence_links_are_read_through_the_graph_tool():
+    seen = []
+    claude = FakeClaude(
+        message([thinking(), evidence_use("", "kyc.pdf")], "tool_use"),
+        message([thinking(), text("kyc.pdf is filed for KYB / KYC.")]),
+    )
+    tools = {"tenancy___whoami": WHOAMI, "knowledge___search": {"results": [PASSAGE]}, "graph___evidence": EVIDENCE}
+    events = ask(cortex(claude, tools=tools, seen=seen), question="Which tasks is kyc.pdf filed on?")
+    assert events[0] == {"type": "status", "text": "Following the evidence links: kyc.pdf"}
+    call = next(entry for entry in seen if entry["body"].get("params", {}).get("name") == "graph___evidence")
+    assert call["body"]["params"]["arguments"] == {"project_id": "fujairah-mineral", "document": "kyc.pdf"}
 
 
 def test_a_conversation_continues_with_its_history():

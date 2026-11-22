@@ -150,10 +150,11 @@ export class MinrvStage extends cdk.Stage {
     knowledge.addStackDependency(core);
 
     const graph = cfg.cortex.graph
-      ? new CortexGraphStack(this, "cortex-graph", { env, cfg, vpc, keyArn })
+      ? new CortexGraphStack(this, "cortex-graph", { env, cfg, vpc, keyArn, eventBus: core.eventBus })
       : undefined;
     graph?.addStackDependency(this.network);
     graph?.addStackDependency(this.security);
+    graph?.addStackDependency(core);
 
     const agent = new CortexAgentStack(this, "cortex-agent", {
       env,

@@ -7,7 +7,7 @@ from cortex_agent.gateway import ToolError
 from cortex_agent.graph import MAX_TOOL_ROUNDS, answer_text, build, unanswered_tool_uses
 from cortex_agent.prompt import SEARCH_ONLY, TOOLS
 
-from .fakes import JOURNEY, PASSAGE, FakeClaude, FakeKnowledge, journey_use, message, text, thinking, tool_use
+from .fakes import EVIDENCE, JOURNEY, PASSAGE, FakeClaude, FakeKnowledge, evidence_use, journey_use, message, text, thinking, tool_use
 
 CONFIG = {"configurable": {"thread_id": "fourfourone#fujairah-mineral#user-1#c1"}, "recursion_limit": 20}
 
@@ -117,7 +117,7 @@ def test_claude_reads_the_journey_then_answers():
     assert tools.journey_steps == [""]
     result = state["messages"][2]["content"][0]
     assert result["tool_use_id"] == "toolu_j" and json.loads(result["content"]) == JOURNEY
-    assert [tool["name"] for tool in claude.requests[0]["tools"]] == ["search_knowledge", "journey_status"]
+    assert [tool["name"] for tool in claude.requests[0]["tools"]] == ["search_knowledge", "journey_status", "evidence_links"]
     assert state["tools"] == TOOLS
 
 
@@ -147,4 +147,27 @@ def test_a_journey_failure_goes_back_to_claude_as_an_error_result():
     _, state = run_turn(claude, FakeKnowledge(error=ToolError("Gateway refused")), "q", InMemorySaver(), offered=TOOLS)
     result = state["messages"][2]["content"][0]
     assert result["is_error"] and result["content"] == "Gateway refused"
+
+
+def test_claude_follows_the_evidence_links_for_a_task():
+    claude = FakeClaude(
+        message([thinking(), evidence_use("onboarding.kyc")], "tool_use"),
+        message([thinking(), text("kyc.pdf is filed for KYB / KYC.")]),
+    )
+    tools = FakeKnowledge()
+    events, state = run_turn(claude, tools, "What evidence do we have for KYC?", InMemorySaver(), offered=TOOLS)
+    shown = [event for event in events if event["type"] != "_usage"]
+    assert shown[0] == {"type": "status", "text": "Following the evidence links: onboarding.kyc"}
+    assert tools.evidence_asked == [("onboarding.kyc", "")]
+    assert json.loads(state["messages"][2]["content"][0]["content"]) == EVIDENCE
+
+
+def test_a_conversation_begun_with_two_tools_does_not_get_the_third():
+    two = TOOLS[:2]
+    claude = FakeClaude(message([evidence_use("onboarding.kyc")], "tool_use"), message([text("Not available.")]))
+    tools = FakeKnowledge()
+    _, state = run_turn(claude, tools, "q", InMemorySaver(), offered=two)
+    assert [tool["name"] for tool in claude.requests[0]["tools"]] == ["search_knowledge", "journey_status"]
+    assert tools.evidence_asked == []
+    assert "no tool called evidence_links" in state["messages"][2]["content"][0]["content"]
 

@@ -22,7 +22,7 @@ from langgraph.graph import END, START, StateGraph
 
 from . import knowledge
 from .gateway import ToolError
-from .prompt import JOURNEY_TOOL, SEARCH_ONLY
+from .prompt import EVIDENCE_TOOL, JOURNEY_TOOL, SEARCH_ONLY
 
 # Searches Claude may run for one question before it must answer.
 MAX_TOOL_ROUNDS = 4
@@ -62,9 +62,11 @@ class Knowledge(Protocol):
 
     async def journey(self, step: str) -> dict: ...
 
+    async def evidence(self, task_id: str, document: str) -> dict: ...
+
 
 def journey_text(result: dict) -> str:
-    """The journey tool's answer for Claude: the saved journey as compact JSON."""
+    """A journey or evidence tool's answer for Claude, as compact JSON."""
     return json.dumps(result, ensure_ascii=False, separators=(",", ":"))
 
 
@@ -158,11 +160,25 @@ def build(model: Any, model_id: str, effort: str, tools: Knowledge) -> StateGrap
                 return {"type": "tool_result", "tool_use_id": call["id"], "is_error": True, "content": str(error)}
             return {"type": "tool_result", "tool_use_id": call["id"], "content": journey_text(result)}
 
+        async def evidence(call: dict) -> dict:
+            given = call.get("input") or {}
+            task_id = str(given.get("task_id") or "").strip()
+            document = str(given.get("document") or "").strip()
+            about = task_id or document
+            write({"type": "status", "text": f"Following the evidence links: {about}" if about else "Following the evidence links"})
+            try:
+                result = await tools.evidence(task_id, document)
+            except ToolError as error:
+                return {"type": "tool_result", "tool_use_id": call["id"], "is_error": True, "content": str(error)}
+            return {"type": "tool_result", "tool_use_id": call["id"], "content": journey_text(result)}
+
         async def run(call: dict, seen: dict[str, dict]) -> dict:
             if call.get("name") not in offered:
                 return not_run([call["id"]], f"There is no tool called {call.get('name')}.")[0]
             if call.get("name") == JOURNEY_TOOL:
                 return await journey(call)
+            if call.get("name") == EVIDENCE_TOOL:
+                return await evidence(call)
             query = str((call.get("input") or {}).get("query") or "").strip()
             if not query:
                 return not_run([call["id"]], "Give a query to search for.")[0]

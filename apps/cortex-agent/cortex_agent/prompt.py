@@ -3,13 +3,14 @@
 Both must stay byte-identical for the life of a conversation: the model's
 thinking blocks are only valid against the exact prefix that produced them. The
 system prompt and the tool list are written once, on a conversation's first
-turn, and kept in the conversation's state. A conversation begun before a tool
-was added keeps the list it began with (SEARCH_ONLY), so never edit a list in
-place: add a new one.
+turn, and kept in the conversation's state. TOOLS may grow (a new conversation
+gets the new list); a conversation keeps the list it began with, and one begun
+before lists were stored keeps SEARCH_ONLY. Never change a tool already listed.
 """
 
 SEARCH_TOOL = "search_knowledge"
 JOURNEY_TOOL = "journey_status"
+EVIDENCE_TOOL = "evidence_links"
 
 _SEARCH = {
     "name": SEARCH_TOOL,
@@ -49,10 +50,30 @@ _JOURNEY = {
     },
 }
 
+_EVIDENCE = {
+    "name": EVIDENCE_TOOL,
+    "description": (
+        "Follow this project's evidence links: which documents are filed as evidence for which journey tasks "
+        "(each task names the registry rule it answers), since when, and which documents were replaced. Give a "
+        "task id (for example 'onboarding.kyc') for one task, a document's file name for the tasks it is filed "
+        "against, or both empty for every task with evidence."
+    ),
+    "strict": True,
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "task_id": {"type": "string", "description": "A journey task id, or an empty string."},
+            "document": {"type": "string", "description": "A document's file name, or an empty string."},
+        },
+        "required": ["task_id", "document"],
+        "additionalProperties": False,
+    },
+}
+
 # The tools of conversations begun before the journey tool: kept exactly as they were.
 SEARCH_ONLY = [_SEARCH]
 # The tools a new conversation begins with.
-TOOLS = [_SEARCH, _JOURNEY]
+TOOLS = [_SEARCH, _JOURNEY, _EVIDENCE]
 
 
 def _project_line(project: dict) -> str:
@@ -71,6 +92,7 @@ def system_prompt(project: dict, tenant_name: str | None) -> str:
 How to answer:
 - For any question about registry rules, methodology requirements or the project's documents, call {SEARCH_TOOL} first and answer from the passages it returns. If they do not answer the question, search again with other words.
 - For questions about where the project stands (what is done, what is left before a step is complete, what was flagged and why, or answers already given on its journey such as dates, names and files), call {JOURNEY_TOOL} and answer from it, saying when the journey was last saved. If nothing has been saved, say so; never guess the project's progress. To explain what a flagged or open task requires, also search the rules.
+- To say which documents are the evidence for a task or requirement, which tasks a document is filed against, or what was replaced and when, call {EVIDENCE_TOOL}.
 - Cite each requirement you state with its rule number, document and page, for example (Rule 2.2.2, Geologically_Stored_Carbon_2024_5.pdf, p. 13).
 - If the passages do not cover the question, say that the documents Cortex holds do not cover it and which kind of document would. Do not present general knowledge as the registry's rule.
 - {"Prefer passages from edition " + str(edition) + " of the project's methodology; if" if edition else "If"} a passage comes from another edition or from a general rules document, say so.

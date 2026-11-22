@@ -104,6 +104,8 @@ describe("saving a change", () => {
       [change.Put.Item.action.S, change.Put.Item.taskId.S, change.Put.Item.status.S, change.Put.Item.value.S, change.Put.Item.by.S],
       ["answer", "setup.name", "done", "Fujairah Peridotite", "sub-1"],
     );
+    // The task as the graph writer names it.
+    assert.deepEqual([change.Put.Item.label.S, change.Put.Item.step.S], ["Facility name", "setup"]);
     for (const put of puts(fake)) assert.equal(put.Put.Item.pk.S, journeyKey("fourfourone", "fujairah-mineral"));
     assert.deepEqual([saved.version, saved.stored], [1, true]);
   });

@@ -10,6 +10,7 @@ import {
 
 import { settledTasks, type JourneyAction, type JourneyRecord, type Outcome, type Tasks } from "./engine";
 import { SCENARIO_BY_ID } from "./scenarios";
+import { planOf } from "./steps";
 import { journeySummary } from "./summary";
 import type { StepId } from "./types";
 
@@ -93,11 +94,21 @@ export async function loadJourney(
   return Item ? fromItem(Item) : startingPoint(projectId);
 }
 
-/** What the change record keeps of an action: enough to audit it, never a whole draft. */
+/**
+ * What the change record keeps of an action: enough to audit it, never a whole draft.
+ * It names the task, its step and the registry rule it answers, so the graph writer
+ * (infra/lib/cortex/lambda/graph_writer.py, fed by the table's stream) needs nothing else.
+ */
 export function changeRecord(action: JourneyAction, outcome: Outcome) {
   const record: Record<string, AttributeValue> = { action: { S: action.action } };
   if ("taskId" in action) {
     record.taskId = { S: action.taskId };
+    const task = planOf(outcome.record.tasks).taskById[action.taskId];
+    if (task) {
+      record.label = { S: task.label };
+      record.step = { S: task.step };
+      if (task.rule) record.rule = { S: task.rule };
+    }
     const state = outcome.record.tasks[action.taskId];
     if (state) record.status = { S: state.status };
     if (state?.note) record.note = { S: state.note.slice(0, VALUE_IN_CHANGE) };

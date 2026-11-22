@@ -34,6 +34,10 @@ def journey_use(step: str = "", tool_id: str = "toolu_j") -> dict:
     return {"type": "tool_use", "id": tool_id, "name": "journey_status", "input": {"step": step}}
 
 
+def evidence_use(task_id: str = "", document: str = "", tool_id: str = "toolu_e") -> dict:
+    return {"type": "tool_use", "id": tool_id, "name": "evidence_links", "input": {"task_id": task_id, "document": document}}
+
+
 def text(value: str) -> dict:
     return {"type": "text", "text": value}
 
@@ -86,6 +90,12 @@ JOURNEY = {
 }
 
 
+EVIDENCE = {
+    "project_id": "fujairah-mineral",
+    "tasks": [{"task_id": "onboarding.kyc", "label": "KYB / KYC", "documents": [{"name": "kyc.pdf"}], "replaced": []}],
+}
+
+
 class FakeKnowledge:
     def __init__(self, results: list[dict] | None = None, error: Exception | None = None, journey: dict | None = None):
         self.results = results or []
@@ -93,12 +103,19 @@ class FakeKnowledge:
         self.queries: list[str] = []
         self.journey_result = journey if journey is not None else JOURNEY
         self.journey_steps: list[str] = []
+        self.evidence_asked: list[tuple[str, str]] = []
 
     async def journey(self, step: str) -> dict:
         self.journey_steps.append(step)
         if self.error:
             raise self.error
         return self.journey_result
+
+    async def evidence(self, task_id: str, document: str) -> dict:
+        self.evidence_asked.append((task_id, document))
+        if self.error:
+            raise self.error
+        return EVIDENCE
 
     async def search(self, query: str) -> list[dict]:
         self.queries.append(query)

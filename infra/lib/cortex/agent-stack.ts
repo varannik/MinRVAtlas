@@ -215,6 +215,21 @@ export class CortexAgentStack extends Ew2Stack {
               },
             },
           },
+          {
+            name: "evidence",
+            description:
+              "A project's evidence links: the documents filed for each journey task (with the registry rule the task answers), since when, and which were replaced. For one task, or for the tasks one document is filed against.",
+            inputSchema: {
+              type: "object",
+              required: ["project_id"],
+              properties: {
+                project_id: PROJECT_PROPERTY,
+                task_id: { type: "string", description: "A journey task id, for example onboarding.kyc." },
+                document: { type: "string", description: "A document's file name or Cortex key." },
+                caller: CALLER_PROPERTY,
+              },
+            },
+          },
         ],
       });
     }

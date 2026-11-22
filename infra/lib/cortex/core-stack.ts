@@ -1,7 +1,9 @@
 import * as cdk from "aws-cdk-lib";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as events from "aws-cdk-lib/aws-events";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as kms from "aws-cdk-lib/aws-kms";
+import * as pipes from "aws-cdk-lib/aws-pipes";
 import * as scheduler from "aws-cdk-lib/aws-scheduler";
 import * as avp from "aws-cdk-lib/aws-verifiedpermissions";
 import { Construct } from "constructs";
@@ -71,6 +73,8 @@ export class CortexCoreStack extends Ew2Stack {
       tableName: cortexJourneyTableName(cfg.stageName),
       partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
+      // Change records flow from here to the event bus (JourneyChanges below).
+      stream: dynamodb.StreamViewType.NEW_IMAGE,
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
       encryptionKey: key,
@@ -92,6 +96,39 @@ export class CortexCoreStack extends Ew2Stack {
       eventPattern: { account: [cdk.Stack.of(this).account] },
       retention: cdk.Duration.days(cfg.cortex.eventArchiveDays),
     });
+
+    // Every journey change record onto the bus as JourneyChanged: the graph writer
+    // (cortex-graph stack) links filed documents to their tasks, and the archive
+    // can replay them to rebuild the graph. The stream is written in the same
+    // transaction as the change, so no change is missed.
+    const pipeRole = new iam.Role(this, "JourneyChangesRole", {
+      assumedBy: new iam.ServicePrincipal("pipes.amazonaws.com", {
+        conditions: { StringEquals: { "aws:SourceAccount": this.account } },
+      }),
+    });
+    this.journeysTable.grantStreamRead(pipeRole);
+    this.eventBus.grantPutEventsTo(pipeRole);
+    const journeyChanges = new pipes.CfnPipe(this, "JourneyChanges", {
+      name: resourceName(cfg.stageName, "cortex-journey-changes"),
+      description: "Journey change records onto the Cortex event bus (JourneyChanged)",
+      roleArn: pipeRole.roleArn,
+      source: this.journeysTable.tableStreamArn!,
+      sourceParameters: {
+        dynamoDbStreamParameters: { startingPosition: "LATEST", batchSize: 1, maximumRetryAttempts: 10 },
+        filterCriteria: {
+          filters: [
+            {
+              pattern: JSON.stringify({ eventName: ["INSERT"], dynamodb: { NewImage: { sk: { S: [{ prefix: "CHANGE#" }] } } } }),
+            },
+          ],
+        },
+      },
+      target: this.eventBus.eventBusArn,
+      targetParameters: {
+        eventBridgeEventBusParameters: { source: "minrv.cortex.journey", detailType: "JourneyChanged" },
+      },
+    });
+    journeyChanges.node.addDependency(pipeRole);
 
     // One-off reminders and deadlines that approval workflows create while they wait.
     this.scheduleGroup = new scheduler.ScheduleGroup(this, "Workflows", {

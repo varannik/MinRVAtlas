@@ -1,9 +1,12 @@
 import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as events from "aws-cdk-lib/aws-events";
+import * as targets from "aws-cdk-lib/aws-events-targets";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as neptune from "aws-cdk-lib/aws-neptune";
 import * as neptunegraph from "aws-cdk-lib/aws-neptunegraph";
+import * as sqs from "aws-cdk-lib/aws-sqs";
 import { Construct } from "constructs";
 import { CORTEX_EMBEDDING_DIMENSIONS, cfnStackName, logGroupName, resourceName } from "../config";
 import { Ew2Stack, type Ew2StackProps } from "../ew2-stack";
@@ -12,6 +15,8 @@ import { LAMBDA_DIR, PYTHON } from "./knowledge-stack";
 export interface CortexGraphStackProps extends Ew2StackProps {
   vpc: ec2.IVpc;
   keyArn: string;
+  /** The Cortex event bus: journey changes arrive on it (core stack's JourneyChanges pipe). */
+  eventBus: events.IEventBus;
 }
 
 /**
@@ -24,6 +29,7 @@ export interface CortexGraphStackProps extends Ew2StackProps {
 export class CortexGraphStack extends Ew2Stack {
   public readonly cluster: neptune.CfnDBCluster;
   public readonly traceFn: lambda.Function;
+  public readonly writerFn: lambda.Function;
   public readonly analytics?: neptunegraph.CfnGraph;
 
   constructor(scope: Construct, id: string, props: CortexGraphStackProps) {
@@ -107,6 +113,58 @@ export class CortexGraphStack extends Ew2Stack {
       }),
     );
 
+    // Evidence links from journey changes: a document filed on a task SATISFIES it.
+    this.writerFn = new lambda.Function(this, "Writer", {
+      functionName: resourceName(stage, "cortex-graph-writer"),
+      description: "Link documents filed on journey tasks to those tasks in the Cortex graph",
+      runtime: PYTHON,
+      handler: "graph_writer.handler",
+      code: lambda.Code.fromAsset(LAMBDA_DIR, { exclude: ["__pycache__", "*.pyc"] }),
+      timeout: cdk.Duration.seconds(60),
+      memorySize: 256,
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+      securityGroups: [toolSg],
+      logGroup: new logs.LogGroup(this, "WriterLogs", {
+        logGroupName: logGroupName(stage, "cortex-graph-writer"),
+        retention: cfg.logRetentionDays >= 365 ? logs.RetentionDays.ONE_YEAR : logs.RetentionDays.ONE_MONTH,
+        removalPolicy: cfg.deletionProtection ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      }),
+      environment: { NEPTUNE_ENDPOINT: this.cluster.attrEndpoint },
+    });
+    // MERGE and SET only: links are closed, never deleted, so no delete permission.
+    this.writerFn.addToRolePolicy(
+      new cdk.aws_iam.PolicyStatement({
+        sid: "ReadAndWriteGraph",
+        actions: ["neptune-db:connect", "neptune-db:ReadDataViaQuery", "neptune-db:WriteDataViaQuery"],
+        resources: [`arn:aws:neptune-db:${this.region}:${this.account}:${this.cluster.attrClusterResourceId}/*`],
+      }),
+    );
+    // Changes the writer could not apply after its retries wait here; the bus archive can also replay them.
+    const unlinked = new sqs.Queue(this, "UnlinkedChanges", {
+      queueName: resourceName(stage, "cortex-graph-unlinked"),
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+      enforceSSL: true,
+      retentionPeriod: cdk.Duration.days(14),
+    });
+    new events.Rule(this, "JourneyFilingsToGraph", {
+      eventBus: props.eventBus,
+      ruleName: resourceName(stage, "cortex-journey-filings-to-graph"),
+      description: "Journey answers that file documents, to the graph writer",
+      eventPattern: {
+        source: ["minrv.cortex.journey"],
+        detailType: ["JourneyChanged"],
+        detail: { dynamodb: { NewImage: { action: { S: ["answer"] }, files: { S: [{ exists: true }] } } } },
+      },
+      targets: [
+        new targets.LambdaFunction(this.writerFn, {
+          retryAttempts: 8,
+          maxEventAge: cdk.Duration.hours(6),
+          deadLetterQueue: unlinked,
+        }),
+      ],
+    });
+
     if (cfg.cortex.graphAnalytics) {
       const analyticsSg = new ec2.SecurityGroup(this, "AnalyticsSg", {
         vpc,
@@ -135,5 +193,7 @@ export class CortexGraphStack extends Ew2Stack {
     new cdk.CfnOutput(this, "GraphClusterId", { value: this.cluster.ref });
     new cdk.CfnOutput(this, "GraphEndpoint", { value: this.cluster.attrEndpoint });
     new cdk.CfnOutput(this, "TraceFunctionName", { value: this.traceFn.functionName });
+    new cdk.CfnOutput(this, "WriterFunctionName", { value: this.writerFn.functionName });
+    new cdk.CfnOutput(this, "UnlinkedChangesQueueUrl", { value: unlinked.queueUrl });
   }
 }

@@ -70,13 +70,14 @@ def parse(payload) -> Ask:
 
 
 class ProjectKnowledge:
-    """knowledge___search and journey___status for one project, as the signed-in user."""
+    """knowledge___search, journey___status and graph___evidence for one project, as the signed-in user."""
 
     def __init__(self, gateway: Gateway, project_id: str):
         self.gateway = gateway
         self.project_id = project_id
         self.calls: list[dict] = []
         self.journey_reads: list[str] = []
+        self.evidence_reads: list[str] = []
 
     async def journey(self, step: str) -> dict:
         arguments: dict = {"project_id": self.project_id}
@@ -84,6 +85,15 @@ class ProjectKnowledge:
             arguments["step"] = step
         self.journey_reads.append(step or "overview")
         return await self.gateway.call_tool("journey___status", arguments)
+
+    async def evidence(self, task_id: str, document: str) -> dict:
+        arguments: dict = {"project_id": self.project_id}
+        if task_id:
+            arguments["task_id"] = task_id
+        if document:
+            arguments["document"] = document
+        self.evidence_reads.append(task_id or document or "project")
+        return await self.gateway.call_tool("graph___evidence", arguments)
 
     async def search(self, query: str) -> list[dict]:
         payload = await self.gateway.call_tool(
@@ -171,6 +181,7 @@ class Cortex:
                 if earlier:
                     yield {"type": "sources", "sources": earlier}
                 record.update(outcome="answered", stop_reason=after.get("stop_reason"), searches=tools.calls, journey_reads=tools.journey_reads,
+                              evidence_reads=tools.evidence_reads,
                               read=list(sources), cited=cited, usage=usage)
                 yield {"type": "done", "turn": after.get("turns") or 1, "cited": cited}
         except (BadRequest, Unauthorized, ToolError) as error:
