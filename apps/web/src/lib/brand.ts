@@ -18,9 +18,23 @@ export const ACCENT = {
   land: "#55632A",
   tech: "#6F663F",
   storage: "#6F6750",
-  alert: "#B85616",
-  reject: "#9C3A2F",
+  /** Ochre ink: warnings and validation, in place of Canyon. AA on Off-white. */
+  alert: "#835A06",
+  /** Jasper: rejections and alarms. AA on Off-white. */
+  reject: "#963E32",
   neutral: "#57544A",
+} as const;
+
+/** MinRV palette steps for inline styles and charts. Mirrors the ramps in globals.css. */
+export const PALETTE = {
+  olivine300: "#B2BE8B",
+  olivine500: "#8B9C44",
+  olivine700: "#576627",
+  olivine800: "#414F1B",
+  serpentine500: "#6F663F",
+  strata700: "#57544A",
+  ochre: "#A77618",
+  jasper: "#963E32",
 } as const;
 
 /** Brighter fills for 3D chips and bars (no type inside the colour). */

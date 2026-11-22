@@ -91,8 +91,7 @@ export function DmrvScene() {
       dpr={[1, 2]}
       gl={{ antialias: true, powerPreference: "high-performance" }}
     >
-      <color attach="background" args={[BRAND.offWhite]} />
-
+      {/* No scene background: the Calcite veil behind the canvas shows through the glass. */}
       <hemisphereLight
         intensity={0.9}
         groundColor={BRAND.sand}

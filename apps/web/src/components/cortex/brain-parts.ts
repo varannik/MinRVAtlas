@@ -122,13 +122,24 @@ export const HALO_FRAGMENT = /* glsl */ `
   }
 `;
 
-/** Core colours, shared so the small Cortex reads as the same brain. */
+/**
+ * Core colours, shared so the small Cortex reads as the same brain. Serpentinite
+ * cells with olivine among them, deep moss walls and a calcite rim (MinRV palette).
+ */
 export const CORE_COLORS = {
-  cellA: "#8F7DF7",
-  cellB: "#C8BDFF",
-  wall: "#23178F",
-  rim: "#F2EDFF",
-  halo: "#D9D0FF",
+  cellA: "#A8A087",
+  cellB: "#C7CEAD",
+  wall: "#262C10",
+  rim: "#EADAC7",
+  halo: "#EADAC7",
+} as const;
+
+/** Filaments and shell dots: calcite threads on the dark scene. */
+export const SHELL_COLORS = {
+  line: "#EADAC7",
+  dot: "#F1F0F0",
+  /** Lit pin nodes and the selected ring. */
+  node: "#F1F0F0",
 } as const;
 
 // ── Filaments and shell ─────────────────────────────────────────────────────
@@ -147,7 +158,8 @@ export const LINE_FRAGMENT = /* glsl */ `
   varying float vT;
   void main() {
     float alpha = mix(0.3, 0.2, smoothstep(0.0, 1.0, vT)) * uOpacity;
-    gl_FragColor = vec4(vec3(1.0), alpha);
+    // Calcite #EADAC7.
+    gl_FragColor = vec4(vec3(0.918, 0.855, 0.780), alpha);
   }
 `;
 
@@ -166,7 +178,8 @@ export const DOT_FRAGMENT = /* glsl */ `
   void main() {
     float d = length(gl_PointCoord - 0.5);
     float alpha = smoothstep(0.5, 0.12, d) * uOpacity;
-    gl_FragColor = vec4(vec3(1.0), alpha);
+    // Off-white #F1F0F0.
+    gl_FragColor = vec4(vec3(0.945, 0.941, 0.941), alpha);
   }
 `;
 

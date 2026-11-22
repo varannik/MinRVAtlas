@@ -1,18 +1,24 @@
 "use client";
 
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { ArrowLeft, BookOpen, LogOut, Building2, MapPin, Route, Search, Settings2 } from "lucide-react";
+import { ArrowLeft, Building2, MapPin, Route, Search, Settings2, X } from "lucide-react";
+import { AccountToolbar } from "../nav/account-toolbar";
 import { Globe3DMark } from "./globe-back-button";
-import { RegistrySelect } from "./registry-select";
 import { SubmissionChain } from "./submission-chain";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useProjectDefinition } from "@/hooks/use-project-definition";
 import { earliestAllowedPeriodStart } from "@/lib/period-desk";
+import { journeyHref } from "@/lib/journey/atlas";
 import { latestDesignDate } from "@/lib/project-definition";
 import { getTenant } from "@/lib/tenants";
 import { useDashboard } from "@/store/dashboard-store";
 import { useStage } from "@/store/stage-store";
 import type { Project, SubmissionBatch } from "@/lib/types";
+
+/** Every control in the bar is the same glass pill. */
+const PILL = "glass flex h-11 items-center rounded-full";
+const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-olivine-500";
 
 /** Way into Certify project setup (design, sites, feedstocks, measurements). */
 function SetupButton({ project }: { project: Project }) {
@@ -26,26 +32,24 @@ function SetupButton({ project }: { project: Project }) {
       type="button"
       onClick={() => openSetup("design")}
       title={`Project setup — ${status}`}
-      className="glass flex h-12 items-center gap-1.5 rounded-2xl px-3 text-[11px] font-semibold text-frost hover:text-carbon-400"
+      className={`${PILL} glass-hover gap-1.5 px-4 text-[11.5px] font-semibold text-earth ${FOCUS}`}
     >
-      <Settings2 className="size-3.5" />
+      <Settings2 className="size-3.5 text-olivine-700" />
       Setup
-      {!loading ? <span className={`size-1.5 rounded-full ${sealed ? "bg-carbon-400" : "bg-canyon"}`} aria-hidden /> : null}
+      {!loading ? <span className={`size-1.5 rounded-full ${sealed ? "bg-olivine-500" : "bg-ochre"}`} aria-hidden /> : null}
     </button>
   );
 }
-/** Way into the project journey (Puro path: validation once, then every period). */
+/** Way into the project journey, on any registry. */
 function JourneyButton({ project }: { project: Project }) {
-  if (project.registry !== "Puro.earth") return null;
   return (
     <Link
-      href={`/journey?project=${encodeURIComponent(project.id)}`}
-      title="Where this project is on its Puro journey"
-      className="glass flex h-12 items-center gap-1.5 rounded-2xl px-3 text-[11px] font-semibold text-frost hover:text-carbon-400"
+      href={journeyHref(project)}
+      title="Where this project is on its journey"
+      className={`${PILL} glass-hover gap-1.5 px-4 text-[11.5px] font-semibold text-earth ${FOCUS}`}
     >
-      <Route className="size-3.5" />
+      <Route className="size-3.5 text-olivine-700" />
       Journey
-      <span className="size-1.5 rounded-full bg-canyon" aria-hidden />
     </Link>
   );
 }
@@ -61,8 +65,8 @@ function SpecOriginBadge() {
           ? "Monitoring requirements from Isometric Certify"
           : meta.message || meta.fallbackReason || "Bundled rulebook"
       }
-      className={`rounded px-1 py-px text-[8px] font-bold tracking-wide ${
-        live ? "bg-carbon-400/15 text-carbon-400" : "bg-ink-700 text-mist"
+      className={`rounded-full px-1.5 py-px text-[8px] font-bold tracking-wide ${
+        live ? "bg-olivine-100 text-olivine-800" : "bg-strata-300/55 text-strata-700"
       }`}
     >
       {live ? "LIVE" : "BUNDLED"}
@@ -86,23 +90,23 @@ function TenantMark({ project }: { project?: Project | null }) {
         onClick={() => selectProject(null)}
         aria-label="Back to world map"
         title="Back to world map"
-        className="glass flex h-12 items-center gap-2.5 rounded-2xl px-3 text-left transition-shadow hover:ring-2 hover:ring-carbon-400/30"
+        className={`${PILL} glass-hover gap-2 pr-4 pl-1.5 text-left ${FOCUS}`}
       >
         <span className="shrink-0 scale-75">
           <Globe3DMark />
         </span>
 
         <div className="leading-tight">
-          <div className="max-w-40 truncate text-[13px] font-semibold tracking-tight">
+          <div className="max-w-40 truncate text-[13px] font-semibold tracking-tight text-earth">
             {project.name}
           </div>
-          <div className="mt-px flex items-center gap-1.5 text-mist">
+          <div className="mt-px flex items-center gap-1.5 text-strata-700">
             <MapPin className="size-3" />
-            <span className="text-[11px] font-medium text-frost">
+            <span className="text-[11px] font-medium text-earth">
               {project.country}
             </span>
-            <span className="text-[9px] text-mist">·</span>
-            <span className="text-[10px] text-mist">{project.registry}</span>
+            <span className="text-[9px] text-strata-400">·</span>
+            <span className="text-[10px]">{project.registry}</span>
             <SpecOriginBadge />
           </div>
         </div>
@@ -118,37 +122,96 @@ function TenantMark({ project }: { project?: Project | null }) {
     .map((part) => part[0]?.toUpperCase())
     .join("");
   return (
-    <div className="glass flex h-12 items-center gap-2.5 rounded-2xl pr-3 pl-1.5">
+    <div className={`${PILL} gap-2.5 pr-4 pl-1`}>
       <span
-        className="grid size-9 shrink-0 place-items-center rounded-xl text-[11px] font-bold"
-        style={{
-          background: `${tenant.accent}1f`,
-          color: tenant.accent,
-          boxShadow: `inset 0 0 0 1px ${tenant.accent}33`,
-        }}
+        className="grid size-9 shrink-0 place-items-center rounded-full text-[10px] font-bold tracking-tight text-calcite shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
+        style={{ background: "linear-gradient(in oklab 140deg, #0d1802 0%, #414f1b 58%, #8b9c44 125%)" }}
         aria-hidden
       >
         {tenant.short}
       </span>
       <div className="leading-tight">
         <div className="flex items-center gap-1.5">
-          <Building2 className="size-3 text-mist" />
-          <span className="text-[13px] font-semibold tracking-tight">{tenant.name}</span>
-          <code className="rounded bg-ink-700 px-1 py-px text-[9.5px] font-semibold text-mist" title="Tenant id">
+          <Building2 className="size-3 text-strata-700" />
+          <span className="text-[13px] font-semibold tracking-tight text-earth">{tenant.name}</span>
+          <code className="rounded-full bg-strata-300/45 px-1.5 py-px text-[9.5px] font-semibold text-strata-700" title="Tenant id">
             {tenant.id}
           </code>
         </div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-mist">
-          <span className="grid size-4 place-items-center rounded-full bg-ink-700 text-[8px] font-bold text-frost">
+        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-strata-700">
+          <span className="grid size-4 place-items-center rounded-full bg-olivine-100 text-[8px] font-bold text-olivine-800">
             {initials}
           </span>
-          <span className="max-w-52 truncate font-medium text-frost" title={user?.email}>
+          <span className="max-w-52 truncate font-medium text-earth" title={user?.email}>
             {user ? (user.name ?? user.email) : "Signing in…"}
           </span>
           {user?.role ? <span className="text-[10px]">· {user.role}</span> : null}
         </div>
       </div>
     </div>
+  );
+}
+
+/* ── Search (centre, map state) ─────────────────────────────────── */
+
+const noSubscribe = () => () => {};
+const shortcutLabel = () => (/Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K");
+
+function AtlasSearch() {
+  const query = useDashboard((state) => state.query);
+  const setQuery = useDashboard((state) => state.setQuery);
+  const input = useRef<HTMLInputElement>(null);
+  const shortcut = useSyncExternalStore(noSubscribe, shortcutLabel, () => "⌘K");
+
+  // ⌘K / Ctrl K jumps to the search from anywhere on the map.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        input.current?.focus();
+        input.current?.select();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  return (
+    <label className={`${PILL} glass-field pointer-events-auto w-full max-w-[540px] gap-2.5 pr-1.5 pl-4`}>
+      <Search className="size-4 shrink-0 text-strata-700" />
+      <input
+        ref={input}
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        onKeyDown={(event) => {
+          // Escape clears the search first; the map handles it once the field is empty.
+          if (event.key === "Escape" && query) {
+            event.stopPropagation();
+            setQuery("");
+          }
+        }}
+        aria-label="Search projects"
+        placeholder="Search project, country or methodology"
+        className="h-full w-full bg-transparent text-[13.5px] text-earth placeholder:text-strata-600 focus:outline-none"
+      />
+      {query ? (
+        <button
+          type="button"
+          onClick={() => {
+            setQuery("");
+            input.current?.focus();
+          }}
+          aria-label="Clear search"
+          className={`grid size-8 shrink-0 place-items-center rounded-full text-strata-700 transition-colors hover:bg-white/80 hover:text-earth ${FOCUS}`}
+        >
+          <X className="size-3.5" />
+        </button>
+      ) : (
+        <kbd className="glass-well hidden h-7 shrink-0 items-center rounded-full px-2.5 font-sans text-[10.5px] font-semibold text-strata-700 sm:flex">
+          {shortcut}
+        </kbd>
+      )}
+    </label>
   );
 }
 
@@ -197,22 +260,20 @@ export function TopBar({
   stageMode?: boolean;
   onBackToStage?: () => void;
 }) {
-  const query = useDashboard((state) => state.query);
-  const setQuery = useDashboard((state) => state.setQuery);
   const deskOpen = useStage((state) => state.deskOpen);
   const onMap = !project;
 
   return (
     <header className="pointer-events-auto relative flex h-16 items-center px-5">
       {/* Left cluster */}
-      <div className="relative z-10 flex h-12 items-center gap-3">
+      <div className="relative z-10 flex h-11 items-center gap-2">
         <TenantMark project={project} />
         {project && deskOpen && onBackToStage ? (
           <button
             type="button"
             onClick={onBackToStage}
             title="Back to the removal ledger"
-            className="glass flex h-12 items-center gap-1.5 rounded-2xl px-3 text-[11px] font-semibold text-frost hover:text-carbon-400"
+            className={`${PILL} glass-hover gap-1.5 px-4 text-[11.5px] font-semibold text-earth ${FOCUS}`}
           >
             <ArrowLeft className="size-3.5" />
             Ledger
@@ -220,21 +281,12 @@ export function TopBar({
         ) : null}
         {project ? <SetupButton project={project} /> : null}
         {project ? <JourneyButton project={project} /> : null}
-        {onMap ? <RegistrySelect /> : null}
       </div>
 
       {/* Center slot */}
       {onMap ? (
         <div className="pointer-events-none absolute inset-x-5 inset-y-0 z-0 flex items-center justify-center">
-          <label className="glass pointer-events-auto flex h-12 w-full max-w-md items-center gap-2.5 rounded-2xl px-4">
-            <Search className="size-4 shrink-0 text-mist" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search project, country or methodology"
-              className="w-full bg-transparent text-sm text-frost placeholder:text-mist/70 focus:outline-none"
-            />
-          </label>
+          <AtlasSearch />
         </div>
       ) : project && !stageMode ? (
         <PeriodRibbon
@@ -244,35 +296,8 @@ export function TopBar({
         />
       ) : null}
 
-      {/* Right cluster */}
-      <div className="relative z-10 ml-auto flex h-12 items-center gap-3">
-        <Link
-          href="/manual"
-          className="glass flex h-12 items-center gap-2 rounded-2xl px-3 text-xs font-medium text-mist transition-colors hover:text-frost sm:px-4"
-        >
-          <BookOpen className="size-3.5 text-carbon-400" />
-          Guide
-        </Link>
-        <a
-          href="/auth/logout"
-          title="Sign out"
-          aria-label="Sign out"
-          className="glass grid h-12 w-12 place-items-center rounded-2xl text-mist transition-colors hover:text-frost"
-        >
-          <LogOut className="size-3.5" />
-        </a>
-
-        <div
-          className="glass hidden h-12 w-12 place-items-center rounded-2xl sm:grid"
-          title="Telemetry live"
-          aria-label="Telemetry live"
-        >
-          <span className="relative flex size-2">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-carbon-400/70" />
-            <span className="relative inline-flex size-2 rounded-full bg-carbon-400" />
-          </span>
-        </div>
-      </div>
+      {/* Right cluster: one toolbar */}
+      <AccountToolbar className="relative z-10 ml-auto" />
     </header>
   );
 }

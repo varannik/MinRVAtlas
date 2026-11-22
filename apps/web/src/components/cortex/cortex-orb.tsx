@@ -129,7 +129,7 @@ export function CortexOrb({
   );
   const lineUniforms = useMemo(() => ({ uOpacity: { value: 0.9 }, uInner: { value: -0.3 } }), []);
   const veilUniforms = useMemo(
-    () => ({ uColor: { value: new THREE.Color("#9C8CFF") }, uOpacity: { value: 0 } }),
+    () => ({ uColor: { value: new THREE.Color(CORE_COLORS.cellB) }, uOpacity: { value: 0 } }),
     [],
   );
   const dotUniforms = useMemo(

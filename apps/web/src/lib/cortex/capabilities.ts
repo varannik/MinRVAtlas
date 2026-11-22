@@ -33,7 +33,7 @@ export interface Lobe {
   name: string;
   /** What this group of capabilities does for the expert. */
   role: string;
-  /** Halo colour on the violet canvas. */
+  /** Halo colour on the dark Peridotite canvas. */
   glow: string;
   /** Text colour on a white panel (AA on white). */
   ink: string;
@@ -90,54 +90,58 @@ export interface Capability {
   consoleHref?: string;
 }
 
+/**
+ * Lobe colours follow the MinRV palette's carbonation path in lobe order, from
+ * olivine (Ingest) to calcite (Operate). Inks are AA on the light glass panel.
+ */
 export const LOBES: readonly Lobe[] = [
   {
     id: "ingest",
     name: "Ingest",
     role: "What the expert is given",
-    glow: "#8FE3FF",
-    ink: "#1D6585",
-    tint: "#E3F4FB",
+    glow: "#8B9C44",
+    ink: "#414F1B",
+    tint: "#DCDFCE",
   },
   {
     id: "check",
     name: "Check",
     role: "How it judges data",
-    glow: "#FFD27A",
-    ink: "#855300",
-    tint: "#FBF0D9",
+    glow: "#9EAD69",
+    ink: "#576627",
+    tint: "#E8E9E2",
   },
   {
     id: "correct",
     name: "Correct",
     role: "How it repairs data",
-    glow: "#FFA3CB",
-    ink: "#9A2D60",
-    tint: "#FBE5EF",
+    glow: "#B2BE8B",
+    ink: "#5C5733",
+    tint: "#E6DED4",
   },
   {
     id: "know",
     name: "Know",
     role: "What it reads and learns",
-    glow: "#B9F2B2",
-    ink: "#2E6A29",
-    tint: "#E5F5E2",
+    glow: "#C7CEAD",
+    ink: "#494826",
+    tint: "#D9D0C3",
   },
   {
     id: "assure",
     name: "Assure",
     role: "How it proves the result",
-    glow: "#D2C4FF",
-    ink: "#5536B0",
-    tint: "#EEE9FD",
+    glow: "#D9D0C3",
+    ink: "#57544A",
+    tint: "#EEE5DB",
   },
   {
     id: "operate",
     name: "Operate",
     role: "When it works on its own",
-    glow: "#FFFFFF",
-    ink: "#4A4560",
-    tint: "#EFEDF4",
+    glow: "#EADAC7",
+    ink: "#3B3E2F",
+    tint: "#EADAC7",
   },
 ];
 

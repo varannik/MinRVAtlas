@@ -1,4 +1,5 @@
 import { JourneyEntry } from "@/components/journey/journey-entry";
+import { readAtlasHint } from "@/lib/journey/atlas";
 
 export const metadata = {
   title: "Journey — 3DMinRV",
@@ -13,6 +14,9 @@ export default async function JourneyPage({
 }) {
   const params = await searchParams;
   const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? null;
-  // ?project=<Cortex project> opens its saved journey; ?practice=<scenario> a practice one.
-  return <JourneyEntry request={{ project: first(params.project), practice: first(params.practice) }} />;
+  // ?project=<id> opens its saved journey; ?practice=<scenario> a practice one. An Atlas
+  // link also carries name, registry and at, so a project Cortex has no journey for
+  // still opens as itself, on any registry.
+  const atlas = readAtlasHint(first(params.name), first(params.registry), first(params.at));
+  return <JourneyEntry request={{ project: first(params.project), practice: first(params.practice), atlas }} />;
 }

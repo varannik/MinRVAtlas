@@ -50,7 +50,7 @@ interface Replacement {
 }
 
 const BUTTON =
-  "h-7 rounded-md px-2.5 text-[11.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rock";
+  "h-7 rounded-md px-2.5 text-[11.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-olivine-500";
 
 const TIME = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const POLL_MS = 8000;
@@ -71,8 +71,8 @@ function newId(): string {
 const STATUS: Record<DocumentStatus, { label: string; tone: string; Icon: typeof CircleCheck }> = {
   scanning: { label: "Scanning", tone: "text-signal-sky", Icon: LoaderCircle },
   admitting: { label: "Admitting", tone: "text-signal-sky", Icon: ShieldCheck },
-  in_cortex: { label: "In Cortex", tone: "text-carbon-400", Icon: CircleCheck },
-  held: { label: "Held", tone: "text-[#855300]", Icon: CirclePause },
+  in_cortex: { label: "In Cortex", tone: "text-olivine-700", Icon: CircleCheck },
+  held: { label: "Held", tone: "text-ochre-ink", Icon: CirclePause },
   rejected: { label: "Not admitted", tone: "text-signal-rose", Icon: CircleAlert },
 };
 
@@ -100,16 +100,16 @@ function Row({
   children?: React.ReactNode;
 }) {
   return (
-    <li className="grid gap-1.5 rounded-lg border border-line bg-white px-2.5 py-2">
+    <li className="grid gap-1.5 rounded-lg border border-strata-300/80 bg-white/75 px-2.5 py-2">
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5">
         <span className="grid size-7 place-items-center rounded-md" style={{ background: lobe.tint, color: lobe.ink }}>
           <FileText className="size-3.5" />
         </span>
         <span className="grid min-w-0">
-          <span className="truncate text-[12.5px] font-semibold text-rock" title={name}>
+          <span className="truncate text-[12.5px] font-semibold text-earth" title={name}>
             {name}
           </span>
-          <span className="truncate text-[11px] text-mist">{meta}</span>
+          <span className="truncate text-[11px] text-strata-700">{meta}</span>
         </span>
         {aside}
       </div>
@@ -251,7 +251,7 @@ function ProjectDocuments({
   return (
     <div className="grid gap-2">
       {scope === "tenant" && !canUpload ? (
-        <p className="rounded-xl border border-dashed border-line px-3.5 py-3 text-[12px] leading-snug text-shale">
+        <p className="rounded-xl border border-dashed border-strata-300/80 px-3.5 py-3 text-[12px] leading-snug text-strata-700">
           Documents here are searched by every project in your organisation. Only organisation admins add or remove
           them.
         </p>
@@ -259,15 +259,15 @@ function ProjectDocuments({
         renderDropzone(take)
       )}
       {kept.length > 0 && (
-        <p className="text-[11.5px] leading-snug text-shale" role="status">
+        <p className="text-[11.5px] leading-snug text-strata-700" role="status">
           Kept in this browser, not sent: {kept.join("; ")}.
         </p>
       )}
       {replacements.map(({ id, file, existing }) => {
         const busy = !isSettled(existing.status);
         return (
-          <div key={id} className="grid gap-2 rounded-xl border border-line bg-white px-3 py-2.5" role="alertdialog">
-            <p className="text-[12px] leading-snug text-rock">
+          <div key={id} className="grid gap-2 rounded-xl border border-strata-300/80 bg-white/75 px-3 py-2.5" role="alertdialog">
+            <p className="text-[12px] leading-snug text-earth">
               <span className="font-semibold">{existing.name}</span> is already in Cortex for {owner} (
               {STATUS[existing.status].label.toLowerCase()}, {TIME.format(new Date(existing.uploadedAt))}).{" "}
               {busy
@@ -276,11 +276,11 @@ function ProjectDocuments({
             </p>
             <div className="flex gap-1.5">
               {!busy && (
-                <button type="button" onClick={() => settle(id, true)} className={`${BUTTON} bg-rock text-white hover:bg-rock/85`}>
+                <button type="button" onClick={() => settle(id, true)} className={`${BUTTON} bg-olivine-800 text-white hover:bg-olivine-900`}>
                   Replace
                 </button>
               )}
-              <button type="button" onClick={() => settle(id, false)} className={`${BUTTON} border border-line text-rock hover:bg-ink-700`}>
+              <button type="button" onClick={() => settle(id, false)} className={`${BUTTON} border border-strata-300/80 text-earth hover:bg-white/80`}>
                 {busy ? "OK" : "Cancel"}
               </button>
             </div>
@@ -289,8 +289,8 @@ function ProjectDocuments({
       })}
 
       <div className="flex items-baseline justify-between gap-2 pt-1">
-        <span className="text-[11.5px] font-semibold text-rock">In Cortex for {owner}</span>
-        {moving && <span className="text-[11px] text-mist">Updating…</span>}
+        <span className="text-[11.5px] font-semibold text-earth">In Cortex for {owner}</span>
+        {moving && <span className="text-[11px] text-strata-700">Updating…</span>}
       </div>
       {listError && (
         <p className="text-[11.5px] text-signal-rose" role="alert">
@@ -313,17 +313,17 @@ function ProjectDocuments({
                   type="button"
                   onClick={() => setUploads((current) => current.filter((item) => item.id !== upload.id))}
                   aria-label={`Dismiss ${upload.name}`}
-                  className="grid size-7 place-items-center rounded-md text-mist transition-colors hover:bg-ink-700 hover:text-rock focus-visible:outline-2 focus-visible:outline-rock"
+                  className="grid size-7 place-items-center rounded-md text-strata-700 transition-colors hover:bg-white/80 hover:text-earth focus-visible:outline-2 focus-visible:outline-olivine-500"
                 >
                   <X className="size-3.5" />
                 </button>
               ) : (
-                <LoaderCircle className="size-3.5 animate-spin text-mist" aria-hidden />
+                <LoaderCircle className="size-3.5 animate-spin text-strata-700" aria-hidden />
               )
             }
           >
             {!upload.error && (
-              <span className="h-1 overflow-hidden rounded-full bg-line/60">
+              <span className="h-1 overflow-hidden rounded-full bg-strata-300/60">
                 <span
                   className="block h-full rounded-full transition-[width]"
                   style={{ width: `${Math.round(upload.progress * 100)}%`, background: lobe.ink }}
@@ -371,7 +371,7 @@ function ProjectDocuments({
                       type="button"
                       onClick={() => setConfirmRemove(doc.key)}
                       aria-label={`Remove ${doc.name} from Cortex`}
-                      className="grid size-7 place-items-center rounded-md text-mist transition-colors hover:bg-ink-700 hover:text-rock focus-visible:outline-2 focus-visible:outline-rock"
+                      className="grid size-7 place-items-center rounded-md text-strata-700 transition-colors hover:bg-white/80 hover:text-earth focus-visible:outline-2 focus-visible:outline-olivine-500"
                     >
                       <Trash2 className="size-3.5" />
                     </button>
@@ -391,8 +391,8 @@ function ProjectDocuments({
                 />
               )}
               {confirmRemove === doc.key && (
-                <div className="grid gap-2 border-t border-line pt-2" role="alertdialog">
-                  <p className="text-[11.5px] leading-snug text-rock">
+                <div className="grid gap-2 border-t border-strata-300/80 pt-2" role="alertdialog">
+                  <p className="text-[11.5px] leading-snug text-earth">
                     Remove {doc.name} from Cortex for {owner}? Search stops using it within a few minutes. The
                     original is kept as a deleted version for audit.
                   </p>
@@ -400,7 +400,7 @@ function ProjectDocuments({
                     <button type="button" onClick={() => void remove(doc)} className={`${BUTTON} bg-signal-rose text-white hover:bg-signal-rose/85`}>
                       Remove
                     </button>
-                    <button type="button" onClick={() => setConfirmRemove(null)} className={`${BUTTON} border border-line text-rock hover:bg-ink-700`}>
+                    <button type="button" onClick={() => setConfirmRemove(null)} className={`${BUTTON} border border-strata-300/80 text-earth hover:bg-white/80`}>
                       Keep
                     </button>
                   </div>
@@ -411,7 +411,7 @@ function ProjectDocuments({
         })}
       </ul>
       {documents && documents.length === 0 && uploads.length === 0 && (
-        <p className="rounded-xl border border-dashed border-line px-3.5 py-3 text-[12.5px] text-shale">
+        <p className="rounded-xl border border-dashed border-strata-300/80 px-3.5 py-3 text-[12.5px] text-strata-700">
           No documents for {capability.name} {scope === "tenant" ? "for your organisation" : "on this project"} yet.
         </p>
       )}
@@ -444,7 +444,7 @@ export function DocumentIntake({
     return (
       <div className="grid gap-1.5">
         {renderDropzone(stageLocally)}
-        <p className="text-[11.5px] text-mist">
+        <p className="text-[11.5px] text-strata-700">
           {error ? `Cortex is unavailable (${error}). Files stay in this browser.` : "Connecting to Cortex…"}
         </p>
       </div>
@@ -456,7 +456,7 @@ export function DocumentIntake({
     return (
       <div className="grid gap-1.5">
         {renderDropzone(stageLocally)}
-        <p className="text-[11.5px] text-mist">{why} Files stay in this browser.</p>
+        <p className="text-[11.5px] text-strata-700">{why} Files stay in this browser.</p>
       </div>
     );
   }
@@ -467,8 +467,8 @@ export function DocumentIntake({
       <ProjectPicker projects={reply.projects} value={project.id} onChange={setProject} />
       {sharable && (
         <div className="grid gap-1">
-          <span className="text-[11.5px] font-medium text-shale">Give to</span>
-          <div role="radiogroup" aria-label="Give documents to" className="grid grid-cols-2 gap-1 rounded-lg bg-ink-700 p-0.5">
+          <span className="text-[11.5px] font-medium text-strata-700">Give to</span>
+          <div role="radiogroup" aria-label="Give documents to" className="grid grid-cols-2 gap-1 rounded-lg bg-strata-300/45 p-0.5">
             {(
               [
                 ["project", "This project"],
@@ -481,8 +481,8 @@ export function DocumentIntake({
                 role="radio"
                 aria-checked={scope === value}
                 onClick={() => setScope(value)}
-                className={`h-7 rounded-md text-[12px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-rock ${
-                  scope === value ? "bg-white text-rock shadow-sm" : "text-shale hover:text-rock"
+                className={`h-7 rounded-md text-[12px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-olivine-500 ${
+                  scope === value ? "bg-white/75 text-earth shadow-sm" : "text-strata-700 hover:text-earth"
                 }`}
               >
                 {label}
@@ -490,7 +490,7 @@ export function DocumentIntake({
             ))}
           </div>
           {forOrganisation && (
-            <span className="text-[11px] leading-snug text-mist">
+            <span className="text-[11px] leading-snug text-strata-700">
               Every project in your organisation searches these, alongside its own documents.
             </span>
           )}

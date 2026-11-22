@@ -16,7 +16,7 @@ import {
 import { BatchPicker, type SelectedLine } from "./batch-picker";
 import { ledgerRequest } from "./client";
 import { SuccessPanel } from "./success-panel";
-import { Banner, buttonClass, fieldClass, quietButtonClass } from "./ui";
+import { Banner, buttonClass, checkClass, fieldClass, labelClass, quietButtonClass } from "./ui";
 
 export function RetirePanel({
   reloadToken,
@@ -96,10 +96,11 @@ export function RetirePanel({
       ) : null}
       {error ? <Banner kind="error">{error}</Banner> : null}
       <fieldset className="space-y-2">
-        <legend className="text-xs text-mist">Purpose</legend>
+        <legend className="mb-1 text-[11.5px] font-medium text-strata-700">Purpose</legend>
         {RETIREMENT_PURPOSES.map((purpose) => (
-          <label key={purpose} className="flex items-center gap-2 text-sm text-frost">
+          <label key={purpose} className="flex items-center gap-2 text-sm text-earth">
             <input
+              className={checkClass}
               type="checkbox"
               checked={purposes.includes(purpose)}
               onChange={(event) => {
@@ -114,7 +115,7 @@ export function RetirePanel({
           </label>
         ))}
       </fieldset>
-      <label className="block text-xs text-mist">
+      <label className={labelClass}>
         Beneficiary
         <select
           className={`${fieldClass} mt-1`}
@@ -130,11 +131,11 @@ export function RetirePanel({
         </select>
       </label>
       <BatchPicker reloadToken={reloadToken} onChange={onLines} />
-      <label className="block text-xs text-mist">
+      <label className={labelClass}>
         Notes
         <textarea className={`${fieldClass} mt-1`} maxLength={256} value={notes} onChange={(event) => setNotes(event.target.value)} />
       </label>
-      {block && lines.length > 0 ? <p className="text-sm text-signal-rose">{block}</p> : null}
+      {block && lines.length > 0 ? <p className="text-sm text-jasper">{block}</p> : null}
       <button
         type="button"
         className={buttonClass}
@@ -144,13 +145,13 @@ export function RetirePanel({
         Review retirement
       </button>
       {confirming ? (
-        <div className="rounded-2xl border border-signal-rose/50 bg-ink-900 p-4 text-sm">
-          <p className="font-medium text-signal-rose">Retirement is permanent and cannot be undone.</p>
-          <p className="mt-2 text-frost">
+        <div className="rounded-2xl border border-jasper/40 bg-jasper-tint/60 p-5 text-sm">
+          <p className="font-medium text-jasper">Retirement is permanent and cannot be undone.</p>
+          <p className="mt-2 text-earth">
             {formatTonnes(sumKg(lines))} t across {lines.length}{" "}
             {lines.length === 1 ? "batch" : "batches"} for {beneficiaryName}.
           </p>
-          <p className="mt-1 text-mist">
+          <p className="mt-1 text-strata-700">
             {purposes.map((purpose) => RETIREMENT_PURPOSE_LABELS[purpose]).join(", ")}
           </p>
           <div className="mt-3 flex gap-2">

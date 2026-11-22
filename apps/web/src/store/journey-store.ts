@@ -64,6 +64,8 @@ interface JourneyState extends JourneyRecord {
   scenarioId: ScenarioId;
   /** The stored project open, or null while a practice scenario is open. */
   project: JourneyProject | null;
+  /** Answers the open practice journey began with (an Atlas project's name, place, registry), or null. */
+  practiceSeed: Tasks | null;
   sync: JourneySync;
   base: JourneyRecord;
   pending: Tasks;
@@ -73,7 +75,8 @@ interface JourneyState extends JourneyRecord {
   hoveredTask: string | null;
   /** Bumped on every load so late answers for an earlier journey are dropped. */
   epoch: number;
-  load: (id: ScenarioId) => void;
+  /** Start a practice journey; `seed` adds answers it begins with (an Atlas project's name, place, registry). */
+  load: (id: ScenarioId, seed?: Tasks) => void;
   openProject: (projectId: string, name?: string) => Promise<OpenResult>;
   selectStep: (id: StepId | null) => void;
   selectTask: (id: string | null) => void;
@@ -250,6 +253,7 @@ export const useJourney = create<JourneyState>()(
       return {
         scenarioId: "fujairah-mineral",
         project: null,
+        practiceSeed: null,
         sync: { state: "idle" },
         base: scenarioRecord("fujairah-mineral"),
         pending: {},
@@ -260,11 +264,13 @@ export const useJourney = create<JourneyState>()(
         hoveredTask: null,
         epoch: 0,
 
-        load: (id) => {
+        load: (id, seed) => {
           const base = scenarioRecord(id);
+          if (seed) base.tasks = { ...base.tasks, ...structuredClone(seed) };
           set((state) => ({
             scenarioId: id,
             project: null,
+            practiceSeed: seed ? structuredClone(seed) : null,
             sync: { state: "idle" },
             base,
             pending: {},
@@ -283,6 +289,7 @@ export const useJourney = create<JourneyState>()(
           const project: JourneyProject = { id: projectId, name: name ?? projectId, version: 0, stored: false, canEdit: false };
           set({
             project,
+            practiceSeed: null,
             sync: { state: "loading" },
             base: empty,
             pending: {},
@@ -371,6 +378,7 @@ export const useJourney = create<JourneyState>()(
           ? { project: { ...state.project, version: 0, stored: false, canEdit: false }, selectedStep: state.selectedStep, selectedTask: state.selectedTask }
           : {
               scenarioId: state.scenarioId,
+              practiceSeed: state.practiceSeed,
               base: { ...state.base, tasks: settledTasks(state.base.tasks) },
               current: state.base.current,
               laps: state.base.laps,

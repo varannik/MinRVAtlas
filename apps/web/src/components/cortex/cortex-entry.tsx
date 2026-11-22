@@ -11,9 +11,9 @@ const CortexWorkspace = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="fixed inset-0 grid place-items-center bg-[#7E6AD2]">
-        <div className="flex items-center gap-3 text-xs tracking-[0.2em] text-white/80 uppercase">
-          <span className="size-2 animate-pulse rounded-full bg-white" />
+      <div className="fixed inset-0 grid place-items-center bg-earth" style={{ background: "var(--gradient-peridotite)" }}>
+        <div className="flex items-center gap-3 text-xs tracking-[0.2em] text-sand uppercase">
+          <span className="size-2 animate-pulse rounded-full bg-olivine-300" />
           Waking Cortex
         </div>
       </div>

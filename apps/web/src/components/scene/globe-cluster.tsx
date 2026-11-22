@@ -159,11 +159,11 @@ function Pin({
           center
           style={{ pointerEvents: "none" }}
         >
-          <div className="glass -translate-y-[calc(50%+22px)] rounded-xl px-3 py-2 whitespace-nowrap shadow-2xl">
-            <div className="text-[11px] font-semibold tracking-wide text-frost">
+          <div className="glass-strong -translate-y-[calc(50%+22px)] rounded-2xl px-3.5 py-2 whitespace-nowrap">
+            <div className="text-[11.5px] font-semibold tracking-tight text-earth">
               {project.name}
             </div>
-            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-mist">
+            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-strata-700">
               <span
                 className="inline-block size-1.5 rounded-full"
                 style={{ background: color }}

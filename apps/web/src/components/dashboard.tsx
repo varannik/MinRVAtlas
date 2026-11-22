@@ -198,7 +198,7 @@ export function Dashboard() {
 
   return (
     <main className="fixed inset-0 overflow-hidden">
-      <div className="absolute inset-0">
+      <div className="atlas-backdrop absolute inset-0">
         <DmrvScene />
       </div>
 

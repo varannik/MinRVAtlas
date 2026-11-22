@@ -13,7 +13,7 @@ export default function LedgerPage() {
   return (
     <Suspense
       fallback={
-        <div className="fixed inset-0 grid place-items-center bg-ink-950 text-sm text-mist">
+        <div className="atlas-backdrop fixed inset-0 grid place-items-center text-sm text-strata-700">
           Opening the ledger…
         </div>
       }

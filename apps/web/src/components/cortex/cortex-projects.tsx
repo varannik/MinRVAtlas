@@ -81,7 +81,7 @@ export function ProjectPicker({
   const current = projects.find((project) => project.id === value);
   return (
     <div className="grid gap-1">
-      <label htmlFor={selectId} className="text-[11.5px] font-medium text-shale">
+      <label htmlFor={selectId} className="text-[11.5px] font-medium text-strata-700">
         Project
       </label>
       <select
@@ -89,7 +89,7 @@ export function ProjectPicker({
         value={value}
         disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
-        className="h-9 w-full min-w-0 rounded-lg border border-line bg-white px-2.5 text-[13px] text-rock outline-none focus:border-rock/60 focus:shadow-[0_0_0_3px_rgba(7,8,8,0.08)] disabled:opacity-60"
+        className="h-9 w-full min-w-0 rounded-lg border border-strata-300/80 bg-white/75 px-2.5 text-[13px] text-earth outline-none focus:border-olivine-500 focus:shadow-[0_0_0_3px_rgba(139,156,68,0.25)] disabled:opacity-60"
       >
         {projects.map((project) => (
           <option key={project.id} value={project.id}>
@@ -98,7 +98,7 @@ export function ProjectPicker({
         ))}
       </select>
       {current?.methodology && (
-        <span className="font-mono text-[10.5px] text-mist">
+        <span className="font-mono text-[10.5px] text-strata-700">
           {current.methodology}
           {current.edition ? ` · ${current.edition}` : ""}
         </span>

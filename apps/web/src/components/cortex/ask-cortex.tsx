@@ -67,15 +67,15 @@ function applyEvent(turn: ChatTurn, event: AskEvent): ChatTurn {
 function SourceItem({ source, cited }: { source: AskSource; cited: boolean }) {
   return (
     <li className="min-w-0">
-      <details className="group min-w-0 rounded-lg border border-line bg-white/70 px-2.5 py-1.5">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-[12px] text-rock marker:hidden">
+      <details className="group min-w-0 rounded-lg border border-strata-300/80 bg-white/70 px-2.5 py-1.5">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-[12px] text-earth marker:hidden">
           <span className={`min-w-0 truncate ${cited ? "font-semibold" : ""}`}>{sourceLabel(source)}</span>
-          <span className="shrink-0 rounded-full bg-[#EEE9FD] px-1.5 py-0.5 text-[10px] font-semibold text-[#5536B0]">
+          <span className="shrink-0 rounded-full bg-serpentine-50 px-1.5 py-0.5 text-[10px] font-semibold text-serpentine-700">
             {SCOPE_LABEL[source.scope ?? ""] ?? "Document"}
           </span>
         </summary>
-        <p className="mt-1.5 text-[11.5px] leading-snug wrap-anywhere text-shale">
-          {source.section ? <span className="block font-medium text-rock">{source.section}</span> : null}
+        <p className="mt-1.5 text-[11.5px] leading-snug wrap-anywhere text-strata-700">
+          {source.section ? <span className="block font-medium text-earth">{source.section}</span> : null}
           {source.excerpt}
           {source.excerpt.length >= 280 ? "…" : ""}
         </p>
@@ -93,7 +93,7 @@ function Sources({ turn }: { turn: ChatTurn }) {
     <div className="grid min-w-0 gap-1.5">
       {used.length > 0 && (
         <>
-          <p className="text-[10.5px] font-semibold tracking-[0.12em] text-mist uppercase">Cited</p>
+          <p className="text-[10.5px] font-semibold tracking-[0.12em] text-strata-700 uppercase">Cited</p>
           <ul className="grid min-w-0 gap-1">
             {used.map((source) => (
               <SourceItem key={source.id} source={source} cited />
@@ -103,7 +103,7 @@ function Sources({ turn }: { turn: ChatTurn }) {
       )}
       {read.length > 0 && (
         <details className="group">
-          <summary className="cursor-pointer text-[11.5px] font-medium text-shale hover:text-rock">
+          <summary className="cursor-pointer text-[11.5px] font-medium text-strata-700 hover:text-earth">
             {used.length > 0 ? "Also read" : "Read"} ({read.length})
           </summary>
           <ul className="mt-1 grid min-w-0 gap-1">
@@ -120,22 +120,22 @@ function Sources({ turn }: { turn: ChatTurn }) {
 function Turn({ turn }: { turn: ChatTurn }) {
   return (
     <li className="grid min-w-0 gap-2">
-      <p className="ml-8 justify-self-end rounded-2xl rounded-br-md bg-[#EEE9FD] px-3 py-2 text-[13px] leading-snug wrap-anywhere whitespace-pre-wrap text-[#2B1F66]">
+      <p className="ml-8 justify-self-end rounded-2xl rounded-br-md bg-serpentine-50 px-3 py-2 text-[13px] leading-snug wrap-anywhere whitespace-pre-wrap text-serpentine-800">
         {turn.question}
       </p>
       {turn.answer && (
-        <p className="text-[13.5px] leading-relaxed wrap-anywhere whitespace-pre-wrap text-rock" aria-live="polite">
+        <p className="text-[13.5px] leading-relaxed wrap-anywhere whitespace-pre-wrap text-earth" aria-live="polite">
           <Answer text={turn.answer} />
         </p>
       )}
       {turn.state === "asking" && (
-        <p className="flex items-center gap-1.5 text-[12px] text-shale" role="status">
+        <p className="flex items-center gap-1.5 text-[12px] text-strata-700" role="status">
           <LoaderCircle className="size-3.5 animate-spin" />
           {turn.status ?? (turn.answer ? "Writing…" : "Thinking…")}
         </p>
       )}
       {turn.state === "error" && (
-        <p className="flex items-start gap-1.5 text-[12px] text-[#8E2A1E]" role="alert">
+        <p className="flex items-start gap-1.5 text-[12px] text-jasper" role="alert">
           <CircleAlert className="mt-px size-3.5 shrink-0" />
           {turn.error}
         </p>
@@ -231,14 +231,14 @@ export function AskCortex({ projectId, projectName }: { projectId: string; proje
     <div className="grid min-w-0 gap-3">
       {turns.length === 0 ? (
         <div className="grid gap-1.5">
-          <p className="text-[12px] text-shale">Try one of these, or ask your own:</p>
+          <p className="text-[12px] text-strata-700">Try one of these, or ask your own:</p>
           <div className="flex flex-wrap gap-1.5">
             {SUGGESTIONS.map((suggestion) => (
               <button
                 key={suggestion}
                 type="button"
                 onClick={() => void ask(suggestion)}
-                className="rounded-full border border-line bg-white px-2.5 py-1 text-left text-[12px] text-rock transition-colors hover:border-rock/40 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rock"
+                className="rounded-full border border-strata-300/80 bg-white/75 px-2.5 py-1 text-left text-[12px] text-earth transition-colors hover:border-olivine-500 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-olivine-500"
               >
                 {suggestion}
               </button>
@@ -255,7 +255,7 @@ export function AskCortex({ projectId, projectName }: { projectId: string; proje
       <div ref={endRef} />
 
       <form onSubmit={submit} className="grid gap-1.5">
-        <div className="flex items-end gap-2 rounded-xl border border-line bg-white p-1.5 focus-within:border-rock/60 focus-within:shadow-[0_0_0_3px_rgba(7,8,8,0.08)]">
+        <div className="flex items-end gap-2 rounded-xl border border-strata-300/80 bg-white/75 p-1.5 focus-within:border-rock/60 focus-within:shadow-[0_0_0_3px_rgba(139,156,68,0.25)]">
           <textarea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
@@ -263,25 +263,25 @@ export function AskCortex({ projectId, projectName }: { projectId: string; proje
             rows={2}
             aria-label={`Ask Cortex about ${projectName}`}
             placeholder={`Ask about ${projectName}'s rules and documents`}
-            className="min-h-10 flex-1 resize-none bg-transparent px-1.5 py-1 text-[13px] text-rock outline-none placeholder:text-mist"
+            className="min-h-10 flex-1 resize-none bg-transparent px-1.5 py-1 text-[13px] text-earth outline-none placeholder:text-strata-600"
           />
           <button
             type="submit"
             disabled={asking || !draft.trim()}
             aria-label="Ask"
-            className="grid size-8 shrink-0 place-items-center rounded-lg bg-rock text-white transition-opacity disabled:opacity-35 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rock"
+            className="grid size-8 shrink-0 place-items-center rounded-lg bg-olivine-800 text-white transition-opacity disabled:opacity-35 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-olivine-500"
           >
             <ArrowUp className="size-4" />
           </button>
         </div>
-        <div className="flex items-center justify-between gap-2 text-[11px] text-mist">
+        <div className="flex items-center justify-between gap-2 text-[11px] text-strata-700">
           <span>{problem ?? "Answers come from the documents Cortex holds, with the rule and page."}</span>
           {turns.length > 0 && (
             <button
               type="button"
               disabled={asking}
               onClick={() => newChat(projectId)}
-              className="inline-flex shrink-0 items-center gap-1 font-medium text-shale hover:text-rock disabled:opacity-40"
+              className="inline-flex shrink-0 items-center gap-1 font-medium text-strata-700 hover:text-earth disabled:opacity-40"
             >
               <RotateCcw className="size-3" />
               New conversation

@@ -8,7 +8,7 @@ import { notesMessage, overQuantityMessage, quantityLinesMessage } from "@/lib/l
 import { BatchPicker, type SelectedLine } from "./batch-picker";
 import { ledgerRequest } from "./client";
 import { SuccessPanel } from "./success-panel";
-import { Banner, buttonClass, fieldClass } from "./ui";
+import { Banner, buttonClass, fieldClass, labelClass } from "./ui";
 
 export function DeliverPanel({
   reloadToken,
@@ -91,7 +91,7 @@ export function DeliverPanel({
         <SuccessPanel title="Delivery accepted" result={result} onDismiss={() => setResult(null)} />
       ) : null}
       {error ? <Banner kind="error">{error}</Banner> : null}
-      <label className="block text-xs text-mist">
+      <label className={labelClass}>
         Order
         <select
           className={`${fieldClass} mt-1`}
@@ -107,7 +107,7 @@ export function DeliverPanel({
         </select>
       </label>
       <BatchPicker reloadToken={reloadToken} onChange={onLines} />
-      <label className="block text-xs text-mist">
+      <label className={labelClass}>
         Notes
         <textarea
           className={`${fieldClass} mt-1`}
@@ -116,7 +116,7 @@ export function DeliverPanel({
           onChange={(event) => setNotes(event.target.value)}
         />
       </label>
-      {block && lines.length > 0 ? <p className="text-sm text-signal-rose">{block}</p> : null}
+      {block && lines.length > 0 ? <p className="text-sm text-jasper">{block}</p> : null}
       <button type="button" className={buttonClass} disabled={Boolean(block) || pending} onClick={() => void submit()}>
         {pending ? "Delivering…" : "Deliver credits"}
       </button>

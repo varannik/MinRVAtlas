@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { formatTonnes, tonnesInputToKg } from "@/lib/ledger/units";
 import type { NormalizedCreditBatch, Page } from "@/lib/ledger/types";
 import { ledgerRequest } from "./client";
-import { Banner, fieldClass } from "./ui";
+import { Banner, checkClass, fieldClass } from "./ui";
 
 export type SelectedLine = {
   credit_batch_id: string;
@@ -66,16 +66,17 @@ export function BatchPicker({
     <div className="space-y-2">
       {error ? <Banner kind="error">{error}</Banner> : null}
       {incomplete ? (
-        <p className="text-sm text-signal-rose">
+        <p className="text-sm text-jasper">
           Enter tonnes for each selected batch, up to three decimal places.
         </p>
       ) : null}
       {batches.length === 0 && !error ? (
-        <p className="text-sm text-mist">No active batches.</p>
+        <p className="text-sm text-strata-700">No active batches.</p>
       ) : null}
       {batches.map((batch) => (
-        <label key={batch.id} className="grid grid-cols-[auto_1fr_8rem] items-center gap-3 text-sm">
+        <label key={batch.id} className="glass-card grid cursor-pointer grid-cols-[auto_1fr_8rem] items-center gap-3 rounded-xl px-3 py-2 text-sm">
           <input
+            className={checkClass}
             type="checkbox"
             checked={Boolean(selected[batch.id])}
             onChange={(event) => {
@@ -83,8 +84,8 @@ export function BatchPicker({
             }}
           />
           <span>
-            <span className="font-mono text-xs text-frost">{batch.id}</span>
-            <span className="ml-2 text-mist">{formatTonnes(batch.sizeKg)} t active</span>
+            <span className="font-mono text-xs text-earth">{batch.id}</span>
+            <span className="ml-2 text-strata-700 tabular-nums">{formatTonnes(batch.sizeKg)} t active</span>
           </span>
           <input
             className={fieldClass}

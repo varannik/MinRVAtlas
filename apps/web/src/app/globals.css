@@ -11,6 +11,51 @@
   --color-sand: #beb290;
   --color-calcite: #eadac7;
 
+  /* MinRV palette ramps: each step mixes two brand colours in OKLab.
+     Canyon and Rock are retired; Earth is the darkest colour. */
+  --color-olivine-50: #e8e9e2;
+  --color-olivine-100: #dcdfce;
+  --color-olivine-200: #c7cead;
+  --color-olivine-300: #b2be8b;
+  --color-olivine-400: #9ead69;
+  --color-olivine-500: #8b9c44;
+  --color-olivine-600: #6f7f35;
+  --color-olivine-700: #576627;
+  --color-olivine-800: #414f1b;
+  --color-olivine-900: #2c3910;
+  --color-olivine-950: #1c2807;
+
+  --color-serpentine-50: #e6ded4;
+  --color-serpentine-100: #d9d0c3;
+  --color-serpentine-200: #c1b9a6;
+  --color-serpentine-300: #a8a087;
+  --color-serpentine-400: #8d8465;
+  --color-serpentine-500: #6f663f;
+  --color-serpentine-600: #5c5733;
+  --color-serpentine-700: #494826;
+  --color-serpentine-800: #373a1b;
+  --color-serpentine-900: #262c10;
+  --color-serpentine-950: #192207;
+
+  --color-strata-50: #f1f0f0;
+  --color-strata-100: #eee5db;
+  --color-strata-200: #eadac7;
+  --color-strata-300: #d4c6ab;
+  --color-strata-400: #beb290;
+  --color-strata-500: #989077;
+  --color-strata-600: #746f5e;
+  --color-strata-700: #57544a;
+  --color-strata-800: #3b3e2f;
+  --color-strata-900: #252c19;
+  --color-strata-950: #0d1802;
+
+  /* Status only, never decoration. */
+  --color-ochre: #a77618;
+  --color-ochre-ink: #835a06;
+  --color-ochre-tint: #efddb5;
+  --color-jasper: #963e32;
+  --color-jasper-tint: #eed3cd;
+
   --color-ink-950: #f1f0f0;
   --color-ink-900: #ebe6dc;
   --color-ink-800: #ffffff;
@@ -21,8 +66,8 @@
   --color-frost: #070808;
   --color-carbon-400: #55632a;
   --color-carbon-500: #8b9c44;
-  --color-signal-amber: #b85616;
-  --color-signal-rose: #9c3a2f;
+  --color-signal-amber: #835a06;
+  --color-signal-rose: #963e32;
   --color-signal-sky: #6f663f;
   --color-signal-violet: #6f6750;
   --color-cyan: #6f663f;
@@ -59,13 +104,131 @@ body {
   opacity: 1;
 }
 
-.glass {
-  background: color-mix(in oklab, #ffffff 94%, transparent);
-  border: 1px solid color-mix(in oklab, var(--color-sand) 55%, transparent);
-  backdrop-filter: blur(18px) saturate(140%);
+:root {
+  /* Signature gradients from the MinRV palette. One per screen. */
+  --gradient-carbonation: linear-gradient(in oklab 100deg, #0d1802 0%, #8b9c44 60%, #eadac7 100%);
+  --gradient-peridotite: radial-gradient(in oklab 120% 90% at 50% 25%, #282e11 0%, #182006 48%, #0d1802 100%);
+  --gradient-olivine-bloom: linear-gradient(in oklab 90deg, #576627 0%, #8b9c44 45%, #b9bb87 75%, #eadac7 100%);
+  --gradient-serpentinite: linear-gradient(in oklab 135deg, #373a1b 0%, #6f663f 48%, #a8a087 78%, #d9d0c3 100%);
+  --gradient-calcite-veil: linear-gradient(in oklab 165deg, #f1f0f0 0%, #eee5db 55%, #eadac7 100%);
+
+  /* Glass system, shared by every light page. */
+  --glass-fill: color-mix(in oklab, #ffffff 66%, transparent);
+  --glass-fill-strong: color-mix(in oklab, #ffffff 86%, transparent);
+  --glass-edge: color-mix(in oklab, #ffffff 78%, transparent);
+  --glass-rim: color-mix(in oklab, var(--color-strata-400) 30%, transparent);
+  --glass-shadow:
+    0 1px 2px color-mix(in oklab, var(--color-earth) 5%, transparent),
+    0 18px 40px -12px color-mix(in oklab, var(--color-earth) 16%, transparent);
+}
+
+/* Floating panels and pills. */
+.glass,
+.glass-strong {
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-edge);
+  backdrop-filter: blur(28px) saturate(170%);
+  -webkit-backdrop-filter: blur(28px) saturate(170%);
   box-shadow:
-    0 1px 0 color-mix(in oklab, #ffffff 70%, transparent) inset,
-    0 10px 28px color-mix(in oklab, var(--color-rock) 6%, transparent);
+    0 0 0 1px var(--glass-rim),
+    inset 0 1px 0 color-mix(in oklab, #ffffff 92%, transparent),
+    var(--glass-shadow);
+}
+
+/* Menus, popovers and dense reading panels. */
+.glass-strong {
+  background: var(--glass-fill-strong);
+}
+
+/* Plain CSS outranks Tailwind utilities, so glass states live here. */
+.glass-hover {
+  transition: background-color 150ms ease;
+}
+
+.glass-hover:hover {
+  background: var(--glass-fill-strong);
+}
+
+.glass-field:focus-within {
+  background: var(--glass-fill-strong);
+  box-shadow:
+    0 0 0 1px var(--color-olivine-400),
+    0 0 0 4px color-mix(in oklab, var(--color-olivine-300) 40%, transparent),
+    var(--glass-shadow);
+}
+
+/* Glass over a dark 3D scene (Peridotite): rails, labels and chips on the scene itself. */
+.glass-dark {
+  background: color-mix(in oklab, var(--color-earth) 52%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-calcite) 14%, transparent);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, #ffffff 8%, transparent),
+    0 18px 40px -12px rgb(0 0 0 / 0.45);
+}
+
+/* A recessed track inside glass: search fields, segmented controls, stat tiles. */
+.glass-well {
+  background: color-mix(in oklab, var(--color-strata-300) 22%, transparent);
+  box-shadow:
+    inset 0 1px 2px color-mix(in oklab, var(--color-earth) 7%, transparent),
+    inset 0 0 0 1px color-mix(in oklab, var(--color-strata-400) 18%, transparent);
+}
+
+/* A raised card that sits on glass. */
+.glass-card {
+  background: color-mix(in oklab, #ffffff 58%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, #ffffff 75%, transparent),
+    0 1px 2px color-mix(in oklab, var(--color-earth) 4%, transparent);
+}
+
+/* The thumb of a segmented control, and other selected chips on glass. */
+.glass-thumb {
+  background: #ffffff;
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-strata-400) 22%, transparent),
+    0 1px 2px color-mix(in oklab, var(--color-earth) 10%, transparent),
+    0 4px 12px -4px color-mix(in oklab, var(--color-earth) 16%, transparent);
+}
+
+/* Primary action on light pages. */
+.btn-primary {
+  background: var(--color-olivine-800);
+  color: var(--color-off-white);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, #ffffff 18%, transparent),
+    0 1px 2px color-mix(in oklab, var(--color-earth) 18%, transparent),
+    0 6px 16px -6px color-mix(in oklab, var(--color-olivine-800) 60%, transparent);
+  transition: background-color 150ms ease;
+}
+
+.btn-primary:hover {
+  background: var(--color-olivine-900);
+}
+
+/* Secondary action on light pages. */
+.btn-glass {
+  background: color-mix(in oklab, #ffffff 70%, transparent);
+  color: var(--color-earth);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--color-strata-400) 45%, transparent),
+    0 1px 2px color-mix(in oklab, var(--color-earth) 6%, transparent);
+  transition: background-color 150ms ease;
+}
+
+.btn-glass:hover {
+  background: #ffffff;
+}
+
+/* Backdrop behind the Atlas globe: the Calcite veil with a low light above the globe. */
+.atlas-backdrop {
+  background:
+    radial-gradient(60% 55% at 50% 42%, color-mix(in oklab, #ffffff 70%, transparent) 0%, transparent 70%),
+    radial-gradient(40% 40% at 12% 88%, color-mix(in oklab, var(--color-olivine-200) 45%, transparent) 0%, transparent 70%),
+    radial-gradient(38% 42% at 90% 10%, color-mix(in oklab, var(--color-calcite) 80%, transparent) 0%, transparent 70%),
+    var(--gradient-calcite-veil);
 }
 
 .hairline {

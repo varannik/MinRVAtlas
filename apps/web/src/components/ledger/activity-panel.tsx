@@ -11,6 +11,13 @@ type Kind = "delivery" | "transfer" | "retirement";
 
 type Row = NormalizedTransaction & { kind: Kind };
 
+/** Movements read along the carbonation path: delivered, transferred, retired for good. */
+const KIND_TONE: Record<Kind, string> = {
+  delivery: "bg-olivine-100 text-olivine-800",
+  transfer: "bg-serpentine-50 text-serpentine-700",
+  retirement: "bg-olivine-800 text-off-white",
+};
+
 const PATHS: Record<Kind, string> = {
   delivery: "deliveries",
   transfer: "transfers",
@@ -117,27 +124,29 @@ export function ActivityPanel({ reloadToken }: { reloadToken: number }) {
   return (
     <div className="space-y-3">
       {error ? <Banner kind="error">{error}</Banner> : null}
-      <ul className="divide-y divide-line rounded-2xl border border-line">
+      <ul className="glass-card divide-y divide-strata-300/40 overflow-hidden rounded-2xl">
         {merged.length ? (
           merged.map((row) => (
-            <li key={`${row.kind}-${row.id}`} className="grid grid-cols-[7rem_1fr_auto] gap-3 px-3 py-2 text-sm">
-              <span className="text-mist capitalize">{row.kind}</span>
+            <li key={`${row.kind}-${row.id}`} className="grid grid-cols-[7rem_1fr_auto] items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-white/50">
               <span>
-                <span className="font-mono text-xs text-frost">{row.id}</span>
-                {row.counterparty ? <span className="ml-2 text-mist">{row.counterparty}</span> : null}
+                <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold capitalize ${KIND_TONE[row.kind]}`}>{row.kind}</span>
+              </span>
+              <span>
+                <span className="font-mono text-xs text-earth">{row.id}</span>
+                {row.counterparty ? <span className="ml-2 text-strata-700">{row.counterparty}</span> : null}
                 {row.url ? (
-                  <a href={row.url} target="_blank" rel="noreferrer" className="ml-2 text-carbon-400 underline">
+                  <a href={row.url} target="_blank" rel="noreferrer" className="ml-2 font-medium text-olivine-700 underline underline-offset-2">
                     Certificate
                   </a>
                 ) : null}
               </span>
-              <span className="text-frost">
+              <span className="text-earth tabular-nums">
                 {row.quantityKg == null ? "Quantity unavailable" : `${formatTonnes(row.quantityKg)} t`}
               </span>
             </li>
           ))
         ) : (
-          <li className="px-3 py-4 text-sm text-mist">{ready ? "No activity yet." : "Loading activity…"}</li>
+          <li className="px-4 py-4 text-sm text-strata-700">{ready ? "No activity yet." : "Loading activity…"}</li>
         )}
       </ul>
       <div className="flex flex-wrap gap-2">

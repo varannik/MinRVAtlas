@@ -22,12 +22,18 @@ import {
   HALO_VERTEX,
   LINE_FRAGMENT,
   LINE_VERTEX,
+  CORE_COLORS,
+  SHELL_COLORS,
   buildFilaments,
 } from "./brain-parts";
 
 const CORE_RADIUS = 1;
 const SHELL_RADIUS = 3;
 const PIN_RADIUS = 2.55;
+/** Share of a wide screen the open panel takes; the brain shrinks into the rest. */
+const PANEL_SHARE = 2 / 3;
+/** A light shell: about a third of the default filaments, so the shell never reads as more pins. */
+const SHELL_DENSITY = { around: 30, latStep: 15, minPerBand: 6, lineChance: 0.55, twinChance: 0.2 } as const;
 /** Pointer travel (px) above which a press counts as a drag, not a click. */
 const DRAG_SLOP = 6;
 
@@ -53,15 +59,17 @@ function Backdrop() {
     canvas.height = 1024;
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
+    // Peridotite: Earth with a low serpentine light, the host rock the CO2 goes into.
     const linear = ctx.createLinearGradient(0, 0, 1024, 1024);
-    linear.addColorStop(0, "#6D5ACB");
-    linear.addColorStop(0.55, "#8A76D9");
-    linear.addColorStop(1, "#B78BD2");
+    linear.addColorStop(0, "#0D1802");
+    linear.addColorStop(0.55, "#182006");
+    linear.addColorStop(1, "#262C10");
     ctx.fillStyle = linear;
     ctx.fillRect(0, 0, 1024, 1024);
-    const radial = ctx.createRadialGradient(512, 500, 30, 512, 500, 640);
-    radial.addColorStop(0, "rgba(168, 154, 240, 0.6)");
-    radial.addColorStop(1, "rgba(168, 154, 240, 0)");
+    const radial = ctx.createRadialGradient(512, 470, 30, 512, 470, 680);
+    radial.addColorStop(0, "rgba(111, 102, 63, 0.55)");
+    radial.addColorStop(0.5, "rgba(55, 58, 27, 0.35)");
+    radial.addColorStop(1, "rgba(13, 24, 2, 0)");
     ctx.fillStyle = radial;
     ctx.fillRect(0, 0, 1024, 1024);
 
@@ -72,7 +80,7 @@ function Backdrop() {
 
   useEffect(() => () => texture?.dispose(), [texture]);
 
-  if (!texture) return <color attach="background" args={["#7E6AD2"]} />;
+  if (!texture) return <color attach="background" args={["#0D1802"]} />;
   return <primitive attach="background" object={texture} />;
 }
 
@@ -90,17 +98,17 @@ function Core() {
     () => ({
       uTime: { value: 0 },
       uPulse: { value: 0 },
-      uCellA: { value: new THREE.Color("#8F7DF7") },
-      uCellB: { value: new THREE.Color("#C8BDFF") },
-      uWall: { value: new THREE.Color("#23178F") },
-      uRim: { value: new THREE.Color("#F2EDFF") },
+      uCellA: { value: new THREE.Color(CORE_COLORS.cellA) },
+      uCellB: { value: new THREE.Color(CORE_COLORS.cellB) },
+      uWall: { value: new THREE.Color(CORE_COLORS.wall) },
+      uRim: { value: new THREE.Color(CORE_COLORS.rim) },
     }),
     [],
   );
 
   const haloUniforms = useMemo(
     () => ({
-      uColor: { value: new THREE.Color("#D9D0FF") },
+      uColor: { value: new THREE.Color(CORE_COLORS.halo) },
       uStrength: { value: 0.3 },
     }),
     [],
@@ -165,9 +173,11 @@ function Core() {
 
 function Filaments() {
   const dim = useCortex((state) => state.selected !== null && state.selected !== "core");
-  const { lines, dots } = useMemo(() => buildFilaments(CORE_RADIUS, SHELL_RADIUS), []);
+  const { lines, dots } = useMemo(() => buildFilaments(CORE_RADIUS, SHELL_RADIUS, SHELL_DENSITY), []);
   const lineMaterialRef = useRef<THREE.ShaderMaterial>(null);
   const dotMaterialRef = useRef<THREE.ShaderMaterial>(null);
+  const pointsRef = useRef<THREE.Points>(null);
+  const worldScale = useMemo(() => new THREE.Vector3(), []);
 
   const lineUniforms = useMemo(() => ({ uOpacity: { value: 1 } }), []);
   const dotUniforms = useMemo(
@@ -190,17 +200,20 @@ function Filaments() {
     const d = Math.min(delta, 0.1);
     lineMaterial.uniforms.uOpacity.value = THREE.MathUtils.damp(
       lineMaterial.uniforms.uOpacity.value,
-      dim ? 0.42 : 1,
+      dim ? 0.4 : 0.85,
       3,
       d,
     );
     dotMaterial.uniforms.uOpacity.value = THREE.MathUtils.damp(
       dotMaterial.uniforms.uOpacity.value,
-      dim ? 0.55 : 1,
+      dim ? 0.4 : 0.7,
       3,
       d,
     );
     dotMaterial.uniforms.uPixelRatio.value = state.viewport.dpr;
+    // Smaller dots while the brain is shrunk beside the panel.
+    const scale = pointsRef.current?.getWorldScale(worldScale).x ?? 1;
+    dotMaterial.uniforms.uSize.value = 2.8 * (0.4 + 0.6 * scale);
   });
 
   return (
@@ -216,7 +229,7 @@ function Filaments() {
           blending={THREE.AdditiveBlending}
         />
       </lineSegments>
-      <points geometry={dots} raycast={() => null}>
+      <points ref={pointsRef} geometry={dots} raycast={() => null}>
         <shaderMaterial
           ref={dotMaterialRef}
           vertexShader={DOT_VERTEX}
@@ -240,6 +253,8 @@ function Pin({ capability }: { capability: Capability }) {
     (state) =>
       state.selected !== null && state.selected !== "core" && state.selected !== capability.id,
   );
+  // While a panel is open the brain is small: only the open and hovered pins keep a label.
+  const panelOpen = useCortex((state) => state.selected !== null);
   const select = useCortex((state) => state.select);
   const hover = useCortex((state) => state.hover);
 
@@ -255,6 +270,7 @@ function Pin({ capability }: { capability: Capability }) {
   const labelRef = useRef<HTMLDivElement>(null);
   const world = useMemo(() => new THREE.Vector3(), []);
   const origin = useMemo(() => new THREE.Vector3(), []);
+  const scale = useMemo(() => new THREE.Vector3(), []);
 
   useFrame((_, delta) => {
     const group = nodeRef.current;
@@ -262,18 +278,21 @@ function Pin({ capability }: { capability: Capability }) {
     const d = Math.min(delta, 0.1);
     group.getWorldPosition(world);
     group.parent?.getWorldPosition(origin);
-    // +1 faces the viewer, -1 sits behind the core.
-    const facing = (world.z - origin.z) / PIN_RADIUS;
+    group.parent?.getWorldScale(scale);
+    // +1 faces the viewer, -1 sits behind the core, whatever size the brain is drawn at.
+    const facing = (world.z - origin.z) / (PIN_RADIUS * Math.max(scale.z, 0.01));
     const front = THREE.MathUtils.clamp((facing + 0.35) / 0.6, 0, 1);
 
     const label = labelRef.current;
     if (label) {
-      const emphasis = isSelected || isHovered ? 1 : quiet ? 0.5 : 0.92;
-      label.style.opacity = String(Math.max(0.1, front) * emphasis);
-      label.style.pointerEvents = front > 0.35 ? "auto" : "none";
+      const emphasis = isSelected || isHovered ? 1 : panelOpen ? 0 : quiet ? 0.5 : 0.92;
+      label.style.opacity = emphasis === 0 ? "0" : String(Math.max(0.1, front) * emphasis);
+      label.style.pointerEvents = emphasis > 0 && front > 0.35 ? "auto" : "none";
     }
 
-    const target = isSelected ? 1.7 : isHovered ? 1.4 : 1;
+    // Pins keep most of their size when the brain shrinks beside the panel.
+    const keep = Math.pow(1 / Math.max(scale.x, 0.3), 0.6);
+    const target = (isSelected ? 1.6 : isHovered ? 1.35 : 1) * keep;
     group.scale.setScalar(THREE.MathUtils.damp(group.scale.x, target, 8, d));
   });
 
@@ -295,25 +314,47 @@ function Pin({ capability }: { capability: Capability }) {
       />
       <group ref={nodeRef} position={node}>
         <mesh raycast={() => null}>
-          <sphereGeometry args={[0.05, 24, 24]} />
-          <meshBasicMaterial color="#ffffff" toneMapped={false} />
+          <sphereGeometry args={[0.035, 24, 24]} />
+          <meshBasicMaterial color={SHELL_COLORS.node} toneMapped={false} />
         </mesh>
         <Billboard>
+          {/* A soft halo and a solid lobe disc: a pin reads apart from the shell dots. */}
           <mesh raycast={() => null}>
-            <ringGeometry args={[0.08, 0.095, 48]} />
+            <circleGeometry args={[0.17, 48]} />
             <meshBasicMaterial
               color={lobe.glow}
               transparent
-              opacity={quiet ? 0.45 : 0.95}
+              opacity={quiet ? 0.07 : 0.2}
+              depthWrite={false}
+              side={THREE.DoubleSide}
+              toneMapped={false}
+            />
+          </mesh>
+          <mesh raycast={() => null}>
+            <circleGeometry args={[0.085, 40]} />
+            <meshBasicMaterial
+              color={lobe.glow}
+              transparent
+              opacity={quiet ? 0.5 : 1}
+              side={THREE.DoubleSide}
+              toneMapped={false}
+            />
+          </mesh>
+          <mesh raycast={() => null}>
+            <ringGeometry args={[0.105, 0.12, 48]} />
+            <meshBasicMaterial
+              color={lobe.glow}
+              transparent
+              opacity={quiet ? 0.4 : 0.9}
               side={THREE.DoubleSide}
               toneMapped={false}
             />
           </mesh>
           {isSelected && (
             <mesh raycast={() => null}>
-              <ringGeometry args={[0.145, 0.155, 64]} />
+              <ringGeometry args={[0.17, 0.182, 64]} />
               <meshBasicMaterial
-                color="#ffffff"
+                color={SHELL_COLORS.node}
                 transparent
                 opacity={0.8}
                 side={THREE.DoubleSide}
@@ -344,10 +385,10 @@ function Pin({ capability }: { capability: Capability }) {
               onMouseLeave={() => hover(null)}
               onFocus={() => hover(capability.id)}
               onBlur={() => hover(null)}
-              className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11.5px] font-semibold tracking-[0.01em] backdrop-blur-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
+              className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11.5px] font-semibold tracking-[0.01em] backdrop-blur-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-calcite ${
                 isSelected
-                  ? "border-white bg-white text-[#2A1F6E]"
-                  : "border-white/25 bg-[#2A1F6E]/35 text-white hover:bg-[#2A1F6E]/55"
+                  ? "border-calcite bg-calcite text-earth"
+                  : "border-calcite/20 bg-earth/45 text-calcite hover:bg-earth/70"
               }`}
             >
               <span className="size-1.5 rounded-full" style={{ background: lobe.glow }} />
@@ -400,15 +441,37 @@ function Rig({
     // Portrait screens back the camera off so the shell and its right-hand labels fit the width.
     const fit = aspect >= 1 ? 10.4 : (10.4 / Math.max(aspect, 0.42)) * 1.15;
     const open = selected !== null;
-    camera.position.z = THREE.MathUtils.damp(camera.position.z, open ? fit * 0.92 : fit, 2.6, d);
+    camera.position.z = THREE.MathUtils.damp(camera.position.z, fit, 2.6, d);
 
     const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z;
     const halfW = halfH * aspect;
     const wide = size.width >= 1024;
-    const targetX = open && wide ? -halfW * 0.3 : 0;
-    const targetY = open && !wide ? halfH * 0.4 : 0;
-    group.position.x = THREE.MathUtils.damp(group.position.x, targetX, 3, d);
+    // Open on a wide screen: the panel takes the right two thirds and the brain
+    // shrinks into the centre of the third that is left. On a narrow screen the
+    // panel is a bottom sheet, so the brain shrinks a little and rises.
+    let targetScale = 1;
+    let targetY = 0;
+    let targetShift = 0;
+    if (open && wide) {
+      const room = halfW * 2 * (1 - PANEL_SHARE);
+      targetScale = THREE.MathUtils.clamp((room * 0.8) / (SHELL_RADIUS * 2 + 1.2), 0.3, 0.62);
+      // Moving the brain off the camera axis would draw it as an oval. It stays on
+      // the axis and the lens shifts instead, so it lands at the centre of the left
+      // third (NDC x = -PANEL_SHARE) and stays round.
+      const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      targetShift = PANEL_SHARE * tanHalf * aspect * camera.getFilmWidth();
+    } else if (open) {
+      targetScale = 0.72;
+      targetY = halfH * 0.42;
+    }
+    group.scale.setScalar(THREE.MathUtils.damp(group.scale.x, targetScale, 3, d));
+    group.position.x = THREE.MathUtils.damp(group.position.x, 0, 3, d);
     group.position.y = THREE.MathUtils.damp(group.position.y, targetY, 3, d);
+    const shift = THREE.MathUtils.damp(camera.filmOffset, targetShift, 3, d);
+    if (Math.abs(shift - camera.filmOffset) > 1e-4) {
+      camera.filmOffset = Math.abs(shift - targetShift) < 1e-3 ? targetShift : shift;
+      camera.updateProjectionMatrix();
+    }
   });
 
   return (

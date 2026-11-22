@@ -29,7 +29,7 @@ import { StatusChip } from "./document-intake";
 const POLL_MS = 8000;
 const TIME = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
 const BUTTON =
-  "h-7 rounded-md px-2.5 text-[11.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rock";
+  "h-7 rounded-md px-2.5 text-[11.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-olivine-500";
 
 interface KnowledgeReply {
   documents: KnowledgeDocument[];
@@ -50,8 +50,8 @@ function Group({ title, note, children }: { title: string; note: string; childre
   return (
     <div className="grid min-w-0 gap-1.5">
       <p className="flex min-w-0 items-baseline gap-1.5 text-[11.5px]">
-        <span className="font-semibold text-rock">{title}</span>
-        <span className="truncate text-mist">{note}</span>
+        <span className="font-semibold text-earth">{title}</span>
+        <span className="truncate text-strata-700">{note}</span>
       </p>
       {children}
     </div>
@@ -113,7 +113,7 @@ export function KnowledgeList({
 
   if (!reply) {
     return (
-      <p className="text-[12px] text-mist" role={error ? "alert" : "status"}>
+      <p className="text-[12px] text-strata-700" role={error ? "alert" : "status"}>
         {error ?? "Reading what Cortex holds…"}
       </p>
     );
@@ -135,7 +135,7 @@ export function KnowledgeList({
 
   const rows = (docs: KnowledgeDocument[], empty: string) =>
     docs.length === 0 ? (
-      <p className="rounded-lg border border-dashed border-line px-3 py-2 text-[11.5px] text-shale">{empty}</p>
+      <p className="rounded-lg border border-dashed border-strata-300/80 px-3 py-2 text-[11.5px] text-strata-700">{empty}</p>
     ) : (
       <ul className="grid min-w-0 gap-1.5">
         {docs.map((doc) => {
@@ -155,16 +155,16 @@ export function KnowledgeList({
               ? adviceFor(doc, { canUpload, canShare, placeOf: (key) => placeOfKey(key, project.name) })
               : null;
           return (
-            <li key={doc.key} className="grid min-w-0 gap-1.5 rounded-lg border border-line bg-white px-2.5 py-2">
+            <li key={doc.key} className="grid min-w-0 gap-1.5 rounded-lg border border-strata-300/80 bg-white/75 px-2.5 py-2">
               <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5">
-                <span className="grid size-7 place-items-center rounded-md bg-[#EEE9FD] text-[#5536B0]">
+                <span className="grid size-7 place-items-center rounded-md bg-serpentine-50 text-serpentine-700">
                   <FileText className="size-3.5" />
                 </span>
                 <span className="grid min-w-0">
-                  <span className="truncate text-[12.5px] font-semibold text-rock" title={doc.name}>
+                  <span className="truncate text-[12.5px] font-semibold text-earth" title={doc.name}>
                     {doc.name}
                   </span>
-                  <span className="truncate text-[11px] text-mist" title={doc.label?.summary}>
+                  <span className="truncate text-[11px] text-strata-700" title={doc.label?.summary}>
                     {removal ? `Not removed: ${removal}` : meta}
                   </span>
                 </span>
@@ -175,7 +175,7 @@ export function KnowledgeList({
                       Removing
                     </span>
                   ) : doc.status === "in_cortex" && doc.passages !== null ? (
-                    <span className="tabular shrink-0 text-[11px] font-semibold text-carbon-400">
+                    <span className="tabular shrink-0 text-[11px] font-semibold text-olivine-700">
                       {doc.passages} passages
                     </span>
                   ) : (
@@ -186,7 +186,7 @@ export function KnowledgeList({
                       type="button"
                       onClick={() => setConfirm(doc.key)}
                       aria-label={`Remove ${doc.name} from Cortex`}
-                      className="grid size-7 place-items-center rounded-md text-mist transition-colors hover:bg-ink-700 hover:text-rock focus-visible:outline-2 focus-visible:outline-rock"
+                      className="grid size-7 place-items-center rounded-md text-strata-700 transition-colors hover:bg-white/80 hover:text-earth focus-visible:outline-2 focus-visible:outline-olivine-500"
                     >
                       <Trash2 className="size-3.5" />
                     </button>
@@ -210,8 +210,8 @@ export function KnowledgeList({
                 </p>
               )}
               {confirm === doc.key && (
-                <div className="grid gap-2 border-t border-line pt-2" role="alertdialog">
-                  <p className="text-[11.5px] leading-snug text-rock">
+                <div className="grid gap-2 border-t border-strata-300/80 pt-2" role="alertdialog">
+                  <p className="text-[11.5px] leading-snug text-earth">
                     Remove {doc.name}
                     {doc.pin ? ` (${pinName(doc.pin)})` : ""} from Cortex
                     {doc.scope === "tenant" ? " for every project in your organisation" : ` for ${project.name}`}?
@@ -228,7 +228,7 @@ export function KnowledgeList({
                     <button
                       type="button"
                       onClick={() => setConfirm(null)}
-                      className={`${BUTTON} border border-line text-rock hover:bg-ink-700`}
+                      className={`${BUTTON} border border-strata-300/80 text-earth hover:bg-white/80`}
                     >
                       Keep
                     </button>
@@ -244,21 +244,21 @@ export function KnowledgeList({
   return (
     <div className="grid min-w-0 gap-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[12px] text-shale">
-          <span className="tabular font-semibold text-rock">{documents.length}</span> documents
+        <p className="text-[12px] text-strata-700">
+          <span className="tabular font-semibold text-earth">{documents.length}</span> documents
           {passages > 0 && (
             <>
               {" "}
-              · <span className="tabular font-semibold text-rock">{passages}</span> passages
+              · <span className="tabular font-semibold text-earth">{passages}</span> passages
             </>
           )}
-          {moving && <span className="text-mist"> · updating…</span>}
+          {moving && <span className="text-strata-700"> · updating…</span>}
         </p>
         <button
           type="button"
           onClick={() => setRefresh((value) => value + 1)}
           aria-label="Refresh what Cortex knows"
-          className="grid size-7 place-items-center rounded-md text-mist transition-colors hover:bg-ink-700 hover:text-rock focus-visible:outline-2 focus-visible:outline-rock"
+          className="grid size-7 place-items-center rounded-md text-strata-700 transition-colors hover:bg-white/80 hover:text-earth focus-visible:outline-2 focus-visible:outline-olivine-500"
         >
           <RotateCw className="size-3.5" />
         </button>
@@ -267,7 +267,7 @@ export function KnowledgeList({
       {notes.map((note) => (
         <p
           key={note}
-          className="flex items-start gap-1.5 rounded-lg bg-[#FBF0D9] px-2.5 py-2 text-[11.5px] leading-snug text-[#855300]"
+          className="flex items-start gap-1.5 rounded-lg bg-ochre-tint px-2.5 py-2 text-[11.5px] leading-snug text-ochre-ink"
         >
           <CircleAlert className="mt-px size-3.5 shrink-0" />
           <span>{note}</span>
@@ -276,7 +276,7 @@ export function KnowledgeList({
 
       <Group title="Registry" note={edition ? `${edition}, for every organisation` : "for every organisation"}>
         {reply.gaps.includes("registry") ? (
-          <p className="text-[11.5px] text-shale">
+          <p className="text-[11.5px] text-strata-700">
             Registry documents cannot be listed yet: this deployment needs the latest Cortex infra.
           </p>
         ) : (
@@ -295,7 +295,7 @@ export function KnowledgeList({
         {rows(own, "None yet. Drop documents on a pin to add them.")}
       </Group>
       {reply.gaps.includes("passages") && (
-        <p className="text-[11px] text-mist">Passage counts need the latest Cortex infra on this deployment.</p>
+        <p className="text-[11px] text-strata-700">Passage counts need the latest Cortex infra on this deployment.</p>
       )}
     </div>
   );

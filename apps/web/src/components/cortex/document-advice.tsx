@@ -14,7 +14,7 @@ import { readJson } from "./cortex-projects";
  */
 
 const BUTTON =
-  "h-7 rounded-md px-2.5 text-[11.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-rock disabled:opacity-50";
+  "h-7 rounded-md px-2.5 text-[11.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-olivine-500 disabled:opacity-50";
 
 export type Doing = "keep" | "stay" | "move";
 
@@ -106,7 +106,7 @@ export function DocumentAdvice({
   return (
     <div
       className={`grid gap-2 rounded-md px-2.5 py-2 text-[11.5px] leading-snug ${
-        held ? "bg-[#FBF0D9] text-[#5C3A00]" : "bg-[#EEE9FD] text-[#2B1F66]"
+        held ? "bg-ochre-tint text-ochre-ink" : "bg-serpentine-50 text-serpentine-800"
       }`}
       role="note"
     >
@@ -123,7 +123,7 @@ export function DocumentAdvice({
         <div className="flex flex-wrap gap-1.5">
           {held ? (
             <>
-              <button type="button" onClick={onKeep} className={`${BUTTON} bg-rock text-white hover:bg-rock/85`}>
+              <button type="button" onClick={onKeep} className={`${BUTTON} bg-olivine-800 text-white hover:bg-olivine-900`}>
                 Keep in Cortex
               </button>
               {onRemove && (
@@ -134,7 +134,7 @@ export function DocumentAdvice({
             </>
           ) : (
             <>
-              <button type="button" onClick={onMove} className={`${BUTTON} bg-rock text-white hover:bg-rock/85`}>
+              <button type="button" onClick={onMove} className={`${BUTTON} bg-olivine-800 text-white hover:bg-olivine-900`}>
                 {advice.action}
               </button>
               <button type="button" onClick={onStay} className={`${BUTTON} border border-current/25 hover:bg-white/60`}>

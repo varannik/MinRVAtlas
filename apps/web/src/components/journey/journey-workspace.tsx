@@ -7,6 +7,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { ArrowLeft, Check, CircleAlert, Cloud, ListTree, LoaderCircle, RotateCcw, X } from "lucide-react";
 
 import { useCortexProjects, type CortexProjectOption } from "@/components/cortex/cortex-projects";
+import { atlasSeed, type AtlasProjectHint } from "@/lib/journey/atlas";
 import { formatLocation, formatPeriod } from "@/lib/journey/cortex";
 import { SCENARIOS, SCENARIO_BY_ID, isScenarioId } from "@/lib/journey/scenarios";
 import { nextStep, stepState } from "@/lib/journey/steps";
@@ -190,6 +191,8 @@ function StepDot({ state }: { state: ReturnType<typeof stepState> }) {
 export interface JourneyRequest {
   project: string | null;
   practice: string | null;
+  /** An Atlas project, for when Cortex has no journey saved for it. */
+  atlas: AtlasProjectHint | null;
 }
 
 /** Keep the link shareable without a router navigation (which would remount the page). */
@@ -227,8 +230,11 @@ function SwitchButton({
 function ProjectSwitch({ projects }: { projects: CortexProjectOption[] }) {
   const scenarioId = useJourney((state) => state.scenarioId);
   const project = useJourney((state) => state.project);
+  const practiceSeed = useJourney((state) => state.practiceSeed);
   const load = useJourney((state) => state.load);
   const openProject = useJourney((state) => state.openProject);
+  // A practice journey opened from the Atlas is named after its project.
+  const atlasName = practiceSeed?.["setup.name"]?.value;
 
   const practise = (id: ScenarioId) => {
     load(id);
@@ -255,10 +261,19 @@ function ProjectSwitch({ projects }: { projects: CortexProjectOption[] }) {
               }}
             />
           ))}
+          {atlasName && practiceSeed ? (
+            <SwitchButton
+              key="practice-atlas"
+              on={!project}
+              title={atlasName}
+              tag="Practice · from the Atlas"
+              onClick={() => load("new", practiceSeed)}
+            />
+          ) : null}
           {SCENARIOS.map((scenario) => (
             <SwitchButton
               key={`practice-${scenario.id}`}
-              on={!project && scenario.id === scenarioId}
+              on={!project && !practiceSeed && scenario.id === scenarioId}
               title={scenario.id === "new" ? "New project" : scenario.name}
               tag={`Practice · ${scenario.tag}`}
               onClick={() => practise(scenario.id)}
@@ -268,7 +283,7 @@ function ProjectSwitch({ projects }: { projects: CortexProjectOption[] }) {
         {!project ? (
           <button
             type="button"
-            onClick={() => load(scenarioId)}
+            onClick={() => load(scenarioId, practiceSeed ?? undefined)}
             title="Start this practice journey again from its starting point"
             aria-label="Reset"
             className="grid size-10 place-items-center rounded-xl border border-white/15 bg-[#141235]/55 text-white/75 backdrop-blur-xl hover:text-white"
@@ -398,7 +413,19 @@ export function JourneyWorkspace({ request }: { request: JourneyRequest }) {
       return;
     }
     const scenarioWanted = request.practice ?? request.project;
-    practise(isScenarioId(scenarioWanted) ? scenarioWanted : "fujairah-mineral");
+    if (isScenarioId(scenarioWanted)) {
+      practise(scenarioWanted);
+      return;
+    }
+    // An Atlas project without a saved journey, on any registry: practise on it as itself,
+    // keeping this tab's answers if it is already open.
+    if (request.atlas) {
+      const state = useJourney.getState();
+      const same = !state.project && state.practiceSeed?.["setup.name"]?.value === request.atlas.name;
+      if (!same) load("new", atlasSeed(request.atlas));
+      return;
+    }
+    practise("fujairah-mineral");
   }, [reply, projectsError, projects, request, load, openProject]);
 
   useEffect(() => {

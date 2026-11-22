@@ -64,3 +64,6 @@ apps/web/next-env.d.ts
 # python
 __pycache__/
 *.pyc
+
+# Project documents stay on this machine: notes already tracked in docs/ are kept, new files are not added.
+/docs/

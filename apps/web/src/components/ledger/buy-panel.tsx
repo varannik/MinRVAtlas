@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { tonnesInputToKg } from "@/lib/ledger/units";
 import type { StripeCheckout, StripeConfig } from "@/lib/ledger/types";
 import { ledgerRequest } from "./client";
-import { Banner, buttonClass, fieldClass } from "./ui";
+import { Banner, buttonClass, checkClass, fieldClass, labelClass } from "./ui";
 
 export function BuyPanel({
   highlight,
@@ -77,17 +77,17 @@ export function BuyPanel({
       ) : null}
       {error ? <Banner kind="error">{error}</Banner> : null}
       {config ? (
-        <p className="text-sm text-mist">
+        <p className="text-sm text-strata-700">
           {config.creditPricePerTonne
             ? `${config.creditPricePerTonne} ${config.currency ?? ""} per tonne`
             : "Price is set by the registry checkout."}
         </p>
       ) : null}
-      <label className="block text-xs text-mist">
+      <label className={labelClass}>
         Tonnes
         <input className={`${fieldClass} mt-1`} value={tonnes} onChange={(event) => setTonnes(event.target.value)} />
       </label>
-      <label className="block text-xs text-mist">
+      <label className={labelClass}>
         Frequency
         <select
           className={`${fieldClass} mt-1`}
@@ -99,16 +99,16 @@ export function BuyPanel({
           <option value="yearly">Yearly</option>
         </select>
       </label>
-      <label className="block text-xs text-mist">
+      <label className={labelClass}>
         Receipt email
         <input className={`${fieldClass} mt-1`} value={email} onChange={(event) => setEmail(event.target.value)} />
       </label>
-      <label className="flex items-start gap-2 text-sm text-frost">
-        <input type="checkbox" checked={isometricTerms} onChange={(event) => setIsometricTerms(event.target.checked)} />
+      <label className="flex items-start gap-2 text-sm text-earth">
+        <input className={checkClass} type="checkbox" checked={isometricTerms} onChange={(event) => setIsometricTerms(event.target.checked)} />
         <span>
           I accept the{" "}
           {config?.termsUrl ? (
-            <a href={config.termsUrl} target="_blank" rel="noreferrer" className="text-carbon-400 underline">
+            <a href={config.termsUrl} target="_blank" rel="noreferrer" className="text-olivine-700 underline">
               Isometric terms
             </a>
           ) : (
@@ -117,11 +117,11 @@ export function BuyPanel({
           .
         </span>
       </label>
-      <label className="flex items-start gap-2 text-sm text-frost">
-        <input type="checkbox" checked={supplierTerms} onChange={(event) => setSupplierTerms(event.target.checked)} />
+      <label className="flex items-start gap-2 text-sm text-earth">
+        <input className={checkClass} type="checkbox" checked={supplierTerms} onChange={(event) => setSupplierTerms(event.target.checked)} />
         <span>I accept the supplier terms.</span>
       </label>
-      {block ? <p className="text-sm text-signal-rose">{block}</p> : null}
+      {block ? <p className="text-sm text-jasper">{block}</p> : null}
       <button type="button" className={buttonClass} disabled={Boolean(block) || pending} onClick={() => void submit()}>
         {pending ? "Opening checkout…" : "Continue to Stripe"}
       </button>

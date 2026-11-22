@@ -9,6 +9,13 @@ import { Banner, fieldClass, quietButtonClass } from "./ui";
 
 const STATUSES: Array<CreditBatchStatus | ""> = ["", "ACTIVE", "RETIRED", "SPLIT"];
 
+/** Status pills on the palette: live credits in olivine, retired ones in deep olivine. */
+const STATUS_TONE: Partial<Record<string, string>> = {
+  ACTIVE: "bg-olivine-100 text-olivine-800",
+  RETIRED: "bg-olivine-800 text-off-white",
+  SPLIT: "bg-serpentine-50 text-serpentine-700",
+};
+
 export function BatchTable({ reloadToken }: { reloadToken: number }) {
   const [status, setStatus] = useState<CreditBatchStatus | "">("ACTIVE");
   const [after, setAfter] = useState<string | null>(null);
@@ -38,10 +45,10 @@ export function BatchTable({ reloadToken }: { reloadToken: number }) {
 
   return (
     <div className="space-y-3">
-      <label className="flex items-center gap-2 text-xs text-mist">
+      <label className="flex items-center gap-2 text-[11.5px] font-medium text-strata-700">
         Status
         <select
-          className={`${fieldClass} w-auto`}
+          className={`${fieldClass.replace("w-full", "w-44")}`}
           value={status}
           onChange={(event) => {
             setStatus(event.target.value as CreditBatchStatus | "");
@@ -57,9 +64,9 @@ export function BatchTable({ reloadToken }: { reloadToken: number }) {
         </select>
       </label>
       {error ? <Banner kind="error">{error}</Banner> : null}
-      <div className="overflow-x-auto rounded-2xl border border-line">
+      <div className="glass-card overflow-x-auto rounded-2xl">
         <table className="w-full text-left text-sm">
-          <thead className="bg-ink-900 text-[11px] tracking-wide text-mist uppercase">
+          <thead className="border-b border-strata-300/60 text-[10.5px] font-semibold tracking-[0.12em] text-strata-700 uppercase">
             <tr>
               <th className="px-3 py-2">Batch</th>
               <th className="px-3 py-2">Status</th>
@@ -71,17 +78,21 @@ export function BatchTable({ reloadToken }: { reloadToken: number }) {
           <tbody>
             {page?.nodes.length ? (
               page.nodes.map((batch) => (
-                <tr key={batch.id} className="border-t border-line">
-                  <td className="px-3 py-2 font-mono text-xs text-frost">{batch.id}</td>
-                  <td className="px-3 py-2 text-mist">{batch.status}</td>
-                  <td className="px-3 py-2 text-frost">{formatTonnes(batch.sizeKg)}</td>
-                  <td className="px-3 py-2 font-mono text-xs text-mist">{batch.projectId}</td>
-                  <td className="px-3 py-2 text-mist">{batch.ownerName}</td>
+                <tr key={batch.id} className="border-t border-strata-300/40 transition-colors first:border-t-0 hover:bg-white/50">
+                  <td className="px-3 py-2.5 font-mono text-xs text-earth">{batch.id}</td>
+                  <td className="px-3 py-2.5">
+                    <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${STATUS_TONE[batch.status] ?? "bg-strata-300/45 text-strata-700"}`}>
+                      {batch.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-earth tabular-nums">{formatTonnes(batch.sizeKg)}</td>
+                  <td className="px-3 py-2.5 font-mono text-xs text-strata-700">{batch.projectId}</td>
+                  <td className="px-3 py-2.5 text-strata-700">{batch.ownerName}</td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-mist">
+                <td colSpan={5} className="px-3 py-6 text-strata-700">
                   {page ? "No credit batches." : "Loading batches…"}
                 </td>
               </tr>

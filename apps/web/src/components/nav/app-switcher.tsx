@@ -11,12 +11,12 @@ const SECTIONS: { id: Section; label: string; href: string; icon: LucideIcon }[]
   { id: "ledger", label: "Ledger", href: "/ledger?tab=overview&registry=isometric", icon: Landmark },
 ];
 
-/** Bottom-centre switcher between the three workspaces, styled like the 3D chain tabs. */
+/** Bottom-centre switcher between the three workspaces: a glass track with a white thumb. */
 export function AppSwitcher({ active }: { active: Section }) {
   return (
     <nav
       aria-label="Workspaces"
-      className="glass pointer-events-auto fixed bottom-5 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-1 rounded-2xl p-1.5 shadow-[0_10px_30px_rgba(7,8,8,0.10)]"
+      className="glass pointer-events-auto fixed bottom-5 left-1/2 z-[60] flex -translate-x-1/2 items-center gap-0.5 rounded-full p-1"
     >
       {SECTIONS.map(({ id, label, href, icon: Icon }) => {
         const current = id === active;
@@ -25,11 +25,11 @@ export function AppSwitcher({ active }: { active: Section }) {
             key={id}
             href={href}
             aria-current={current ? "page" : undefined}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors ${
-              current ? "bg-rock text-white" : "text-shale hover:bg-white/80"
+            className={`flex h-9 items-center gap-1.5 rounded-full px-4 text-[12px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-olivine-500 ${
+              current ? "glass-thumb text-earth" : "text-strata-700 hover:bg-white/60 hover:text-earth"
             }`}
           >
-            <Icon className="size-3.5" />
+            <Icon className={`size-3.5 ${current ? "text-olivine-700" : ""}`} />
             {label}
           </Link>
         );
