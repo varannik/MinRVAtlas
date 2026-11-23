@@ -29,8 +29,8 @@ const STYLE: StyleSpecification = {
   },
   layers: [{ id: "imagery", type: "raster", source: "imagery", paint: { "raster-contrast": 0.06 } }],
   sky: {
-    "sky-color": "#0A0919",
-    "horizon-color": "#3B3790",
+    "sky-color": "#0D1802",
+    "horizon-color": "#373A1B",
     "atmosphere-blend": ["interpolate", ["linear"], ["zoom"], 0, 1, 5, 1, 7, 0],
   },
 };
@@ -86,7 +86,7 @@ export default function LocationGlobe({
       return;
     }
     const at: [number, number] = [value.lng, value.lat];
-    if (!markerRef.current) markerRef.current = new Marker({ color: "#FF8A3D" }).setLngLat(at).addTo(map);
+    if (!markerRef.current) markerRef.current = new Marker({ color: "#B2BE8B" }).setLngLat(at).addTo(map);
     else markerRef.current.setLngLat(at);
     // Typed coordinates off screen: bring them into view.
     if (!map.getBounds().contains(at)) map.easeTo({ center: at, zoom: Math.max(map.getZoom(), 5), duration: 900 });

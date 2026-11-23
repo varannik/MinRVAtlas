@@ -113,9 +113,9 @@ const LIQUID_FRAGMENT = /* glsl */ `
     float facing = clamp(dot(n, v), 0.0, 1.0);
     float rim = pow(1.0 - facing, 1.8);
 
-    // Clear blue body, pale at the rim, a touch lighter where it swells.
-    vec3 colour = mix(vec3(0.3, 0.42, 0.95), vec3(0.66, 0.78, 1.0), rim);
-    colour += vec3(0.12, 0.1, 0.25) * smoothstep(0.0, 0.08, vSwell);
+    // Clear serpentine body, pale at the rim, a touch lighter where it swells.
+    vec3 colour = mix(vec3(0.435, 0.400, 0.247), vec3(0.851, 0.816, 0.765), rim);
+    colour += vec3(0.08, 0.09, 0.03) * smoothstep(0.0, 0.08, vSwell);
 
     // One soft highlight, fixed to the view like a reflection.
     vec3 nv = normalize((viewMatrix * vec4(n, 0.0)).xyz);
@@ -123,7 +123,7 @@ const LIQUID_FRAGMENT = /* glsl */ `
     colour += vec3(1.0) * shine * 0.7;
 
     float alpha = 0.08 + 0.42 * rim + shine * 0.4 + uGlow * 0.1;
-    gl_FragColor = vec4(colour + vec3(0.35, 0.3, 0.6) * rim * uGlow, clamp(alpha, 0.0, 0.9));
+    gl_FragColor = vec4(colour + vec3(0.3, 0.33, 0.12) * rim * uGlow, clamp(alpha, 0.0, 0.9));
   }
 `;
 

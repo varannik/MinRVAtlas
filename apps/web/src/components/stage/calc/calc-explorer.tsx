@@ -2,10 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { ChevronsDownUp, ChevronsUpDown, CircleAlert, Info, ListChecks, TriangleAlert, X } from "lucide-react";
-import { evaluate } from "@/lib/mrv/calc/evaluate";
+import { evaluate, type DailyPoint, type DatasetIndex } from "@/lib/mrv/calc/evaluate";
 import { isGenericSpec } from "@/lib/mrv/calc/specs";
 import { findNode, pathTo } from "@/lib/mrv/calc/tree";
-import type { CalcNode, EquationNode } from "@/lib/mrv/calc/types";
+import type { CalcNode, CalcSpec, EquationNode } from "@/lib/mrv/calc/types";
 import { runChecks } from "@/lib/mrv/checks";
 import { contains, formatRange, rangeDays } from "@/lib/mrv/days";
 import type { DateRange, IssueSeverity } from "@/lib/mrv/types";
@@ -37,21 +37,53 @@ function targetRange(target: CalcTarget, blocks: { id: string; range: DateRange 
   return blocks.find((block) => block.id === target.blockId)?.range ?? null;
 }
 
+/** Line styles for the three node states, as the tree draws its edges. */
+export function CalcLegend({ className = "" }: { className?: string }) {
+  return (
+    <div className={`items-center gap-3 ${className}`}>
+      {(["ok", "partial", "missing"] as const).map((status) => (
+        <span key={status} className="flex items-center gap-1.5 text-[10.5px] text-white/60">
+          <svg width="22" height="6" aria-hidden>
+            <line x1="1" x2="21" y1="3" y2="3" stroke={CALC_TONE[status].line} strokeWidth="1.6" strokeDasharray={status === "missing" ? "3 3" : undefined} />
+          </svg>
+          {CALC_TONE[status].label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 /**
- * Full-screen view of how one window's credited number is built: the root on
- * the left, each equation fanning out into its terms until every branch ends
- * in a value from our data. Red dashed branches have no data yet.
+ * How one window's credited number is built: the root on the left, each
+ * equation fanning out into its terms until every branch ends in a value from
+ * our data, with the selected node's inspector beside it. Red dashed branches
+ * have no data yet. Used full screen by CalcExplorer and on the journey's
+ * calculation floor.
  */
-export function CalcExplorer({ target, initialNodeId }: { target: CalcTarget; initialNodeId: string | null }) {
-  const { project, ledger } = useStageContext();
-  const { spec, index, blocks, daily, dataset } = ledger;
-  const closeCalc = useStage((state) => state.closeCalc);
+export function CalcTreeView({
+  spec,
+  index,
+  daily,
+  range,
+  loading,
+  initialNodeId = null,
+  wheel = "zoom",
+  inspectorClassName = "",
+}: {
+  spec: CalcSpec;
+  index: DatasetIndex | null;
+  daily: DailyPoint[];
+  range: DateRange | null;
+  loading: boolean;
+  initialNodeId?: string | null;
+  /** "modifier": plain scrolling moves the page; pinch or ⌘/Ctrl-scroll zooms the tree. */
+  wheel?: "zoom" | "modifier";
+  inspectorClassName?: string;
+}) {
   const [expanded, setExpanded] = useState<Set<string>>(() => initialExpanded(spec.root, initialNodeId));
   const [selectedId, setSelectedId] = useState<string>(() => initialNodeId ?? spec.root.id);
   const [checksOpen, setChecksOpen] = useState(false);
 
-  const range = targetRange(target, blocks);
-  const block = target.kind === "block" ? blocks.find((row) => row.id === target.blockId) : null;
   const evaluation = useMemo(() => (index && range ? evaluate(spec, index, range) : null), [index, range, spec]);
   const findings = useMemo(() => {
     if (!evaluation || !range) return [];
@@ -85,8 +117,149 @@ export function CalcExplorer({ target, initialNodeId }: { target: CalcTarget; in
   };
 
   const selected = findNode(spec.root, selectedId) ?? spec.root;
-  const badge = ORIGIN_BADGE[dataset?.origin ?? "none"];
   const allOpen = expanded.size >= allIds.length;
+
+  return (
+    <div className="flex min-h-0 flex-1">
+      <main className="relative min-w-0 flex-1 overflow-hidden">
+        <div aria-hidden className="calc-stage__grid absolute inset-0" />
+
+        {!evaluation || !index || !range ? (
+          <div className="grid h-full place-items-center px-6 text-center text-[13px] text-white/50">
+            {loading ? "Reading monitoring data…" : "This window has no data to calculate."}
+          </div>
+        ) : (
+          <>
+            <CalcViewport
+              bounds={layout.bounds}
+              fitKey={fitKey}
+              wheel={wheel}
+              actions={
+                <button
+                  type="button"
+                  onClick={() => setExpanded(new Set(allOpen ? equationsToDepth(spec.root, 0) : allIds))}
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-white/70 hover:bg-white/10 hover:text-white"
+                >
+                  {allOpen ? <ChevronsDownUp className="size-3.5" /> : <ChevronsUpDown className="size-3.5" />}
+                  {allOpen ? "Collapse all" : "Expand all"}
+                </button>
+              }
+            >
+              <svg className="pointer-events-none absolute top-0 left-0 overflow-visible" width={1} height={1} aria-hidden>
+                {layout.edges.map((edge) => {
+                  const status = evaluation.byId.get(edge.toId)?.status ?? "missing";
+                  const tone = CALC_TONE[status];
+                  return (
+                    <g key={edge.id} className="calc-edge">
+                      <path
+                        d={edge.d}
+                        style={{ d: `path("${edge.d}")`, transition: "d 480ms cubic-bezier(0.22, 1, 0.36, 1)" }}
+                        fill="none"
+                        stroke={tone.line}
+                        strokeOpacity={status === "ok" ? 0.7 : 0.9}
+                        strokeWidth={1.3}
+                        strokeDasharray={status === "missing" ? "4 4" : undefined}
+                      />
+                      <circle cx={edge.end.x - 3} cy={edge.end.y} r={3.2} fill={tone.line} />
+                      {edge.glyph ? (
+                        <g transform={`translate(${edge.end.x - 24} ${edge.end.y})`}>
+                          <circle r={8} fill="#0D1802" stroke={tone.line} strokeOpacity={0.6} />
+                          <text textAnchor="middle" dy="3.5" fontSize="11" fill={tone.ink} fontFamily="var(--font-mono)">
+                            {edge.glyph}
+                          </text>
+                        </g>
+                      ) : null}
+                    </g>
+                  );
+                })}
+              </svg>
+
+              {layout.cards.map((card) => {
+                const result = evaluation.byId.get(card.node.id);
+                if (!result) return null;
+                return card.variant === "root" ? (
+                  <CalcRootCard
+                    key={card.node.id}
+                    card={card}
+                    result={result}
+                    creditUnit={spec.creditUnit}
+                    selected={selectedId === card.node.id}
+                    onSelect={() => setSelectedId(spec.root.id)}
+                  />
+                ) : (
+                  <CalcTermCard key={card.node.id} card={card} result={result} selected={selectedId === card.node.id} onSelect={() => toggle(card.node)} />
+                );
+              })}
+            </CalcViewport>
+
+            {findings.length ? (
+              <section data-no-pan className="absolute bottom-5 left-5 max-w-[45%]">
+                {checksOpen ? (
+                  <div className="w-[340px] max-w-full rounded-2xl border border-white/10 bg-black/50 p-3 backdrop-blur-md">
+                    <button
+                      type="button"
+                      onClick={() => setChecksOpen(false)}
+                      className="mb-1.5 flex w-full items-center justify-between text-[10px] font-semibold tracking-[0.16em] text-white/45 uppercase hover:text-white/70"
+                    >
+                      Data checks · {findings.length}
+                      <X className="size-3.5" />
+                    </button>
+                    <ul className="scroll-slim max-h-48 space-y-0.5 overflow-y-auto">
+                      {findings.map((finding) => {
+                        const Icon = SEVERITY_ICON[finding.severity];
+                        return (
+                          <li key={finding.id}>
+                            <button
+                              type="button"
+                              disabled={!finding.nodeId}
+                              onClick={() => finding.nodeId && navigate(finding.nodeId)}
+                              className="flex w-full items-start gap-2 rounded-lg px-1.5 py-1 text-left enabled:hover:bg-white/[0.06]"
+                            >
+                              <Icon className="mt-0.5 size-3.5 shrink-0" style={{ color: finding.severity === "blocker" ? CALC_TONE.missing.line : finding.severity === "warning" ? CALC_TONE.partial.line : SEVERITY_TONE.info.color }} />
+                              <span className="min-w-0 text-[11.5px] leading-snug text-white/80">{finding.title}</span>
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setChecksOpen(true)}
+                    className="flex items-center gap-2 rounded-full border border-white/10 bg-black/50 px-3.5 py-2 text-[11.5px] font-semibold text-white/80 backdrop-blur-md hover:text-white"
+                  >
+                    <ListChecks className="size-4" style={{ color: findings.some((finding) => finding.severity === "blocker") ? CALC_TONE.missing.line : CALC_TONE.partial.line }} />
+                    Data checks · {findings.length}
+                  </button>
+                )}
+              </section>
+            ) : null}
+          </>
+        )}
+      </main>
+
+      <aside className={`w-[360px] shrink-0 border-l border-white/10 bg-black/25 backdrop-blur-sm ${inspectorClassName}`}>
+        {evaluation && index && range ? (
+          <CalcInspector key={selected.id} node={selected} evaluation={evaluation} index={index} range={range} onNavigate={navigate} />
+        ) : null}
+      </aside>
+    </div>
+  );
+}
+
+/**
+ * Full-screen view of how one window's credited number is built, opened from
+ * the ledger or the stage.
+ */
+export function CalcExplorer({ target, initialNodeId }: { target: CalcTarget; initialNodeId: string | null }) {
+  const { project, ledger } = useStageContext();
+  const { spec, index, blocks, daily, dataset } = ledger;
+  const closeCalc = useStage((state) => state.closeCalc);
+
+  const range = targetRange(target, blocks);
+  const block = target.kind === "block" ? blocks.find((row) => row.id === target.blockId) : null;
+  const badge = ORIGIN_BADGE[dataset?.origin ?? "none"];
 
   return (
     <div className="calc-stage absolute inset-0 flex flex-col" role="dialog" aria-modal="true" aria-label="Calculation tree">
@@ -104,16 +277,7 @@ export function CalcExplorer({ target, initialNodeId }: { target: CalcTarget; in
             {block ? ` · ${STAGE_META[block.stage].label}` : ""} · {project.name}
           </p>
         </div>
-        <div className="hidden items-center gap-3 md:flex">
-          {(["ok", "partial", "missing"] as const).map((status) => (
-            <span key={status} className="flex items-center gap-1.5 text-[10.5px] text-white/60">
-              <svg width="22" height="6" aria-hidden>
-                <line x1="1" x2="21" y1="3" y2="3" stroke={CALC_TONE[status].line} strokeWidth="1.6" strokeDasharray={status === "missing" ? "3 3" : undefined} />
-              </svg>
-              {CALC_TONE[status].label}
-            </span>
-          ))}
-        </div>
+        <CalcLegend className="hidden md:flex" />
         <span title={dataset?.note ?? badge.title} className={`rounded-md px-2 py-1 text-[10px] font-semibold ${badge.className}`}>
           {badge.label}
         </span>
@@ -127,130 +291,7 @@ export function CalcExplorer({ target, initialNodeId }: { target: CalcTarget; in
         </button>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <main className="relative min-w-0 flex-1 overflow-hidden">
-          <div aria-hidden className="calc-stage__grid absolute inset-0" />
-
-          {!evaluation || !index || !range ? (
-            <div className="grid h-full place-items-center text-[13px] text-white/50">
-              {ledger.status === "loading" ? "Reading monitoring data…" : "This window has no data to calculate."}
-            </div>
-          ) : (
-            <>
-              <CalcViewport
-                bounds={layout.bounds}
-                fitKey={fitKey}
-                actions={
-                  <button
-                    type="button"
-                    onClick={() => setExpanded(new Set(allOpen ? equationsToDepth(spec.root, 0) : allIds))}
-                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-white/70 hover:bg-white/10 hover:text-white"
-                  >
-                    {allOpen ? <ChevronsDownUp className="size-3.5" /> : <ChevronsUpDown className="size-3.5" />}
-                    {allOpen ? "Collapse all" : "Expand all"}
-                  </button>
-                }
-              >
-                <svg className="pointer-events-none absolute top-0 left-0 overflow-visible" width={1} height={1} aria-hidden>
-                  {layout.edges.map((edge) => {
-                    const status = evaluation.byId.get(edge.toId)?.status ?? "missing";
-                    const tone = CALC_TONE[status];
-                    return (
-                      <g key={edge.id} className="calc-edge">
-                        <path
-                          d={edge.d}
-                          style={{ d: `path("${edge.d}")`, transition: "d 480ms cubic-bezier(0.22, 1, 0.36, 1)" }}
-                          fill="none"
-                          stroke={tone.line}
-                          strokeOpacity={status === "ok" ? 0.7 : 0.9}
-                          strokeWidth={1.3}
-                          strokeDasharray={status === "missing" ? "4 4" : undefined}
-                        />
-                        <circle cx={edge.end.x - 3} cy={edge.end.y} r={3.2} fill={tone.line} />
-                        {edge.glyph ? (
-                          <g transform={`translate(${edge.end.x - 24} ${edge.end.y})`}>
-                            <circle r={8} fill="#0D1802" stroke={tone.line} strokeOpacity={0.6} />
-                            <text textAnchor="middle" dy="3.5" fontSize="11" fill={tone.ink} fontFamily="var(--font-mono)">
-                              {edge.glyph}
-                            </text>
-                          </g>
-                        ) : null}
-                      </g>
-                    );
-                  })}
-                </svg>
-
-                {layout.cards.map((card) => {
-                  const result = evaluation.byId.get(card.node.id);
-                  if (!result) return null;
-                  return card.variant === "root" ? (
-                    <CalcRootCard
-                      key={card.node.id}
-                      card={card}
-                      result={result}
-                      creditUnit={spec.creditUnit}
-                      selected={selectedId === card.node.id}
-                      onSelect={() => setSelectedId(spec.root.id)}
-                    />
-                  ) : (
-                    <CalcTermCard key={card.node.id} card={card} result={result} selected={selectedId === card.node.id} onSelect={() => toggle(card.node)} />
-                  );
-                })}
-              </CalcViewport>
-
-              {findings.length ? (
-                <section data-no-pan className="absolute bottom-5 left-5 max-w-[45%]">
-                  {checksOpen ? (
-                    <div className="w-[340px] max-w-full rounded-2xl border border-white/10 bg-black/50 p-3 backdrop-blur-md">
-                      <button
-                        type="button"
-                        onClick={() => setChecksOpen(false)}
-                        className="mb-1.5 flex w-full items-center justify-between text-[10px] font-semibold tracking-[0.16em] text-white/45 uppercase hover:text-white/70"
-                      >
-                        Data checks · {findings.length}
-                        <X className="size-3.5" />
-                      </button>
-                      <ul className="scroll-slim max-h-48 space-y-0.5 overflow-y-auto">
-                        {findings.map((finding) => {
-                          const Icon = SEVERITY_ICON[finding.severity];
-                          return (
-                            <li key={finding.id}>
-                              <button
-                                type="button"
-                                disabled={!finding.nodeId}
-                                onClick={() => finding.nodeId && navigate(finding.nodeId)}
-                                className="flex w-full items-start gap-2 rounded-lg px-1.5 py-1 text-left enabled:hover:bg-white/[0.06]"
-                              >
-                                <Icon className="mt-0.5 size-3.5 shrink-0" style={{ color: finding.severity === "blocker" ? CALC_TONE.missing.line : finding.severity === "warning" ? CALC_TONE.partial.line : SEVERITY_TONE.info.color }} />
-                                <span className="min-w-0 text-[11.5px] leading-snug text-white/80">{finding.title}</span>
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setChecksOpen(true)}
-                      className="flex items-center gap-2 rounded-full border border-white/10 bg-black/50 px-3.5 py-2 text-[11.5px] font-semibold text-white/80 backdrop-blur-md hover:text-white"
-                    >
-                      <ListChecks className="size-4" style={{ color: findings.some((finding) => finding.severity === "blocker") ? CALC_TONE.missing.line : CALC_TONE.partial.line }} />
-                      Data checks · {findings.length}
-                    </button>
-                  )}
-                </section>
-              ) : null}
-            </>
-          )}
-        </main>
-
-        <aside className="w-[360px] shrink-0 border-l border-white/10 bg-black/25 backdrop-blur-sm">
-          {evaluation && index && range ? (
-            <CalcInspector key={selected.id} node={selected} evaluation={evaluation} index={index} range={range} onNavigate={navigate} />
-          ) : null}
-        </aside>
-      </div>
+      <CalcTreeView spec={spec} index={index} daily={daily} range={range} loading={ledger.status === "loading"} initialNodeId={initialNodeId} />
     </div>
   );
 }

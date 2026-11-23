@@ -38,15 +38,15 @@ export const HELP_WORD: Record<CortexRole, string> = {
 };
 
 export const INPUT =
-  "h-9 w-full min-w-0 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 text-[13px] text-white placeholder:text-white/35 outline-none transition-[border-color,box-shadow] [color-scheme:dark] focus:border-[#A99BFF] focus:shadow-[0_0_0_3px_rgba(169,155,255,0.25)] disabled:opacity-60";
+  "h-9 w-full min-w-0 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 text-[13px] text-white placeholder:text-white/35 outline-none transition-[border-color,box-shadow] [color-scheme:dark] focus:border-[#A8A087] focus:shadow-[0_0_0_3px_rgba(168,160,135,0.3)] disabled:opacity-60";
 
 export const SEND =
-  "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3 text-[12px] font-semibold text-[#1B1846] transition-colors hover:bg-[#E9E5FF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white px-3 text-[12px] font-semibold text-[#0D1802] transition-colors hover:bg-[#D9D0C3] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:opacity-40";
 
 const GHOST =
   "inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/15 px-3 text-[12px] font-semibold text-white/85 transition-colors hover:bg-white/10";
 
-/** Cortex's avatar: the core's colours as a small sphere. */
+/** Cortex's avatar: the moon's colours as a small sphere. */
 export function CortexAvatar({ size = 26, busy = false }: { size?: number; busy?: boolean }) {
   return (
     <span
@@ -55,8 +55,8 @@ export function CortexAvatar({ size = 26, busy = false }: { size?: number; busy?
       style={{
         width: size,
         height: size,
-        background: "radial-gradient(circle at 35% 30%, #F2EDFF 0%, #C8BDFF 28%, #8F7DF7 58%, #23178F 100%)",
-        boxShadow: "0 0 0 2px rgba(143,125,247,0.18), 0 0 14px rgba(143,125,247,0.45)",
+        background: "radial-gradient(circle at 35% 30%, #EEE5DB 0%, #C7CEAD 30%, #8D8465 64%, #262C10 100%)",
+        boxShadow: "0 0 0 2px rgba(168,160,135,0.22), 0 0 14px rgba(178,190,139,0.5)",
       }}
     />
   );
@@ -65,9 +65,9 @@ export function CortexAvatar({ size = 26, busy = false }: { size?: number; busy?
 type Tone = "cortex" | "ok" | "warn" | "note";
 
 const TONE: Record<Tone, string> = {
-  cortex: "bg-[#8F7DF7]/[0.16] text-white ring-1 ring-[#A99BFF]/20",
-  ok: "bg-[#F5C766]/[0.12] text-[#FFF1D0] ring-1 ring-[#F5C766]/25",
-  warn: "bg-[#FF8A3D]/[0.14] text-[#FFE0C7] ring-1 ring-[#FF8A3D]/30",
+  cortex: "bg-[#6F663F]/[0.16] text-white ring-1 ring-[#A8A087]/20",
+  ok: "bg-[#8B9C44]/[0.16] text-[#DCDFCE] ring-1 ring-[#8B9C44]/30",
+  warn: "bg-[#A77618]/[0.2] text-[#EACD9C] ring-1 ring-[#A77618]/40",
   note: "bg-white/[0.05] text-white/80 ring-1 ring-white/10",
 };
 
@@ -109,7 +109,7 @@ function Given({ task, state, indent }: { task: JourneyTask; state: TaskState; i
   }
   return (
     <div className="flex justify-end">
-      <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-white px-3 py-2 text-[12.5px] leading-snug text-[#141235]">
+      <div className="max-w-[85%] rounded-2xl rounded-tr-sm bg-white px-3 py-2 text-[12.5px] leading-snug text-[#1D250A]">
         {text ? <p>{text}</p> : null}
         {files.length > 0 ? (
           <div className={text ? "mt-1" : ""}>
@@ -171,7 +171,7 @@ function ChoiceInput({
                 aria-checked={on}
                 onClick={() => toggle(option.value)}
                 className={`rounded-full border px-2.5 py-1 text-[12px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-white ${
-                  on ? "border-white bg-white text-[#1B1846]" : "border-white/20 bg-white/[0.04] text-white/85 hover:border-[#A99BFF]"
+                  on ? "border-white bg-white text-[#0D1802]" : "border-white/20 bg-white/[0.04] text-white/85 hover:border-[#A8A087]"
                 }`}
               >
                 {option.label}
@@ -191,13 +191,13 @@ function ChoiceInput({
                 option.disabled
                   ? "cursor-not-allowed border-white/8 bg-transparent text-white/35"
                   : on
-                    ? "border-[#A99BFF] bg-[#8F7DF7]/20 text-white"
-                    : "border-white/15 bg-white/[0.04] text-white/90 hover:border-[#A99BFF]/70 hover:bg-white/[0.07]"
+                    ? "border-[#A8A087] bg-[#6F663F]/20 text-white"
+                    : "border-white/15 bg-white/[0.04] text-white/90 hover:border-[#A8A087]/70 hover:bg-white/[0.07]"
               }`}
             >
               <span
                 className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border ${
-                  on ? "border-white bg-white text-[#1B1846]" : "border-white/35"
+                  on ? "border-white bg-white text-[#0D1802]" : "border-white/35"
                 }`}
               >
                 {on ? <Check className="size-2.5" strokeWidth={3} /> : null}
@@ -213,7 +213,7 @@ function ChoiceInput({
         })}
       </div>
       {clears > 0 ? (
-        <p className="flex items-start gap-1.5 text-[11.5px] leading-snug text-[#FFC48F]">
+        <p className="flex items-start gap-1.5 text-[11.5px] leading-snug text-[#EACD9C]">
           <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
           Changing this rebuilds every later step and clears {clears} answer{clears === 1 ? "" : "s"} given there.
         </p>
@@ -423,7 +423,7 @@ export function TaskCard({
             {state.note}
           </CortexSays>
         ) : (
-          <p className="flex items-start gap-1.5 text-[12px] text-[#FFC48F]">
+          <p className="flex items-start gap-1.5 text-[12px] text-[#EACD9C]">
             <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
             {state.note}
           </p>
@@ -436,7 +436,7 @@ export function TaskCard({
             <button
               type="button"
               onClick={() => accept(task.id)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[12px] font-semibold text-[#1B1846] hover:bg-[#E9E5FF]"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[12px] font-semibold text-[#0D1802] hover:bg-[#D9D0C3]"
             >
               <Check className="size-3.5" />
               Accept as it is

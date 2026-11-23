@@ -12,8 +12,8 @@ import { STATION } from "./layout";
 
 /**
  * A step as a ring of thin discs, one disc per thing Cortex needs: a step
- * with seven tasks shows seven discs. Done discs glow warm, discs with an
- * open question glow amber, the rest stay dark indigo. The ring faces the
+ * with seven tasks shows seven discs. Done discs are olivine, discs with an
+ * open question ochre, work to do dark shale, steps to come sand. The ring faces the
  * viewer; each disc is a slice around it, turned so its face catches light.
  */
 
@@ -107,22 +107,23 @@ export function createDiscMaterials(): DiscMaterials {
     new THREE.MeshBasicMaterial({ color, transparent: true, opacity, toneMapped: false });
 
   return {
-    lit: glow("#FFF0D2", "#FFDB94", 0.55),
-    litHot: glow("#FFF6E4", "#FFE2A6", 0.95),
-    amber: glow("#F6AE63", "#E07A24", 0.42),
-    amberHot: glow("#FFC27E", "#EC8A35", 0.75),
-    // Light periwinkle for "to do", mid indigo for later steps: both stand
-    // clear of the near-black background.
-    open: indigo("#8F93FF", "#3B3CB0", 0.6),
-    openHot: indigo("#B6B9FF", "#5254D6", 0.85),
-    locked: indigo("#6266C4", "#25246E", 0.55),
-    lockedHot: indigo("#8487E4", "#34338E", 0.8),
-    checking: glow("#D9D1FF", "#9C8CFF", 0.8),
-    // A thin light edge on every disc keeps its outline crisp on the dark.
-    rimLit: rim("#FFF4DC", 0.7),
-    rimAmber: rim("#FFD3A3", 0.7),
-    rimOpen: rim("#D6D8FF", 0.75),
-    rimLocked: rim("#A9ACF0", 0.5),
+    // Palette status colours: Olivine done, Ochre to check, Serpentine while
+    // Cortex checks. Shale for work to do and Sand for later steps, both clear
+    // of the light Calcite floor.
+    lit: glow("#8B9C44", "#576627", 0.35),
+    litHot: glow("#9EAD69", "#6F7F35", 0.6),
+    amber: glow("#A77618", "#835A06", 0.35),
+    amberHot: glow("#C29A4A", "#A77618", 0.55),
+    open: indigo("#57544A", "#252C19", 0.4),
+    openHot: indigo("#746F5E", "#3B3E2F", 0.6),
+    locked: indigo("#BEB290", "#746F5E", 0.25),
+    lockedHot: indigo("#D4C6AB", "#989077", 0.4),
+    checking: glow("#A8A087", "#6F663F", 0.8),
+    // A thin edge on every disc keeps its outline crisp on the floor.
+    rimLit: rim("#DCDFCE", 0.8),
+    rimAmber: rim("#EFDDB5", 0.8),
+    rimOpen: rim("#EADAC7", 0.75),
+    rimLocked: rim("#746F5E", 0.6),
   };
 }
 
@@ -280,7 +281,7 @@ export function DiscRing({
           {state !== "current" && (
             <mesh raycast={() => null}>
               <sphereGeometry args={[0.06, 20, 20]} />
-              <meshBasicMaterial color={upcoming ? "#6266C4" : "#FFE9B8"} toneMapped={false} />
+              <meshBasicMaterial color={upcoming ? "#989077" : "#8B9C44"} toneMapped={false} />
             </mesh>
           )}
 
@@ -336,9 +337,9 @@ export function DiscRing({
             {tip ? (
               <group position={[Math.cos(tipAngle) * (radius + 0.6), Math.sin(tipAngle) * (radius + 0.6), 0]}>
                 <Html center zIndexRange={[24, 0]} style={{ pointerEvents: "none" }}>
-                  <div className="whitespace-nowrap rounded-lg border border-white/20 bg-[#141235]/85 px-2.5 py-1.5 text-white shadow-lg backdrop-blur-md">
+                  <div className="whitespace-nowrap rounded-lg border border-white/10 bg-[#1D250A]/90 px-2.5 py-1.5 text-calcite shadow-lg backdrop-blur-md">
                     <p className="text-[12px] font-semibold">{tip.label}</p>
-                    <p className="text-[10.5px] text-white/70">
+                    <p className="text-[10.5px] text-sand">
                       {STATUS_WORD[tipStatus]}
                       {tip.optional ? " · optional" : ""}
                       {tip.blocks && tipStatus !== "done" ? ` · blocks ${credit}` : ""}

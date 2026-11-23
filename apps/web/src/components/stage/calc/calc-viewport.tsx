@@ -56,9 +56,12 @@ export function CalcViewport({
   bounds,
   fitKey,
   actions,
+  wheel = "zoom",
   children,
 }: {
   bounds: CalcLayout["bounds"];
+  /** "modifier": plain scrolling is left to the page; pinch or ⌘/Ctrl-scroll zooms. */
+  wheel?: "zoom" | "modifier";
   /** Changes whenever the tree's shape changes, to re-frame it. */
   fitKey: string;
   /** Extra toolbar buttons, e.g. expand all. */
@@ -85,14 +88,16 @@ export function CalcViewport({
   const view = manualActive ? manual.view : fitted;
 
   // Wheel needs a non-passive listener to keep the page from scrolling.
-  const latest = useRef({ view, key });
+  const latest = useRef({ view, key, wheel });
   useEffect(() => {
-    latest.current = { view, key };
+    latest.current = { view, key, wheel };
   });
   useEffect(() => {
     const node = frameRef.current;
     if (!node) return;
     const onWheel = (event: WheelEvent) => {
+      // Inside a scrolling page, a plain wheel scrolls the page; a pinch (ctrlKey) or ⌘-scroll zooms.
+      if (latest.current.wheel === "modifier" && !event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
       const rect = node.getBoundingClientRect();
       const cx = event.clientX - rect.left;
@@ -139,7 +144,7 @@ export function CalcViewport({
   return (
     <div
       ref={frameRef}
-      className={`absolute inset-0 touch-none overflow-hidden ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
+      className={`absolute inset-0 overflow-hidden ${wheel === "modifier" ? "touch-pan-y" : "touch-none"} ${dragging ? "cursor-grabbing" : "cursor-grab"}`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
@@ -148,7 +153,7 @@ export function CalcViewport({
       {/* Under the tree, so cards always sit on top of it. */}
       <p className="pointer-events-none absolute top-6 right-5 flex items-center gap-1.5 text-[10.5px] text-white/35">
         <Hand className="size-3.5" />
-        Drag to move · scroll to zoom
+        {wheel === "modifier" ? "Drag to move · pinch or ⌘-scroll to zoom" : "Drag to move · scroll to zoom"}
       </p>
       <div
         className="absolute top-0 left-0"

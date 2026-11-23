@@ -3,94 +3,81 @@ import * as THREE from "three";
 import type { StepId } from "@/lib/journey/types";
 
 /**
- * Where each step sits, following the process sketch: the one-off steps on
- * a straight line that runs into the centre of the verified project, which
- * sits a little raised in the middle of the monitoring loop. Ground is
- * y = 0; +z faces the viewer.
+ * Where each step sits on the top floor, facility validation. The one-off
+ * steps run left to right on a gentle arc that bows away from the viewer, and
+ * end at the validated project, drawn a little raised as the hub. Monitoring
+ * periods live on the floor below (the removal ledger), so the verification
+ * steps have no station here. Ground is y = 0; +z faces the viewer.
  */
 
-export const LOOP_CENTER = new THREE.Vector3(0, 0, 0);
-export const LOOP_RADIUS = 4.2;
 export const HUB_HEIGHT = 0.45;
 
-/** Gap between one-off steps on the line, in world units. */
-const STEP_GAP = 4.6;
+/** Gap between steps along the arc, in world units. */
+const STEP_GAP = 3.7;
+/** How far the middle of the arc sits behind its ends. */
+const BOW = 1.5;
 
-/** The one-off steps, in order along the line into the hub. */
-const LINE_STEPS = ["setup", "methodology", "onboarding", "package", "validation"] as const;
+/** The steps drawn on the validation floor, in order. */
+export const FLOOR_STEPS = ["setup", "methodology", "onboarding", "package", "validation", "listed"] as const;
+const ON_FLOOR = new Set<StepId>(FLOOR_STEPS);
+
+/** Whether a step has a station on the validation floor. */
+export function onValidationFloor(id: StepId | null | undefined): id is (typeof FLOOR_STEPS)[number] {
+  return Boolean(id && ON_FLOOR.has(id));
+}
+
+function arcPoint(index: number): THREE.Vector3 {
+  const last = FLOOR_STEPS.length - 1;
+  const t = index / last;
+  return new THREE.Vector3((index - last / 2) * STEP_GAP, index === last ? HUB_HEIGHT : 0, -BOW * Math.sin(Math.PI * t));
+}
+
+const FLOOR_STATION = Object.fromEntries(FLOOR_STEPS.map((id, index) => [id, arcPoint(index)])) as Record<
+  (typeof FLOOR_STEPS)[number],
+  THREE.Vector3
+>;
 
 /**
- * Angle (degrees) on the loop, as on the sketch: 0 = right, 90 = far side.
- * A quarter turn apart, and clear of the line, which comes in at 180.
+ * Every step's station. Verification steps share the hub's: they are not
+ * drawn here, and Cortex waits over the hub while the project is in them.
  */
-const LOOP_ANGLE = { monitor: 135, report: 45, audit: -45, issued: -135 } as const;
-
-function onLoop(degrees: number, y = 0): THREE.Vector3 {
-  const t = THREE.MathUtils.degToRad(degrees);
-  return new THREE.Vector3(
-    LOOP_CENTER.x + LOOP_RADIUS * Math.cos(t),
-    y,
-    LOOP_CENTER.z - LOOP_RADIUS * Math.sin(t),
-  );
-}
-
-const HUB = new THREE.Vector3(LOOP_CENTER.x, HUB_HEIGHT, LOOP_CENTER.z);
-/** The last one-off step sits a little outside the loop; the line starts a gap per step before it. */
-const LAST_X = LOOP_CENTER.x - LOOP_RADIUS - STEP_GAP * 0.78;
-const LINE_START = new THREE.Vector3(LAST_X - STEP_GAP * (LINE_STEPS.length - 1), 0, LOOP_CENTER.z);
-const LINE_LENGTH = HUB.x - LINE_START.x;
-
-/** A point on the straight line from the first step to the hub (0 = start, 1 = hub). */
-function onLine(t: number): THREE.Vector3 {
-  return LINE_START.clone().lerp(HUB, t);
-}
-
-const LINE_T = {
-  ...Object.fromEntries(LINE_STEPS.map((id, index) => [id, (STEP_GAP * index) / LINE_LENGTH])),
-  listed: 1,
-} as Record<(typeof LINE_STEPS)[number] | "listed", number>;
-
 export const STATION: Record<StepId, THREE.Vector3> = {
-  setup: onLine(LINE_T.setup),
-  methodology: onLine(LINE_T.methodology),
-  onboarding: onLine(LINE_T.onboarding),
-  package: onLine(LINE_T.package),
-  validation: onLine(LINE_T.validation),
-  listed: HUB.clone(),
-  monitor: onLoop(LOOP_ANGLE.monitor),
-  report: onLoop(LOOP_ANGLE.report),
-  audit: onLoop(LOOP_ANGLE.audit),
-  issued: onLoop(LOOP_ANGLE.issued),
+  ...FLOOR_STATION,
+  monitor: FLOOR_STATION.listed.clone(),
+  report: FLOOR_STATION.listed.clone(),
+  audit: FLOOR_STATION.listed.clone(),
+  issued: FLOOR_STATION.listed.clone(),
 };
 
-/** Validation path: one straight line through each one-off step into the hub. */
-export const VALIDATION_CURVE = new THREE.LineCurve3(STATION.setup.clone(), STATION.listed.clone());
+/** The validation path: a smooth curve through every station into the hub. */
+export const VALIDATION_CURVE = new THREE.CatmullRomCurve3(
+  FLOOR_STEPS.map((id) => FLOOR_STATION[id].clone()),
+  false,
+  "centripetal",
+);
 
-/** The loop, starting at Monitor and running the way the sketch's arrows go. */
-export const LOOP_CURVE = (() => {
-  const points: THREE.Vector3[] = [];
-  const count = 96;
-  for (let i = 0; i < count; i++) points.push(onLoop(LOOP_ANGLE.monitor - (i / count) * 360));
-  return new THREE.CatmullRomCurve3(points, true, "catmullrom", 0.5);
+/** How far along the path (by length, 0–1) each station sits: the path lights up to the current one. */
+export const VALIDATION_U: Partial<Record<StepId, number>> = (() => {
+  const samples = 600;
+  const points = Array.from({ length: samples + 1 }, (_, i) => VALIDATION_CURVE.getPointAt(i / samples));
+  return Object.fromEntries(
+    FLOOR_STEPS.map((id) => {
+      let best = 0;
+      let bestDistance = Infinity;
+      points.forEach((point, i) => {
+        const distance = point.distanceToSquared(FLOOR_STATION[id]);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = i / samples;
+        }
+      });
+      return [id, best];
+    }),
+  );
 })();
 
-export const VALIDATION_U: Partial<Record<StepId, number>> = { ...LINE_T };
+/** Ground caption, under the start of the arc and below the labels that hang under it. */
+export const VALIDATION_CAPTION = new THREE.Vector3(FLOOR_STATION.setup.x + STEP_GAP * 0.6, 0, 3.4);
 
-export const LOOP_U: Partial<Record<StepId, number>> = {
-  monitor: 0,
-  report: (LOOP_ANGLE.monitor - LOOP_ANGLE.report) / 360,
-  audit: (LOOP_ANGLE.monitor - LOOP_ANGLE.audit) / 360,
-  issued: (LOOP_ANGLE.monitor - LOOP_ANGLE.issued) / 360,
-};
-
-/** Where the crediting period starts: on the line, just before it crosses into the loop. */
-export const CREDITING_LABEL = onLine((LAST_X + STEP_GAP * 0.5 - LINE_START.x) / LINE_LENGTH);
-
-/** Ground captions for the two phases. */
-/** Under the start of the line, below the labels that hang under it. */
-export const VALIDATION_CAPTION = new THREE.Vector3(LINE_START.x + STEP_GAP * 0.5, 0, LOOP_CENTER.z + 4.6);
-/** In front of the loop, to the right of the label that hangs under Credits issued. */
-export const VERIFICATION_CAPTION = new THREE.Vector3(LOOP_CENTER.x + 3.4, 0, LOOP_CENTER.z + LOOP_RADIUS + 1.9);
-
-/** Middle of everything, to seed the camera fit and centre the ground. */
-export const OVERVIEW_TARGET = new THREE.Vector3((LINE_START.x + LOOP_CENTER.x + LOOP_RADIUS) / 2, 0.2, 0);
+/** Middle of the floor, to seed the camera fit and centre the ground. */
+export const OVERVIEW_TARGET = new THREE.Vector3(0, 0.2, -BOW * 0.5);

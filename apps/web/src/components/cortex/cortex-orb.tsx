@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 
@@ -72,7 +72,8 @@ const VEIL_FRAGMENT = /* glsl */ `
  * scales and places it. `thinking` brightens the rim and quickens the spin.
  * `cloud` opens it up: the core shrinks away and the filaments keep only
  * their outer half, so Cortex becomes a transparent cloud around whatever
- * sits inside its shell.
+ * sits inside its shell. `colors` repaints the core, for example as the
+ * pale moon the journey shows over its current step.
  */
 export function CortexOrb({
   thinking = false,
@@ -80,6 +81,7 @@ export function CortexOrb({
   cloud = false,
   shell = 3,
   dotSize = 2.6,
+  colors = CORE_COLORS,
   onClick,
   onHover,
 }: {
@@ -90,6 +92,8 @@ export function CortexOrb({
   shell?: number;
   /** Shell dot size; smaller orbs want smaller dots. */
   dotSize?: number;
+  /** Core colours; the brain's own by default. Read once, when the orb mounts. */
+  colors?: Record<keyof typeof CORE_COLORS, string>;
   onClick?: (event: ThreeEvent<MouseEvent>) => void;
   onHover?: (over: boolean) => void;
 }) {
@@ -112,20 +116,22 @@ export function CortexOrb({
     [lines, dots],
   );
 
+  // Colours are read once: changing them re-creates the uniforms, which the materials keep.
+  const [palette] = useState(colors);
   const coreUniforms = useMemo(
     () => ({
       uTime: { value: 0 },
       uPulse: { value: 0 },
-      uCellA: { value: new THREE.Color(CORE_COLORS.cellA) },
-      uCellB: { value: new THREE.Color(CORE_COLORS.cellB) },
-      uWall: { value: new THREE.Color(CORE_COLORS.wall) },
-      uRim: { value: new THREE.Color(CORE_COLORS.rim) },
+      uCellA: { value: new THREE.Color(palette.cellA) },
+      uCellB: { value: new THREE.Color(palette.cellB) },
+      uWall: { value: new THREE.Color(palette.wall) },
+      uRim: { value: new THREE.Color(palette.rim) },
     }),
-    [],
+    [palette],
   );
   const haloUniforms = useMemo(
-    () => ({ uColor: { value: new THREE.Color(CORE_COLORS.halo) }, uStrength: { value: 0.35 } }),
-    [],
+    () => ({ uColor: { value: new THREE.Color(palette.halo) }, uStrength: { value: 0.35 } }),
+    [palette],
   );
   const lineUniforms = useMemo(() => ({ uOpacity: { value: 0.9 }, uInner: { value: -0.3 } }), []);
   const veilUniforms = useMemo(

@@ -82,13 +82,13 @@ function useFiledDocuments(projectId: string | null, keys: string[]): Record<str
 }
 
 const STATUS: Record<DocumentStatus | "gone" | "registry", { label: string; tone: string; Icon: typeof CircleCheck }> = {
-  scanning: { label: "Scanning", tone: "text-[#2A5DB0]", Icon: LoaderCircle },
-  admitting: { label: "Being read", tone: "text-[#2A5DB0]", Icon: LoaderCircle },
-  in_cortex: { label: "In Cortex", tone: "text-[#2F6B2F]", Icon: CircleCheck },
-  held: { label: "Held: open it in Cortex", tone: "text-[#855300]", Icon: CirclePause },
-  rejected: { label: "Not admitted", tone: "text-[#A3261A]", Icon: CircleAlert },
-  gone: { label: "No longer at this place in Cortex", tone: "text-[#A3261A]", Icon: CircleAlert },
-  registry: { label: "In Cortex", tone: "text-[#2F6B2F]", Icon: CircleCheck },
+  scanning: { label: "Scanning", tone: "text-[#494826]", Icon: LoaderCircle },
+  admitting: { label: "Being read", tone: "text-[#494826]", Icon: LoaderCircle },
+  in_cortex: { label: "In Cortex", tone: "text-[#414F1B]", Icon: CircleCheck },
+  held: { label: "Held: open it in Cortex", tone: "text-[#835A06]", Icon: CirclePause },
+  rejected: { label: "Not admitted", tone: "text-[#963E32]", Icon: CircleAlert },
+  gone: { label: "No longer at this place in Cortex", tone: "text-[#963E32]", Icon: CircleAlert },
+  registry: { label: "In Cortex", tone: "text-[#414F1B]", Icon: CircleCheck },
 };
 
 /** The files given on a task, each with where it stands in Cortex. Shown in the answer bubble. */
@@ -120,7 +120,7 @@ export function FiledList({ files }: { files: FiledFile[] }) {
                 {status.label}
               </span>
             ) : sheet ? (
-              <span className="pl-[18px] text-[11px] text-[#141235]/55">Kept by name: Cortex reads PDF and Word</span>
+              <span className="pl-[18px] text-[11px] text-[#1D250A]/55">Kept by name: Cortex reads PDF and Word</span>
             ) : null}
           </li>
         );
@@ -203,7 +203,7 @@ export function FileDrop({ task, input, onAnswer }: { task: JourneyTask; input: 
         }}
         aria-disabled={busy}
         className={`flex cursor-pointer items-center gap-3 rounded-xl border border-dashed px-3 py-2.5 transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-white ${
-          over ? "border-[#A99BFF] bg-[#8F7DF7]/20" : "border-white/20 bg-white/[0.04] hover:bg-white/[0.08]"
+          over ? "border-[#A8A087] bg-[#6F663F]/20" : "border-white/20 bg-white/[0.04] hover:bg-white/[0.08]"
         } ${busy ? "pointer-events-none opacity-60" : ""}`}
       >
         <input
@@ -218,7 +218,7 @@ export function FileDrop({ task, input, onAnswer }: { task: JourneyTask; input: 
             event.target.value = "";
           }}
         />
-        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#8F7DF7]/25 text-[#D9D2FF]">
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#6F663F]/25 text-[#D9D0C3]">
           <Upload className="size-4" />
         </span>
         <span className="min-w-0">
@@ -232,19 +232,19 @@ export function FileDrop({ task, input, onAnswer }: { task: JourneyTask; input: 
             <li key={`${row.name}-${index}`} className="grid gap-1 text-[11.5px]">
               <span className="flex min-w-0 items-center gap-1.5 text-white/85">
                 {row.error ? (
-                  <CircleAlert className="size-3.5 shrink-0 text-[#FFB59A]" aria-hidden />
+                  <CircleAlert className="size-3.5 shrink-0 text-[#E0A79D]" aria-hidden />
                 ) : row.done ? (
-                  <CircleCheck className="size-3.5 shrink-0 text-[#B5E3A1]" aria-hidden />
+                  <CircleCheck className="size-3.5 shrink-0 text-[#B2BE8B]" aria-hidden />
                 ) : (
                   <LoaderCircle className="size-3.5 shrink-0 animate-spin" aria-hidden />
                 )}
                 <span className="truncate">{row.name}</span>
               </span>
-              {row.error ? <span className="pl-5 text-[#FFC9B5]">{row.error}</span> : null}
+              {row.error ? <span className="pl-5 text-[#E0A79D]">{row.error}</span> : null}
               {row.note ? <span className="pl-5 text-white/60">{row.note}</span> : null}
               {!row.done && !row.error ? (
                 <span className="ml-5 h-1 overflow-hidden rounded-full bg-white/10">
-                  <span className="block h-full rounded-full bg-[#A99BFF]" style={{ width: `${Math.round(row.progress * 100)}%` }} />
+                  <span className="block h-full rounded-full bg-[#A8A087]" style={{ width: `${Math.round(row.progress * 100)}%` }} />
                 </span>
               ) : null}
             </li>

@@ -19,9 +19,10 @@ import { STATION } from "./layout";
 type GyroLook = "active" | "upcoming" | "done";
 
 /**
- * Iridescent metal drawn directly, so it reads on the dark background
- * whatever the lighting: deep blue with blue, teal and orange film streaks
- * that travel round each ring and shift with the viewing angle.
+ * Mineral metal drawn directly, so it reads on the light Calcite floor
+ * whatever the lighting: a dark Earth body with olivine, sand and serpentine
+ * film that travels round each ring and shifts with the viewing angle (the
+ * MinRV palette; no hue outside it).
  */
 const IRIDESCENT_VERTEX = /* glsl */ `
   varying vec3 vNormalW;
@@ -39,24 +40,34 @@ const IRIDESCENT_VERTEX = /* glsl */ `
 const IRIDESCENT_FRAGMENT = /* glsl */ `
   uniform float uTime;
   uniform float uLevel;
+  uniform float uFade;
   varying vec3 vNormalW;
   varying vec3 vViewDir;
   varying vec3 vObject;
+
+  const vec3 EARTH = vec3(0.051, 0.094, 0.008);
+  const vec3 OLIVINE = vec3(0.545, 0.612, 0.267);
+  const vec3 SAND = vec3(0.745, 0.698, 0.565);
+  const vec3 SERPENTINE = vec3(0.435, 0.400, 0.247);
+  const vec3 CALCITE = vec3(0.918, 0.855, 0.780);
+
   void main() {
     float facing = abs(dot(normalize(vNormalW), normalize(vViewDir)));
     float rim = pow(1.0 - facing, 1.4);
     float around = atan(vObject.y, vObject.x);
 
-    // Thin-film colours: shift with angle around the ring and with the view.
-    vec3 film = 0.5 + 0.5 * cos(6.2831 * (vec3(0.0, 0.33, 0.67) + rim * 0.7 + around * 0.16 + uTime * 0.05));
+    // Thin-film colours from the palette, shifting with angle and view.
+    float phase = fract(rim * 0.7 + around * 0.16 + uTime * 0.05);
+    vec3 film = mix(mix(OLIVINE, SAND, smoothstep(0.0, 0.5, phase)), SERPENTINE, smoothstep(0.5, 1.0, phase));
     // Streaks of light that travel round the ring.
     float streak = smoothstep(0.35, 1.0, 0.5 + 0.5 * sin(around * 2.0 - uTime * 0.7));
     streak += 0.6 * smoothstep(0.6, 1.0, 0.5 + 0.5 * sin(around * 5.0 + uTime * 0.45));
 
-    vec3 base = vec3(0.12, 0.16, 0.42);
-    vec3 colour = base + film * (0.35 + 0.95 * streak) * (0.45 + 0.55 * facing);
-    colour += vec3(0.6, 0.78, 1.0) * pow(facing, 10.0) * 0.45;
-    gl_FragColor = vec4(colour * uLevel, 1.0);
+    vec3 colour = mix(EARTH, film, (0.35 + 0.65 * streak) * (0.45 + 0.55 * facing) * uLevel);
+    colour += CALCITE * pow(facing, 10.0) * 0.35;
+    // Steps still to come sink toward the floor's sand.
+    colour = mix(colour, SAND, uFade);
+    gl_FragColor = vec4(colour, 1.0);
   }
 `;
 
@@ -65,23 +76,25 @@ const filmTime = { value: 0 };
 
 function gyroMaterials(): Record<GyroLook, THREE.Material> {
   if (shared) return shared;
-  const film = (level: number) =>
+  const film = (level: number, fade: number) =>
     new THREE.ShaderMaterial({
       vertexShader: IRIDESCENT_VERTEX,
       fragmentShader: IRIDESCENT_FRAGMENT,
-      uniforms: { uTime: filmTime, uLevel: { value: level } },
+      uniforms: { uTime: filmTime, uLevel: { value: level }, uFade: { value: fade } },
       toneMapped: false,
     });
   shared = {
-    active: film(1.15),
-    upcoming: film(0.8),
+    active: film(1.1, 0),
+    upcoming: film(0.8, 0.42),
+    // Done is Olivine, the palette's one accent.
     done: new THREE.MeshPhysicalMaterial({
-      color: "#FFE9B8",
-      emissive: "#F5C766",
-      emissiveIntensity: 0.7,
-      metalness: 0.55,
-      roughness: 0.28,
+      color: "#8B9C44",
+      emissive: "#576627",
+      emissiveIntensity: 0.35,
+      metalness: 0.45,
+      roughness: 0.3,
       clearcoat: 1,
+      clearcoatRoughness: 0.2,
       toneMapped: false,
     }),
   };
@@ -100,9 +113,9 @@ export function coreRadius(id: JourneyStep["id"]): number {
 
 /**
  * A step while it is closed: one thin ring orbiting a solid core. The ring
- * leans and turns slowly round the core. Iridescent metal while the step has
- * work left, warm gold once every task in it is done. The step the project
- * is at has no core of its own: the orange "you are here" orb sits there.
+ * leans and turns slowly round the core. Mineral film while the step has
+ * work left, olivine once every task in it is done. The step the project
+ * is at has no core of its own: the "you are here" orb sits there.
  */
 export function StepGyro({ step, reduced }: { step: JourneyStep; reduced: boolean }) {
   const current = useJourney((state) => state.current);

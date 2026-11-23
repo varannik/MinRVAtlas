@@ -10,9 +10,9 @@ const JourneyWorkspace = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="fixed inset-0 grid place-items-center bg-[#0A0919]">
-        <div className="flex items-center gap-3 text-xs tracking-[0.2em] text-white/75 uppercase">
-          <span className="size-2 animate-pulse rounded-full bg-[#FF8A3D]" />
+      <div className="journey-floor--validation fixed inset-0 grid place-items-center">
+        <div className="flex items-center gap-3 text-xs tracking-[0.2em] text-strata-700 uppercase">
+          <span className="size-2 animate-pulse rounded-full bg-olivine-600" />
           Laying out the journey
         </div>
       </div>

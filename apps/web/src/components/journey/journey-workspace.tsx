@@ -4,25 +4,30 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowLeft, Check, CircleAlert, Cloud, ListTree, LoaderCircle, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, CircleAlert, Cloud, LoaderCircle, RotateCcw, X } from "lucide-react";
 
-import { useCortexProjects, type CortexProjectOption } from "@/components/cortex/cortex-projects";
+import { useCortexProjects } from "@/components/cortex/cortex-projects";
 import { atlasSeed, type AtlasProjectHint } from "@/lib/journey/atlas";
-import { formatLocation, formatPeriod } from "@/lib/journey/cortex";
-import { SCENARIOS, SCENARIO_BY_ID, isScenarioId } from "@/lib/journey/scenarios";
-import { nextStep, stepState } from "@/lib/journey/steps";
-import type { Phase, ScenarioId } from "@/lib/journey/types";
-import { firstOpenTask, stepProgress, usePlan, useJourney } from "@/store/journey-store";
-import { SegmentBar, StepPanel } from "./step-panel";
-import { CortexAvatar } from "./task-card";
+import { formatLocation } from "@/lib/journey/cortex";
+import { SCENARIO_BY_ID, isScenarioId } from "@/lib/journey/scenarios";
+import { stepState } from "@/lib/journey/steps";
+import type { ScenarioId } from "@/lib/journey/types";
+import { stepProgress, usePlan, useJourney } from "@/store/journey-store";
+import { FLOOR_IDS, type FloorNumber } from "./floors/floor-anchors";
+import { FloorLinks } from "./floors/floor-links";
+import { FloorLift, HereBeacon, useHereFloor } from "./floors/floor-lift";
+import { FloorHeading, StepDot, WhereCard } from "./floors/floor-parts";
+import { LowerFloors } from "./floors/lower-floors";
+import { onValidationFloor } from "./layout";
+import { StepPanel } from "./step-panel";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 function Loading() {
   return (
     <div className="grid h-full place-items-center">
-      <div className="flex items-center gap-3 text-xs tracking-[0.2em] text-white/75 uppercase">
-        <span className="size-2 animate-pulse rounded-full bg-[#FF8A3D]" />
+      <div className="flex items-center gap-3 text-xs tracking-[0.2em] text-strata-700 uppercase">
+        <span className="size-2 animate-pulse rounded-full bg-olivine-600" />
         Laying out the journey
       </div>
     </div>
@@ -34,94 +39,7 @@ const JourneyScene = dynamic(() => import("./journey-scene").then((mod) => mod.J
   loading: Loading,
 });
 
-const PHASES: { id: Phase; title: string; note: string }[] = [
-  { id: "validation", title: "Validation", note: "once per facility" },
-  { id: "verification", title: "Verification", note: "every monitoring period" },
-];
-
-// ── Where the project is ────────────────────────────────────────────────────
-
-function WhereCard() {
-  const current = useJourney((state) => state.current);
-  const laps = useJourney((state) => state.laps);
-  const tasks = useJourney((state) => state.tasks);
-  const selectTask = useJourney((state) => state.selectTask);
-  const selectStep = useJourney((state) => state.selectStep);
-  const plan = usePlan();
-  const step = plan.stepById[current];
-  const progress = stepProgress(step, tasks);
-  const next = progress.complete ? null : step.tasks.find((task) => task.id === firstOpenTask(step, tasks));
-  const inLoop = step.phase === "verification";
-  const dates = formatPeriod(tasks["monitor.period"]?.value);
-
-  return (
-    <section
-      aria-label="Where the project is"
-      className="rounded-2xl border border-white/15 bg-[#141235]/55 p-3.5 text-white shadow-[0_12px_40px_rgba(0,0,0,0.25)] backdrop-blur-xl"
-    >
-      <p className="text-[10px] font-semibold tracking-[0.18em] text-white/60 uppercase">
-        {inLoop ? `Verification · monitoring period ${laps + 1}` : "Validation · facility setup"}
-      </p>
-      {inLoop && dates ? <p className="mt-0.5 text-[11.5px] text-white/70">{dates}</p> : null}
-      <div className="mt-2 flex items-center gap-2">
-        <span className="relative flex size-2.5">
-          <span className="absolute inline-flex size-full animate-ping rounded-full bg-[#FF8A3D]/70" />
-          <span className="relative inline-flex size-2.5 rounded-full bg-[#FF8A3D]" />
-        </span>
-        <h2 className="text-[19px] leading-none font-semibold tracking-tight">{step.label}</h2>
-      </div>
-      <p className="mt-1 text-[12px] text-white/70">{step.sub}</p>
-
-      <div className="mt-3 flex items-center gap-2.5">
-        <SegmentBar step={step} className="flex-1" />
-        <span className="tabular text-[11.5px] font-semibold">
-          {progress.done}/{progress.total}
-        </span>
-      </div>
-      <p className="mt-1.5 text-[11px] text-white/65">
-        {progress.complete
-          ? "All in. Open the step to move on."
-          : [
-              `${progress.total - progress.done} to go`,
-              progress.flagged ? `${progress.flagged} to check` : null,
-              progress.blocking ? `${progress.blocking} block ${plan.credit.many}` : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-      </p>
-
-      {next ? (
-        <button
-          type="button"
-          onClick={() => selectTask(next.id)}
-          className="mt-3 flex w-full items-start gap-2 rounded-xl bg-white/10 px-2.5 py-2 text-left transition-colors hover:bg-white/16 focus-visible:outline-2 focus-visible:outline-white"
-        >
-          <CortexAvatar size={22} />
-          <span className="min-w-0">
-            <span className="block text-[10px] font-semibold tracking-[0.14em] text-white/60 uppercase">
-              {next.cortex.role === "none" ? "Next for you" : "Cortex asks"}
-            </span>
-            <span className="block text-[12.5px] leading-snug">{next.ask}</span>
-          </span>
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={() => selectStep(current)}
-          className="mt-3 flex w-full items-center gap-2 rounded-xl bg-[#FFE6B0]/15 px-2.5 py-2 text-left transition-colors hover:bg-[#FFE6B0]/25 focus-visible:outline-2 focus-visible:outline-white"
-        >
-          <CortexAvatar size={22} />
-          <span className="min-w-0">
-            <span className="block text-[10px] font-semibold tracking-[0.14em] text-[#FFE6B0]/80 uppercase">Cortex is satisfied</span>
-            <span className="block text-[12.5px] leading-snug">
-              {current === "issued" ? "Close this period and open the next" : `Ready to move to ${plan.stepById[nextStep(current)].label}`}
-            </span>
-          </span>
-        </button>
-      )}
-    </section>
-  );
-}
+// ── Validation steps, on the top floor ─────────────────────────────────────
 
 function StepRail() {
   const current = useJourney((state) => state.current);
@@ -133,59 +51,43 @@ function StepRail() {
   const plan = usePlan();
 
   return (
-    <nav aria-label="Journey steps" className="grid gap-3">
-      {PHASES.map((phase) => (
-        <div key={phase.id} className="grid gap-0.5">
-          <p className="mb-0.5 px-2 text-[10px] font-semibold tracking-[0.16em] text-white/55 uppercase">
-            {phase.title} <span className="font-medium normal-case tracking-normal text-white/45">· {phase.note}</span>
-          </p>
-          {plan.steps.filter((step) => step.phase === phase.id).map((step) => {
-            const state = stepState(step.id, current);
-            const { done, total } = stepProgress(step, tasks);
-            const active = selectedStep === step.id || hoveredStep === step.id;
-            return (
-              <button
-                key={step.id}
-                type="button"
-                onClick={() => selectStep(selectedStep === step.id ? null : step.id)}
-                onMouseEnter={() => hoverStep(step.id)}
-                onMouseLeave={() => hoverStep(null)}
-                onFocus={() => hoverStep(step.id)}
-                onBlur={() => hoverStep(null)}
-                aria-current={state === "current" ? "step" : undefined}
-                className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-[13px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-white ${
-                  active ? "bg-white/15 text-white" : state === "upcoming" ? "text-white/55 hover:bg-white/8" : "text-white/88 hover:bg-white/8"
-                }`}
-              >
-                <StepDot state={state} />
-                <span className="min-w-0 flex-1 truncate">{step.label}</span>
-                <span className="tabular text-[11px] text-white/55">
-                  {done}/{total}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      ))}
+    <nav aria-label="Validation steps" className="grid gap-0.5">
+      <p className="mb-0.5 px-2 text-[10px] font-semibold tracking-[0.16em] text-sand uppercase">
+        Validation <span className="font-medium tracking-normal text-calcite/55 normal-case">· once per facility</span>
+      </p>
+      {plan.steps
+        .filter((step) => onValidationFloor(step.id))
+        .map((step) => {
+          const state = stepState(step.id, current);
+          const { done, total } = stepProgress(step, tasks);
+          const active = selectedStep === step.id || hoveredStep === step.id;
+          return (
+            <button
+              key={step.id}
+              type="button"
+              onClick={() => selectStep(selectedStep === step.id ? null : step.id)}
+              onMouseEnter={() => hoverStep(step.id)}
+              onMouseLeave={() => hoverStep(null)}
+              onFocus={() => hoverStep(step.id)}
+              onBlur={() => hoverStep(null)}
+              aria-current={state === "current" ? "step" : undefined}
+              className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-[13px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-calcite ${
+                active ? "bg-calcite/15 text-calcite" : state === "upcoming" ? "text-calcite/55 hover:bg-calcite/8" : "text-calcite/90 hover:bg-calcite/8"
+              }`}
+            >
+              <StepDot state={state} />
+              <span className="min-w-0 flex-1 truncate">{step.label}</span>
+              <span className="tabular text-[11px] text-sand">
+                {done}/{total}
+              </span>
+            </button>
+          );
+        })}
     </nav>
   );
 }
 
-function StepDot({ state }: { state: ReturnType<typeof stepState> }) {
-  if (state === "done") {
-    return (
-      <span className="grid size-4 shrink-0 place-items-center rounded-full bg-[#FFE6B0] text-[#5A3E06] shadow-[0_0_10px_rgba(255,230,176,0.6)]">
-        <Check className="size-2.5" strokeWidth={3} />
-      </span>
-    );
-  }
-  if (state === "current") {
-    return <span className="size-4 shrink-0 rounded-full border-[3px] border-[#FF8A3D]/40 bg-[#FF8A3D] bg-clip-padding" />;
-  }
-  return <span className="size-4 shrink-0 rounded-full border border-white/35" />;
-}
-
-// ── Project, practice and legend ──────────────────────────────────────────
+// ── Project and save state ──────────────────────────────────────────────────
 
 /** What the page was asked to open: a stored Cortex project, or a practice scenario. */
 export interface JourneyRequest {
@@ -195,139 +97,53 @@ export interface JourneyRequest {
   atlas: AtlasProjectHint | null;
 }
 
-/** Keep the link shareable without a router navigation (which would remount the page). */
-function remember(query: string) {
-  window.history.replaceState(null, "", `?${query}`);
-}
-
-function SwitchButton({
-  on,
-  title,
-  tag,
-  onClick,
-}: {
-  on: boolean;
-  title: string;
-  tag: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={on}
-      onClick={onClick}
-      className={`rounded-xl px-3 py-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-white ${
-        on ? "bg-white text-[#1B1846]" : "text-white/80 hover:bg-white/10"
-      }`}
-    >
-      <span className="block max-w-44 truncate text-[12px] leading-tight font-semibold">{title}</span>
-      <span className={`block text-[10.5px] ${on ? "text-[#1B1846]/60" : "text-white/55"}`}>{tag}</span>
-    </button>
-  );
-}
-
-function ProjectSwitch({ projects }: { projects: CortexProjectOption[] }) {
-  const scenarioId = useJourney((state) => state.scenarioId);
-  const project = useJourney((state) => state.project);
-  const practiceSeed = useJourney((state) => state.practiceSeed);
-  const load = useJourney((state) => state.load);
-  const openProject = useJourney((state) => state.openProject);
-  // A practice journey opened from the Atlas is named after its project.
-  const atlasName = practiceSeed?.["setup.name"]?.value;
-
-  const practise = (id: ScenarioId) => {
-    load(id);
-    remember(`practice=${id}`);
-  };
-
-  return (
-    <div className="flex flex-col items-end gap-1.5">
-      <div className="flex items-center gap-1.5">
-        <div
-          role="radiogroup"
-          aria-label="Project"
-          className="flex max-w-[calc(100vw-6rem)] items-center gap-1 overflow-x-auto rounded-2xl border border-white/15 bg-[#141235]/55 p-1 backdrop-blur-xl"
-        >
-          {projects.map((option) => (
-            <SwitchButton
-              key={`project-${option.id}`}
-              on={project?.id === option.id}
-              title={option.name}
-              tag="Saved for the team"
-              onClick={() => {
-                void openProject(option.id, option.name);
-                remember(`project=${encodeURIComponent(option.id)}`);
-              }}
-            />
-          ))}
-          {atlasName && practiceSeed ? (
-            <SwitchButton
-              key="practice-atlas"
-              on={!project}
-              title={atlasName}
-              tag="Practice · from the Atlas"
-              onClick={() => load("new", practiceSeed)}
-            />
-          ) : null}
-          {SCENARIOS.map((scenario) => (
-            <SwitchButton
-              key={`practice-${scenario.id}`}
-              on={!project && !practiceSeed && scenario.id === scenarioId}
-              title={scenario.id === "new" ? "New project" : scenario.name}
-              tag={`Practice · ${scenario.tag}`}
-              onClick={() => practise(scenario.id)}
-            />
-          ))}
-        </div>
-        {!project ? (
-          <button
-            type="button"
-            onClick={() => load(scenarioId, practiceSeed ?? undefined)}
-            title="Start this practice journey again from its starting point"
-            aria-label="Reset"
-            className="grid size-10 place-items-center rounded-xl border border-white/15 bg-[#141235]/55 text-white/75 backdrop-blur-xl hover:text-white"
-          >
-            <RotateCcw className="size-4" />
-          </button>
-        ) : null}
-      </div>
-      <SyncNote />
-    </div>
-  );
-}
-
 /** Whether what is shown is saved, being saved, read only or practice. */
 function SyncNote() {
   const project = useJourney((state) => state.project);
   const sync = useJourney((state) => state.sync);
   const dismiss = useJourney((state) => state.dismissError);
-  const base = "flex max-w-80 items-start gap-1.5 rounded-xl border px-2.5 py-1.5 text-[11px] leading-snug backdrop-blur-xl";
+  const scenarioId = useJourney((state) => state.scenarioId);
+  const practiceSeed = useJourney((state) => state.practiceSeed);
+  const load = useJourney((state) => state.load);
+  const base = "journey-panel flex max-w-80 items-start gap-1.5 rounded-xl px-2.5 py-1.5 text-[11px] leading-snug";
 
   if (sync.state === "error") {
     return (
-      <p role="alert" className={`${base} border-[#FFC48F]/35 bg-[#3A2414]/70 text-[#FFD9B8]`}>
+      <p role="alert" className={`${base} border-[#E0A79D]/35 bg-[#3F2811]/90 text-[#E0A79D]`}>
         <CircleAlert className="mt-px size-3.5 shrink-0" aria-hidden />
         <span className="min-w-0">{sync.message}</span>
-        <button type="button" onClick={dismiss} aria-label="Dismiss" className="ml-1 shrink-0 text-white/60 hover:text-white">
+        <button type="button" onClick={dismiss} aria-label="Dismiss" className="ml-1 shrink-0 text-calcite/60 hover:text-calcite">
           <X className="size-3.5" />
         </button>
       </p>
     );
   }
   if (!project) {
-    return <p className={`${base} border-white/12 bg-[#141235]/50 text-white/60`}>Practice: nothing here is saved.</p>;
+    return (
+      <p className={`${base} items-center text-calcite/75`}>
+        Practice: nothing here is saved.
+        <button
+          type="button"
+          onClick={() => load(scenarioId, practiceSeed ?? undefined)}
+          title="Start this practice journey again from its starting point"
+          className="ml-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold text-calcite hover:bg-calcite/10"
+        >
+          <RotateCcw className="size-3" />
+          Start again
+        </button>
+      </p>
+    );
   }
   if (sync.state === "loading" || sync.state === "saving") {
     return (
-      <p role="status" className={`${base} border-white/12 bg-[#141235]/50 text-white/70`}>
+      <p role="status" className={`${base} text-calcite/75`}>
         <LoaderCircle className="mt-px size-3.5 shrink-0 animate-spin" aria-hidden />
         {sync.state === "loading" ? "Opening the project's journey…" : "Saving…"}
       </p>
     );
   }
   return (
-    <p className={`${base} border-white/12 bg-[#141235]/50 text-white/70`}>
+    <p className={`${base} text-calcite/75`}>
       <Cloud className="mt-px size-3.5 shrink-0" aria-hidden />
       {!project.canEdit
         ? "Read only: your role can see this journey but not change it."
@@ -340,13 +156,14 @@ function SyncNote() {
 
 function Legend() {
   const items = [
-    { label: "Step complete", swatch: "border-[#FFE6B0] shadow-[0_0_10px_rgba(255,230,176,0.8)]" },
-    { label: "Work left", swatch: "border-[#7FB4FF] shadow-[0_0_8px_rgba(127,180,255,0.6)]" },
-    { label: "You are here", swatch: "border-[#FF8A3D] bg-[#FF8A3D]" },
+    { label: "Step complete", swatch: "border-olivine-500 bg-olivine-500" },
+    { label: "Work left", swatch: "border-strata-700" },
+    { label: "You are here", swatch: "border-olivine-800 bg-olivine-600 shadow-[0_0_0_3px_rgba(178,190,139,0.5)]" },
+    { label: "Cortex, the moon over your step", swatch: "border-serpentine-500 bg-serpentine-300" },
   ];
   return (
-    <ul className="flex flex-wrap items-center gap-x-3.5 gap-y-1 rounded-full border border-white/12 bg-[#141235]/50 px-3.5 py-1.5 text-[11px] text-white/75 backdrop-blur-xl">
-      <li className="font-semibold text-white/85">Open a step to see one disc per item</li>
+    <ul className="glass flex flex-wrap items-center gap-x-3.5 gap-y-1 rounded-full px-3.5 py-1.5 text-[11px] text-strata-700">
+      <li className="font-semibold text-earth">Open a step to see one disc per item</li>
       {items.map((item) => (
         <li key={item.label} className="flex items-center gap-1.5">
           <span className={`size-2.5 rounded-full border-2 ${item.swatch}`} />
@@ -357,8 +174,53 @@ function Legend() {
   );
 }
 
+// ── Which floor is in view ──────────────────────────────────────────────────
+
+function useFloorInView(root: React.RefObject<HTMLElement | null>): FloorNumber {
+  const [viewing, setViewing] = useState<FloorNumber>(1);
+  useEffect(() => {
+    const scroller = root.current;
+    if (!scroller) return;
+    const shares = new Map<FloorNumber, number>();
+    const floors = (Object.entries(FLOOR_IDS) as [string, string][]).map(([floor, id]) => ({
+      floor: Number(floor) as FloorNumber,
+      node: document.getElementById(id),
+    }));
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const floor = floors.find((row) => row.node === entry.target)?.floor;
+          // Share of the viewport the floor covers, so a tall floor is not penalised.
+          if (floor) shares.set(floor, entry.intersectionRect.height / Math.max(1, entry.rootBounds?.height ?? 1));
+        }
+        let best: FloorNumber = 1;
+        let most = -1;
+        for (const [floor, share] of shares) {
+          if (share > most) {
+            most = share;
+            best = floor;
+          }
+        }
+        setViewing(best);
+      },
+      { root: scroller, threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1] },
+    );
+    for (const { node } of floors) if (node) observer.observe(node);
+    return () => observer.disconnect();
+  }, [root]);
+  return viewing;
+}
+
 // ── Workspace ───────────────────────────────────────────────────────────────
 
+/**
+ * A project's journey as floors, from the surface down: facility validation
+ * (once per facility, in 3D, with Cortex as a moon over the current step),
+ * the removal ledger (one block per monitoring period, each through the
+ * verification steps), and the calculation tree of the period selected on
+ * the ledger. Dashed lines join the floors; the page always shows where the
+ * project is.
+ */
 export function JourneyWorkspace({ request }: { request: JourneyRequest }) {
   const scenarioId = useJourney((state) => state.scenarioId);
   const project = useJourney((state) => state.project);
@@ -370,6 +232,9 @@ export function JourneyWorkspace({ request }: { request: JourneyRequest }) {
   const reduce = useReducedMotion();
   const plan = usePlan();
   const scenario = SCENARIO_BY_ID[scenarioId];
+  const here = useHereFloor();
+  const scrollRef = useRef<HTMLElement>(null);
+  const viewing = useFloorInView(scrollRef);
   // The header follows what has been answered, so a new project fills in as it goes.
   const name = useJourney((state) => state.tasks["setup.name"]?.value) || (project ? project.name : scenario.name);
   const location = useJourney((state) => state.tasks["setup.location"]?.value);
@@ -384,17 +249,11 @@ export function JourneyWorkspace({ request }: { request: JourneyRequest }) {
   const methodology = plan.methodology
     ? [plan.methodology.label, plan.methodology.version].filter(Boolean).join(" ")
     : "Methodology not chosen yet";
-  // The left column folds into a bar while a step is open; it can be opened over the canvas.
-  const [railOpen, setRailOpen] = useState(false);
-  const [railFor, setRailFor] = useState(selectedStep);
-  if (railFor !== selectedStep) {
-    setRailFor(selectedStep);
-    setRailOpen(false);
-  }
 
   // Open what the link asks for, once the user's Cortex projects are known: one of
   // them is read from the server; a practice scenario keeps this tab's answers
   // (for example after a trip to Cortex) unless the link asks for another one.
+  // The project is chosen before the journey opens, so there is no switcher here.
   const opened = useRef(false);
   useEffect(() => {
     if (opened.current || (!reply && !projectsError)) return;
@@ -437,93 +296,85 @@ export function JourneyWorkspace({ request }: { request: JourneyRequest }) {
   }, [selectStep]);
 
   const panelOpen = selectedStep !== null;
-  const folded = panelOpen && !railOpen;
+  // A validation step opened on the top floor takes the scene; the left column steps aside.
+  const floorStepOpen = panelOpen && onValidationFloor(selectedStep);
 
   return (
-    <main className="fixed inset-0 overflow-clip bg-[#0A0919] text-white">
-      <JourneyScene />
+    <main ref={scrollRef} className="journey-strata scroll-slim fixed inset-0 overflow-x-clip overflow-y-auto">
+      <div className="relative">
+        {/* Floor 1 · facility validation */}
+        <section
+          id={FLOOR_IDS[1]}
+          aria-label="Floor 1, facility validation"
+          className="journey-floor journey-floor--validation h-[100svh] min-h-[640px] overflow-clip"
+        >
+          <JourneyScene active={viewing === 1} />
 
-      {folded ? (
-        <div className="pointer-events-auto fixed top-5 left-5 z-30 flex max-w-[calc(100vw-2.5rem)] items-center gap-1 rounded-2xl border border-white/15 bg-[#141235]/60 p-1 backdrop-blur-xl max-lg:hidden lg:top-6 lg:left-6 lg:max-w-[calc(100vw-min(470px,42vw)-4rem)]">
+          <div
+            className={`pointer-events-none absolute top-20 left-4 z-10 flex max-h-[calc(100%-6rem)] w-[min(19rem,calc(100vw-2rem))] flex-col gap-3 transition-opacity duration-300 sm:left-6 lg:left-8 ${
+              floorStepOpen ? "pointer-events-none opacity-0" : "opacity-100"
+            }`}
+          >
+            <header className="pointer-events-auto">
+              <FloorHeading floor={1} eyebrow="once per facility" title="Facility validation" sub={`${methodology} · ${place}`} />
+            </header>
+            {here === 1 ? (
+              <div className="pointer-events-auto">
+                <WhereCard />
+              </div>
+            ) : null}
+            <div className="journey-panel scroll-slim pointer-events-auto hidden min-h-0 overflow-y-auto rounded-2xl p-2 lg:block">
+              <StepRail />
+            </div>
+          </div>
+
+          <div
+            className={`pointer-events-none absolute inset-x-0 bottom-5 z-10 hidden justify-center transition-opacity duration-300 md:flex ${
+              floorStepOpen ? "opacity-0" : "opacity-100"
+            }`}
+          >
+            <div className="pointer-events-auto flex flex-col items-center gap-2">
+              <Legend />
+              <p className="text-[11px] text-strata-700">
+                Drag to look around · Pinch or ⌘-scroll to zoom · Click a step or a disc · Scroll down for the ledger
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Floors 2 and 3 · removal ledger and calculation tree */}
+        <LowerFloors requested={request.project} />
+
+        <FloorLinks hubLabel="Crediting period starts" calcLabel="How it is calculated" />
+      </div>
+
+      {/* Always on screen: the project, where it is, and whether it is saved. */}
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-start gap-3 px-4 pt-4 sm:px-6">
+        <div className="journey-panel pointer-events-auto flex min-w-0 items-center gap-1 rounded-2xl p-1">
           <Link
             href="/"
             aria-label="Back to Atlas"
-            className="grid size-8 shrink-0 place-items-center rounded-xl text-white/70 hover:bg-white/10 hover:text-white"
+            className="grid size-8 shrink-0 place-items-center rounded-xl text-calcite/70 hover:bg-calcite/10 hover:text-calcite"
           >
             <ArrowLeft className="size-4" />
           </Link>
           <span className="min-w-0 truncate px-1 text-[12.5px] font-semibold">{name}</span>
-          <span className="hidden shrink-0 text-[11px] text-white/55 xl:inline">· {plan.registry?.label ?? "No registry yet"}</span>
-          <button
-            type="button"
-            onClick={() => setRailOpen(true)}
-            className="ml-1 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-xl bg-white/10 px-2.5 text-[11.5px] font-semibold text-white/85 hover:bg-white/16"
-          >
-            <ListTree className="size-3.5" />
-            Steps
-          </button>
+          <span className="hidden shrink-0 pr-2 text-[11px] text-sand xl:inline">· {plan.registry?.label ?? "No registry yet"}</span>
         </div>
-      ) : null}
-
-      <div
-        className={`pointer-events-none fixed top-5 left-5 z-30 flex max-h-[calc(100vh-2.5rem)] w-[min(19rem,calc(100vw-2.5rem))] flex-col gap-3 transition-opacity duration-300 lg:top-6 lg:left-6 ${
-          panelOpen ? "max-lg:opacity-0" : ""
-        } ${folded ? "lg:hidden" : ""}`}
-      >
-        <header className="pointer-events-auto">
-          <div className="flex items-center justify-between gap-2">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-white/65 transition-colors hover:text-white"
-            >
-              <ArrowLeft className="size-3.5" />
-              Atlas
-            </Link>
-            {panelOpen ? (
-              <button
-                type="button"
-                onClick={() => setRailOpen(false)}
-                aria-label="Fold the steps away"
-                className="grid size-7 place-items-center rounded-lg text-white/60 hover:bg-white/10 hover:text-white"
-              >
-                <X className="size-4" />
-              </button>
-            ) : null}
-          </div>
-          <p className="mt-2 text-[10.5px] font-semibold tracking-[0.2em] text-white/60 uppercase">
-            Project journey · {plan.registry?.label ?? "no registry yet"}
-          </p>
-          <h1 className="mt-1 text-[26px] leading-[1.05] font-semibold tracking-tight lg:text-[30px]">{name}</h1>
-          <p className="mt-1.5 text-[12.5px] text-white/70">
-            {methodology} · {place}
-          </p>
-        </header>
-        <div className="pointer-events-auto">
-          <WhereCard />
+        <div className="pointer-events-auto mx-auto hidden min-w-0 md:block">
+          <HereBeacon />
         </div>
-        <div className="scroll-slim pointer-events-auto hidden min-h-0 overflow-y-auto rounded-2xl border border-white/12 bg-[#141235]/45 p-2 backdrop-blur-xl lg:block">
-          <StepRail />
+        <div className={`pointer-events-auto ml-auto hidden shrink-0 transition-opacity duration-300 sm:block ${panelOpen ? "lg:opacity-0" : ""}`}>
+          <SyncNote />
+        </div>
+      </div>
+      <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4 md:hidden">
+        <div className={`pointer-events-auto min-w-0 ${panelOpen ? "hidden" : ""}`}>
+          <HereBeacon />
         </div>
       </div>
 
-      <div
-        className={`fixed top-5 right-5 z-30 transition-opacity duration-300 lg:top-6 lg:right-6 ${
-          panelOpen ? "pointer-events-none opacity-0" : "opacity-100"
-        }`}
-      >
-        <ProjectSwitch projects={projects} />
-      </div>
-
-      <div
-        className={`pointer-events-none fixed inset-x-0 bottom-5 z-30 hidden justify-center transition-opacity duration-300 md:flex ${
-          panelOpen ? "opacity-0" : "opacity-100"
-        }`}
-      >
-        <div className="pointer-events-auto flex flex-col items-center gap-2">
-          <Legend />
-          <p className="text-[11px] text-white/55">Drag to look around · Scroll to zoom · Click a step or a disc · Esc closes</p>
-        </div>
-      </div>
+      <FloorLift viewing={viewing} hidden={panelOpen} />
 
       <AnimatePresence mode="wait">
         {panelOpen && selectedStep ? (
@@ -534,7 +385,7 @@ export function JourneyWorkspace({ request }: { request: JourneyRequest }) {
             animate={{ opacity: 1, x: 0 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, x: 20 }}
             transition={{ duration: 0.32, ease: EASE }}
-            className="fixed inset-x-3 bottom-3 z-40 flex max-h-[62vh] flex-col overflow-hidden rounded-2xl border border-white/15 bg-[#141235]/55 text-white shadow-[0_24px_70px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl backdrop-saturate-150 lg:inset-x-auto lg:top-5 lg:right-5 lg:bottom-5 lg:max-h-none lg:w-[min(470px,42vw)]"
+            className="journey-panel journey-panel--solid fixed inset-x-3 bottom-3 z-50 flex max-h-[62vh] flex-col overflow-hidden rounded-2xl text-calcite shadow-[0_24px_70px_rgba(13,24,2,0.5)] lg:inset-x-auto lg:top-5 lg:right-5 lg:bottom-5 lg:max-h-none lg:w-[min(470px,42vw)]"
           >
             <StepPanel stepId={selectedStep} />
           </motion.aside>

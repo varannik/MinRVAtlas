@@ -9,9 +9,9 @@ import { stepProgress, taskState, usePlan, useJourney } from "@/store/journey-st
 import { CortexAvatar, HELP_WORD, KIND_ICON, KIND_WORD, TaskCard } from "./task-card";
 
 export const STATUS_PILL: Record<TaskStatus, { label: string; className: string }> = {
-  done: { label: "Done", className: "bg-[#F5C766]/20 text-[#FFE6B0]" },
-  flagged: { label: "Check", className: "bg-[#FF8A3D]/22 text-[#FFC48F]" },
-  checking: { label: "Checking", className: "bg-[#8F7DF7]/28 text-[#E0D9FF]" },
+  done: { label: "Done", className: "bg-[#8B9C44]/20 text-[#B2BE8B]" },
+  flagged: { label: "Check", className: "bg-[#A77618]/30 text-[#EACD9C]" },
+  checking: { label: "Checking", className: "bg-[#6F663F]/28 text-[#D9D0C3]" },
   open: { label: "To do", className: "bg-white/10 text-white/65" },
 };
 
@@ -25,14 +25,14 @@ export function SegmentBar({ step, className = "" }: { step: JourneyStep; classN
         const status = taskState(tasks, task.id).status;
         const colour =
           status === "done"
-            ? "bg-[#F5C766] shadow-[0_0_8px_rgba(245,199,102,0.7)]"
+            ? "bg-[#8B9C44] shadow-[0_0_8px_rgba(139,156,68,0.7)]"
             : status === "flagged"
-              ? "bg-[#E9862F]"
+              ? "bg-[#A77618]"
               : status === "checking"
-                ? "animate-pulse bg-[#9C8CFF]"
+                ? "animate-pulse bg-[#A8A087]"
                 : task.optional
                   ? "bg-white/8"
-                  : "bg-[#8F93FF]/30";
+                  : "bg-[#BEB290]/30";
         return (
           <span
             key={task.id}
@@ -113,7 +113,7 @@ export function StepPanel({ stepId }: { stepId: StepId }) {
             <div className="flex flex-wrap items-center gap-1.5">
               <span
                 className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ${
-                  verification ? "bg-[#8F7DF7]/25 text-[#E0D9FF]" : "bg-white/10 text-white/75"
+                  verification ? "bg-[#6F663F]/25 text-[#D9D0C3]" : "bg-white/10 text-white/75"
                 }`}
               >
                 {phaseChip}
@@ -124,9 +124,9 @@ export function StepPanel({ stepId }: { stepId: StepId }) {
                 </span>
               ) : null}
               {state === "current" ? (
-                <span className="rounded-full bg-[#FF8A3D] px-2 py-0.5 text-[10.5px] font-bold text-[#2A1405]">You are here</span>
+                <span className="rounded-full bg-[#B2BE8B] px-2 py-0.5 text-[10.5px] font-bold text-[#0D1802]">You are here</span>
               ) : state === "done" ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#F5C766]/20 px-2 py-0.5 text-[10.5px] font-semibold text-[#FFE6B0]">
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#8B9C44]/20 px-2 py-0.5 text-[10.5px] font-semibold text-[#B2BE8B]">
                   <Check className="size-3" /> Passed
                 </span>
               ) : (
@@ -159,7 +159,7 @@ export function StepPanel({ stepId }: { stepId: StepId }) {
       <div ref={listRef} className="scroll-slim min-h-0 flex-1 overflow-y-auto px-4 py-3.5">
         <div className="mb-3 flex items-start gap-2">
           <CortexAvatar />
-          <p className="rounded-2xl rounded-tl-sm bg-[#8F7DF7]/[0.16] px-3 py-2 text-[12.5px] leading-snug text-white ring-1 ring-[#A99BFF]/20">
+          <p className="rounded-2xl rounded-tl-sm bg-[#6F663F]/[0.16] px-3 py-2 text-[12.5px] leading-snug text-white ring-1 ring-[#A8A087]/20">
             {summary(step, tasks, state, plan)}
           </p>
         </div>
@@ -179,7 +179,7 @@ export function StepPanel({ stepId }: { stepId: StepId }) {
                 onMouseEnter={() => hoverTask(task.id)}
                 onMouseLeave={() => hoverTask(null)}
                 className={`rounded-xl border transition-colors ${
-                  open ? "border-[#A99BFF]/40 bg-white/[0.08] shadow-[0_8px_24px_rgba(0,0,0,0.25)]" : "border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.07]"
+                  open ? "border-[#A8A087]/40 bg-white/[0.08] shadow-[0_8px_24px_rgba(0,0,0,0.25)]" : "border-white/[0.06] bg-white/[0.03] hover:bg-white/[0.07]"
                 }`}
               >
                 <button
@@ -190,7 +190,7 @@ export function StepPanel({ stepId }: { stepId: StepId }) {
                 >
                   <span
                     className={`grid size-7 shrink-0 place-items-center rounded-lg ${
-                      taskSt.status === "done" ? "bg-[#F5C766]/20 text-[#FFE6B0]" : "bg-[#8F7DF7]/22 text-[#D9D2FF]"
+                      taskSt.status === "done" ? "bg-[#8B9C44]/20 text-[#B2BE8B]" : "bg-[#6F663F]/22 text-[#D9D0C3]"
                     }`}
                     title={KIND_WORD[task.kind]}
                   >
@@ -200,11 +200,11 @@ export function StepPanel({ stepId }: { stepId: StepId }) {
                     <span className="block truncate text-[13px] font-semibold text-white">{task.label}</span>
                     <span className="flex items-center gap-1 truncate text-[11px] text-white/55">
                       {withCortex ? <CortexAvatar size={9} /> : null}
-                      <span className={withCortex ? "text-[#CFC5FF]" : ""}>{HELP_WORD[task.cortex.role]}</span>
+                      <span className={withCortex ? "text-[#D9D0C3]" : ""}>{HELP_WORD[task.cortex.role]}</span>
                       <span>· {KIND_WORD[task.kind]}</span>
                       {task.optional ? <span>· optional</span> : null}
                       {task.blocks && taskSt.status !== "done" ? (
-                        <span className="font-semibold text-[#FF9F8A]">· blocks {plan.credit.many}</span>
+                        <span className="font-semibold text-[#E0A79D]">· blocks {plan.credit.many}</span>
                       ) : null}
                     </span>
                   </span>
@@ -238,7 +238,7 @@ export function StepPanel({ stepId }: { stepId: StepId }) {
             type="button"
             disabled={!progress.complete}
             onClick={advance}
-            className="mt-2.5 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-white text-[13px] font-semibold text-[#1B1846] transition-colors hover:bg-[#E9E5FF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/45"
+            className="mt-2.5 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-white text-[13px] font-semibold text-[#0D1802] transition-colors hover:bg-[#D9D0C3] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/45"
           >
             {stepId === "issued" ? `Close period ${laps + 1} and open period ${laps + 2}` : `Move to ${next.label}`}
             <ArrowRight className="size-4" />
@@ -249,7 +249,7 @@ export function StepPanel({ stepId }: { stepId: StepId }) {
             <button
               type="button"
               onClick={() => selectStep(current)}
-              className="font-semibold text-[#CFC5FF] underline-offset-2 hover:underline"
+              className="font-semibold text-[#D9D0C3] underline-offset-2 hover:underline"
             >
               Go to where you are
             </button>

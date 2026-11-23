@@ -7,12 +7,67 @@ import { STAGE_META } from "@/lib/mrv/registry-pipeline";
 import type { DateRange, LedgerBlock } from "@/lib/mrv/types";
 import { useStage } from "@/store/stage-store";
 import { formatTonnes } from "../format";
-import { BLOCK_TONE, PROPOSAL } from "../theme";
+import { BLOCK_TONE, PROPOSAL, type BlockTone } from "../theme";
 
 const FACE = 92;
 const DEPTH = 9;
 /** A focused block grows a little instead of wearing an outline. */
 const FOCUS_SCALE = 1.1;
+
+/**
+ * The extruded cube every ledger block is drawn as, like a block explorer's:
+ * a front face with a top and a side for depth. It lifts when hovered and
+ * grows a little when focused. The journey's period boxes use it too.
+ */
+export function CubeShell({
+  tone,
+  face,
+  depth,
+  focused,
+  hovered,
+  children,
+}: {
+  tone: BlockTone;
+  face: { width: number; height: number };
+  depth: number;
+  focused: boolean;
+  hovered: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className="absolute inset-0 transition-transform duration-300 ease-out"
+      style={{
+        transformOrigin: "50% 100%",
+        transform: focused ? `translateY(-3px) scale(${FOCUS_SCALE})` : hovered ? "translateY(-4px)" : undefined,
+      }}
+    >
+      {/* Top and side faces give the block its depth. */}
+      <span
+        aria-hidden
+        className="absolute top-0 left-0"
+        style={{ width: face.width, height: depth, background: tone.top, transform: "skewX(-45deg)", transformOrigin: "bottom left" }}
+      />
+      <span
+        aria-hidden
+        className="absolute bottom-0"
+        style={{ left: face.width, width: depth, height: face.height, background: tone.side, transform: "skewY(-45deg)", transformOrigin: "bottom left" }}
+      />
+      <span
+        className="absolute bottom-0 left-0 flex flex-col justify-between overflow-hidden transition-shadow duration-300"
+        style={{
+          width: face.width,
+          height: face.height,
+          background: `linear-gradient(160deg, ${tone.top} -40%, ${tone.face} 55%)`,
+          color: tone.ink,
+          boxShadow: focused ? "0 16px 28px rgba(13,24,2,0.28)" : "0 6px 14px rgba(13,24,2,0.12)",
+        }}
+      >
+        {children}
+      </span>
+    </span>
+  );
+}
 
 /** One block, drawn as a small extruded cube like a block explorer's. */
 function BlockCube({
@@ -43,34 +98,8 @@ function BlockCube({
       className={`group relative shrink-0 cursor-pointer text-left outline-none ${focused ? "z-10" : ""}`}
       style={{ width: FACE + DEPTH, height: FACE + DEPTH }}
     >
-      <span
-        className="absolute inset-0 transition-transform duration-300 ease-out"
-        style={{
-          transformOrigin: "50% 100%",
-          transform: focused ? `translateY(-3px) scale(${FOCUS_SCALE})` : hovered ? "translateY(-4px)" : undefined,
-        }}
-      >
-        {/* Top and side faces give the block its depth. */}
-        <span
-          aria-hidden
-          className="absolute top-0 left-0"
-          style={{ width: FACE, height: DEPTH, background: tone.top, transform: "skewX(-45deg)", transformOrigin: "bottom left" }}
-        />
-        <span
-          aria-hidden
-          className="absolute bottom-0"
-          style={{ left: FACE, width: DEPTH, height: FACE, background: tone.side, transform: "skewY(-45deg)", transformOrigin: "bottom left" }}
-        />
-        <span
-          className="absolute bottom-0 left-0 flex flex-col justify-between overflow-hidden px-2 py-1.5 transition-shadow duration-300"
-          style={{
-            width: FACE,
-            height: FACE,
-            background: `linear-gradient(160deg, ${tone.top} -40%, ${tone.face} 55%)`,
-            color: tone.ink,
-            boxShadow: focused ? "0 16px 28px rgba(7,8,8,0.28)" : "0 6px 14px rgba(7,8,8,0.12)",
-          }}
-        >
+      <CubeShell tone={tone} face={{ width: FACE, height: FACE }} depth={DEPTH} focused={focused} hovered={hovered}>
+        <span className="flex h-full flex-col justify-between px-2 py-1.5">
           <span className="flex items-center justify-between font-mono text-[9px] opacity-80">
             <span>#{block.sequence}</span>
             {block.origin === "sample" ? <span className="tracking-wide uppercase">sample</span> : null}
@@ -91,11 +120,11 @@ function BlockCube({
             ) : null}
           </span>
         </span>
-      </span>
+      </CubeShell>
       {focused ? (
         <span
           aria-hidden
-          className="absolute -bottom-3 size-0 border-x-[7px] border-b-[7px] border-x-transparent border-b-rock"
+          className="absolute -bottom-3 size-0 border-x-[7px] border-b-[7px] border-x-transparent border-b-earth"
           style={{ left: FACE / 2 - 7 }}
         />
       ) : null}
@@ -110,7 +139,7 @@ function ProposalCube({ selection, net, onSuggest }: { selection: DateRange | nu
       <button
         type="button"
         onClick={onSuggest}
-        className="flex shrink-0 flex-col items-center justify-center gap-1 rounded-sm border border-dashed border-shale/50 px-2 text-center text-[10px] leading-snug text-mist transition-colors hover:border-canyon hover:text-signal-amber"
+        className="flex shrink-0 flex-col items-center justify-center gap-1 rounded-sm border border-dashed border-shale/50 px-2 text-center text-[10px] leading-snug text-mist transition-colors hover:border-ochre hover:text-ochre-ink"
         style={{ width: FACE, height: FACE, marginTop: DEPTH }}
       >
         <Plus className="size-4" />
@@ -136,7 +165,17 @@ function ProposalCube({ selection, net, onSuggest }: { selection: DateRange | nu
 }
 
 /** The blocks beyond the view, as a small fanned stack that pages to them. */
-function HistoryStub({ direction, count, onClick }: { direction: "older" | "newer"; count: number; onClick: () => void }) {
+export function HistoryStub({
+  direction,
+  count,
+  onClick,
+  height = FACE,
+}: {
+  direction: "older" | "newer";
+  count: number;
+  onClick: () => void;
+  height?: number;
+}) {
   const older = direction === "older";
   const what = count > 0 ? `${count} ${older ? "earlier" : "newer"} block${count === 1 ? "" : "s"}` : `${older ? "Earlier" : "Later"} days`;
   return (
@@ -146,7 +185,7 @@ function HistoryStub({ direction, count, onClick }: { direction: "older" | "newe
       title={`Show ${what.toLowerCase()}`}
       aria-label={`Show ${what.toLowerCase()}`}
       className="group relative shrink-0 outline-none"
-      style={{ width: 58, height: FACE }}
+      style={{ width: 58, height }}
     >
       {[2, 1].map((layer) => (
         <span
@@ -156,7 +195,7 @@ function HistoryStub({ direction, count, onClick }: { direction: "older" | "newe
           style={{ transform: `translateX(${(older ? -1 : 1) * layer * 5}px) scale(${1 - layer * 0.07})`, opacity: 1 - layer * 0.3 }}
         />
       ))}
-      <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 rounded-md border border-shale/40 bg-white/85 text-mist shadow-[0_6px_14px_rgba(7,8,8,0.08)] transition-colors group-hover:border-canyon group-hover:text-signal-amber">
+      <span className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 rounded-md border border-shale/40 bg-white/85 text-mist shadow-[0_6px_14px_rgba(13,24,2,0.08)] transition-colors group-hover:border-ochre group-hover:text-ochre-ink">
         {older ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
         {count > 0 ? <span className="font-mono text-[15px] leading-none font-semibold text-frost tabular-nums">{count}</span> : null}
         <span className="text-[9px] leading-tight">{count > 0 ? (older ? "earlier" : "newer") : older ? "earlier days" : "later days"}</span>

@@ -17,7 +17,7 @@ const LocationGlobe = dynamic(() => import("./location-globe"), {
 });
 
 const FIELD =
-  "h-9 w-full min-w-0 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 text-[13px] text-white tabular placeholder:text-white/35 outline-none transition-[border-color,box-shadow] focus:border-[#A99BFF] focus:shadow-[0_0_0_3px_rgba(169,155,255,0.25)]";
+  "h-9 w-full min-w-0 rounded-lg border border-white/15 bg-white/[0.06] px-2.5 text-[13px] text-white tabular placeholder:text-white/35 outline-none transition-[border-color,box-shadow] focus:border-[#A8A087] focus:shadow-[0_0_0_3px_rgba(168,160,135,0.3)]";
 
 const round = (value: number) => Number(value.toFixed(6));
 
@@ -89,13 +89,13 @@ function GlobeDialog({
   }, [onClose]);
 
   return createPortal(
-    <div className="fixed inset-0 z-[80] grid place-items-center bg-[#05040F]/70 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[80] grid place-items-center bg-[#0D1802]/70 p-4 backdrop-blur-sm" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(event) => event.stopPropagation()}
-        className="flex h-[min(680px,90vh)] w-[min(1000px,96vw)] flex-col overflow-hidden rounded-2xl border border-white/15 bg-[#141235]/80 text-white shadow-[0_30px_80px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
+        className="flex h-[min(680px,90vh)] w-[min(1000px,96vw)] flex-col overflow-hidden rounded-2xl border border-white/15 bg-[#1D250A]/80 text-white shadow-[0_30px_80px_rgba(0,0,0,0.5)] backdrop-blur-2xl"
       >
         <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
           <div>
@@ -113,7 +113,7 @@ function GlobeDialog({
             <X className="size-4" />
           </button>
         </header>
-        <div className="relative min-h-0 flex-1 bg-[#0A0919]">
+        <div className="relative min-h-0 flex-1 bg-[#0D1802]">
           <LocationGlobe
             value={at}
             onPick={(pickedLat, pickedLng) => {
@@ -136,7 +136,7 @@ function GlobeDialog({
               type="button"
               disabled={!at}
               onClick={() => onUse(lat, lng)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-[12px] font-semibold text-[#1B1846] hover:bg-[#E9E5FF] disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white px-3 text-[12px] font-semibold text-[#0D1802] hover:bg-[#D9D0C3] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <MapPin className="size-3.5" />
               Use this location
@@ -182,7 +182,7 @@ export function LocationPicker({
         onClick={() => setOpen(true)}
         className="flex items-center gap-3 rounded-xl border border-white/15 bg-white/[0.05] px-3 py-2.5 text-left transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white"
       >
-        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#8F7DF7]/25 text-[#D9D2FF]">
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#6F663F]/25 text-[#D9D0C3]">
           <Globe2 className="size-4" />
         </span>
         <span className="min-w-0">
@@ -195,12 +195,12 @@ export function LocationPicker({
       <p className="text-[11px] text-white/45">Or type the coordinates (WGS84 decimal degrees):</p>
       <CoordinateFields lat={lat} lng={lng} onLat={setLat} onLng={setLng} />
       {typed && !at ? (
-        <p className="text-[11px] text-[#FFC48F]">Latitude runs from -90 to 90 and longitude from -180 to 180.</p>
+        <p className="text-[11px] text-[#EACD9C]">Latitude runs from -90 to 90 and longitude from -180 to 180.</p>
       ) : null}
       <button
         type="submit"
         disabled={!at}
-        className="inline-flex h-9 items-center gap-1.5 justify-self-start rounded-lg bg-white px-3 text-[12px] font-semibold text-[#1B1846] transition-colors hover:bg-[#E9E5FF] disabled:cursor-not-allowed disabled:opacity-40"
+        className="inline-flex h-9 items-center gap-1.5 justify-self-start rounded-lg bg-white px-3 text-[12px] font-semibold text-[#0D1802] transition-colors hover:bg-[#D9D0C3] disabled:cursor-not-allowed disabled:opacity-40"
       >
         {submitLabel}
       </button>
