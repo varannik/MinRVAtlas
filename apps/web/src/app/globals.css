@@ -927,11 +927,11 @@ body {
   opacity: 0.5;
 }
 
-/* ── Journey floors ───────────────────────────────────────────────
-   One Strata column, light at the surface and Earth at depth: facility
-   validation on Calcite, the removal ledger through Sand and Serpentine,
-   the calculation tree down to Earth. Each floor starts on the colour the
-   floor above ends on, so the column blends with no seam. */
+/* ── Strata floors: the journey and the live chain ─────────────────
+   One Strata column, light at the surface and Earth at depth. The journey
+   runs facility validation, the removal ledger and the calculation tree down
+   it; the live chain runs supply, the storage site and the subsurface. Each
+   floor starts on the colour the floor above ends on, so there is no seam. */
 
 .journey-strata {
   background: var(--color-earth);
@@ -987,6 +987,20 @@ body {
   background: #1d250a;
 }
 
+/* A live chain view opening full screen, in place. */
+.chain-stage {
+  animation: chain-stage-in 280ms ease-out;
+}
+
+@keyframes chain-stage-in {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* The dashed links between floors flow downward, the way the project goes. */
 .floor-link-flow {
   animation: floor-link-flow 1.4s linear infinite;
@@ -1015,7 +1029,8 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .floor-link-flow,
-  .cortex-moon {
+  .cortex-moon,
+  .chain-stage {
     animation: none;
   }
 }

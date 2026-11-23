@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { JOURNEY_VERSION } from "./definition";
-import { SCENARIO_BY_ID } from "./scenarios";
+import { seedScenario } from "@/test/seed";
 import { journeySummary } from "./summary";
 
 describe("the journey as Cortex reads it", () => {
-  const scenario = SCENARIO_BY_ID["fujairah-mineral"];
+  const scenario = seedScenario("fujairah-mineral");
   const record = { current: scenario.current, laps: scenario.laps, tasks: structuredClone(scenario.seed) };
 
   it("names the registry, methodology, current step and definition", () => {

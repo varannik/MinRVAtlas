@@ -7,7 +7,7 @@ import {
 } from "@/lib/sentinel/config";
 import { listQualityProjects } from "@/lib/sentinel/quality-projects";
 import { resolveOwnedProject } from "@/lib/registries/server";
-import { TENANTS } from "@/lib/tenants";
+import { isKnownTenant } from "@/lib/atlas/catalog.server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,16 +18,16 @@ function jsonError(message: string, status: number) {
   );
 }
 
-function tenantFrom(request: NextRequest): string | null {
+async function tenantFrom(request: NextRequest): Promise<string | null> {
   const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId || !TENANTS.some((tenant) => tenant.id === tenantId)) {
+  if (!tenantId || !(await isKnownTenant(tenantId))) {
     return null;
   }
   return tenantId;
 }
 
 export async function GET(request: NextRequest) {
-  const tenantId = tenantFrom(request);
+  const tenantId = await tenantFrom(request);
   if (!tenantId) return jsonError("Unknown tenant", 403);
 
   const projects = await listQualityProjects(tenantId);
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const tenantId = tenantFrom(request);
+  const tenantId = await tenantFrom(request);
   if (!tenantId) return jsonError("Unknown tenant", 403);
   if (tenantId !== getSentinelConfig().tenantId) {
     return jsonError("Sentinel is not provisioned for this tenant", 403);
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
   if (!catalogProjectId) return jsonError("catalogProjectId is required", 400);
 
-  const project = resolveOwnedProject(tenantId, catalogProjectId);
+  const project = await resolveOwnedProject(tenantId, catalogProjectId);
   if (!project) return jsonError("Unknown project", 404);
 
   try {

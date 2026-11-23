@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { applyAction, type JourneyRecord } from "@/lib/journey/engine";
-import { SCENARIO_BY_ID } from "@/lib/journey/scenarios";
+import { seedScenario } from "@/test/seed";
 import { STEP_DEFS } from "@/lib/journey/definition";
 import { REQUIREMENTS, requirementValue, requirementsFor } from "./catalog";
 import { scopeKey, viewOf } from "./store.server";
@@ -13,7 +13,7 @@ const GSC = { registry: "puro", methodology: "puro-geologically-stored-carbon", 
 const NOW = "2026-11-22T12:00:00.000Z";
 
 function fujairah(): JourneyRecord {
-  const scenario = SCENARIO_BY_ID["fujairah-mineral"];
+  const scenario = seedScenario("fujairah-mineral");
   return { current: scenario.current, laps: scenario.laps, tasks: structuredClone(scenario.seed) };
 }
 

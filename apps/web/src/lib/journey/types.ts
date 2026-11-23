@@ -154,7 +154,8 @@ export interface TaskState {
   at?: string;
 }
 
-export type ScenarioId = "fujairah-mineral" | "new";
+/** A practice journey's starting point, by id ("fujairah-mineral", "new"); they live in the Atlas table. */
+export type ScenarioId = string;
 
 export interface JourneyScenario {
   id: ScenarioId;

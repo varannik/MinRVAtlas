@@ -16,7 +16,7 @@ import {
   listObservationKeys,
   streamConfigured,
 } from "@/lib/stream-s3";
-import { TENANTS } from "@/lib/tenants";
+import { isKnownTenant } from "@/lib/atlas/catalog.server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -65,7 +65,7 @@ async function loadWindow(
       filename: string;
     }
 > {
-  const project = resolveOwnedProject(input.tenantId, input.projectId);
+  const project = await resolveOwnedProject(input.tenantId, input.projectId);
   if (!project) return { error: "Unknown project", status: 403 };
   if (project.registry !== "Isometric") {
     return { error: "Stream GHG fetch is Isometric-desk only", status: 403 };
@@ -149,11 +149,11 @@ export async function GET(request: NextRequest) {
     return jsonError("periodStart and periodEnd must be YYYY-MM-DD with start ≤ end", 400);
   }
   const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId || !TENANTS.some((tenant) => tenant.id === tenantId)) {
+  if (!tenantId || !(await isKnownTenant(tenantId))) {
     return jsonError("Unknown tenant", 403);
   }
   const clientRegistry = request.nextUrl.searchParams.get("registry");
-  const owned = resolveOwnedProject(tenantId, projectId);
+  const owned = await resolveOwnedProject(tenantId, projectId);
   if (!owned) return jsonError("Unknown project", 403);
   if (clientRegistry && clientRegistry !== owned.registry) {
     return jsonError("registry does not match the project", 403);
@@ -195,11 +195,11 @@ export async function POST(request: NextRequest) {
     return jsonError("periodStart and periodEnd must be YYYY-MM-DD with start ≤ end", 400);
   }
   const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId || !TENANTS.some((tenant) => tenant.id === tenantId)) {
+  if (!tenantId || !(await isKnownTenant(tenantId))) {
     return jsonError("Unknown tenant", 403);
   }
   if (typeof body.registry === "string") {
-    const owned = resolveOwnedProject(tenantId, projectId);
+    const owned = await resolveOwnedProject(tenantId, projectId);
     if (!owned) return jsonError("Unknown project", 403);
     if (body.registry !== owned.registry) {
       return jsonError("registry does not match the project", 403);

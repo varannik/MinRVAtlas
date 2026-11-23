@@ -79,7 +79,7 @@ function copyUpstreamHeaders(upstream: Response): Headers {
 }
 
 export async function proxySentinel(request: NextRequest): Promise<Response> {
-  const tenantId = resolveRequestTenant(request);
+  const tenantId = await resolveRequestTenant(request);
   if (!tenantId) return jsonError("Unknown tenant", 403);
 
   const config = getSentinelConfig();

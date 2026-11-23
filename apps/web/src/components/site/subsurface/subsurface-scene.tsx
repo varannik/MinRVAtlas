@@ -9,9 +9,9 @@ import { phasesAt, resistivitySection, type Phases } from "./dfn";
 import type { PlacedWell, Subsurface, SubsurfaceView } from "./model";
 
 export const EVIDENCE_COLOR: Record<Evidence, string> = {
-  measured: "#2F7D4F",
-  interpreted: "#B0791C",
-  simulated: "#6E58C9",
+  measured: "#414F1B",
+  interpreted: "#6F663F",
+  simulated: "#746F5E",
 };
 
 export const EVIDENCE_LABEL: Record<Evidence, string> = {
@@ -20,16 +20,20 @@ export const EVIDENCE_LABEL: Record<Evidence, string> = {
   simulated: "Simulated",
 };
 
-/** Colour conventions from the research brief. */
+/**
+ * The carbonation path in the MinRV palette: injected fluid in Olivine, the
+ * reaction in Serpentine, and carbonate ending as Calcite. Fractures run from
+ * open (dark) through partly filled to sealed with serpentine.
+ */
 export const PROCESS_COLOR = {
-  fluid: "#2F7FE0",
-  dissolved: "#4FD6E8",
-  reaction: "#E8892C",
-  carbonate: "#F4F1EA",
-  open: "#2E3338",
-  partial: "#9C8B63",
-  sealed: "#CFC8B6",
-  selected: "#FFD84D",
+  fluid: "#8B9C44",
+  dissolved: "#C7CEAD",
+  reaction: "#A8A087",
+  carbonate: "#EADAC7",
+  open: "#1C2807",
+  partial: "#989077",
+  sealed: "#6F663F",
+  selected: "#FFFFFF",
 } as const;
 
 function EvidenceTag({ evidence }: { evidence: Evidence }) {
@@ -95,7 +99,7 @@ function LayerSlab({ layer, sub, floor }: { layer: SubsurfaceLayer; sub: Subsurf
       >
         <boxGeometry args={[frame.halfLength * 2, height, frame.halfWidth * 2]} />
       </mesh>
-      <Line points={outline} color="#3b342c" lineWidth={1} transparent opacity={0.45} />
+      <Line points={outline} color="#BEB290" lineWidth={1} transparent opacity={0.35} />
       <Html
         position={[frame.centre.x + frame.halfLength + 8, -(layer.top + layer.base) / 2, frame.centre.z + frame.halfWidth]}
         zIndexRange={[10, 0]}
@@ -132,7 +136,7 @@ function InjectionInterval({ sub }: { sub: Subsurface }) {
   return (
     <>
       {[model.reservoir.top, model.reservoir.base].map((depth) => (
-        <Line key={depth} points={ring(depth)} color="#7B4FB3" lineWidth={2} dashed dashSize={10} gapSize={6} />
+        <Line key={depth} points={ring(depth)} color="#B2BE8B" lineWidth={2} dashed dashSize={10} gapSize={6} />
       ))}
     </>
   );
@@ -145,12 +149,12 @@ function DepthRuler({ sub }: { sub: Subsurface }) {
   const ticks = Array.from({ length: Math.floor(model.block.bottom / 100) + 1 }, (_, i) => i * 100);
   return (
     <group>
-      <Line points={[[x, 0, z], [x, -model.block.bottom, z]]} color="#57544A" lineWidth={1.4} />
+      <Line points={[[x, 0, z], [x, -model.block.bottom, z]]} color="#BEB290" lineWidth={1.4} />
       {ticks.map((depth) => (
         <group key={depth}>
-          <Line points={[[x - 6, -depth, z], [x, -depth, z]]} color="#57544A" lineWidth={1.4} />
+          <Line points={[[x - 6, -depth, z], [x, -depth, z]]} color="#BEB290" lineWidth={1.4} />
           <Html position={[x - 10, -depth, z]} center zIndexRange={[10, 0]}>
-            <span className="text-[10px] font-medium whitespace-nowrap text-shale">−{depth} m</span>
+            <span className="text-[10px] font-medium whitespace-nowrap text-sand">−{depth} m</span>
           </Html>
         </group>
       ))}
@@ -325,7 +329,7 @@ function Microseismic({ sub, phases }: { sub: Subsurface; phases: Phases }) {
       {sub.dfn.events.map((event) => (
         <mesh key={event.fracture} position={[event.x, event.y, event.z]} scale={0} raycast={() => null}>
           <sphereGeometry args={[1, 10, 8]} />
-          <meshBasicMaterial color="#D7263D" transparent opacity={0.85} />
+          <meshBasicMaterial color="#E0A79D" transparent opacity={0.9} />
         </mesh>
       ))}
     </group>
@@ -336,16 +340,16 @@ function Microseismic({ sub, phases }: { sub: Subsurface; phases: Phases }) {
 // Wells: casing and cement, perforated or screened intervals, sensors.
 
 const INTERVAL_STYLE = {
-  casing: { radius: 2, color: "#8E969E" },
-  perforated: { radius: 2.4, color: "#7B4FB3" },
-  screen: { radius: 2.3, color: "#3A8FD6" },
-  geophones: { radius: 1.6, color: "#8E969E" },
+  casing: { radius: 2, color: "#BEB290" },
+  perforated: { radius: 2.4, color: "#8B9C44" },
+  screen: { radius: 2.3, color: "#A8A087" },
+  geophones: { radius: 1.6, color: "#BEB290" },
 } as const;
 
 const SENSOR_COLOR = {
-  "pressure-temperature": "#E0A526",
-  sampling: "#3A8FD6",
-  geophone: "#C6362B",
+  "pressure-temperature": "#EADAC7",
+  sampling: "#A8A087",
+  geophone: "#C7CEAD",
 } as const;
 
 function Well({
@@ -384,10 +388,10 @@ function Well({
             <mesh position={[0, -(interval.top + interval.base) / 2, 0]}>
               <cylinderGeometry args={[style.radius, style.radius, length, 14]} />
               <meshStandardMaterial
-                color={active ? "#2F7FE0" : style.color}
+                color={active ? PROCESS_COLOR.fluid : style.color}
                 metalness={interval.kind === "casing" ? 0.6 : 0.1}
                 roughness={0.4}
-                emissive={active ? "#2F7FE0" : selected ? "#7B4FB3" : "#000000"}
+                emissive={active ? PROCESS_COLOR.fluid : selected ? "#B2BE8B" : "#000000"}
                 emissiveIntensity={active ? 0.6 : selected ? 0.4 : 0}
               />
             </mesh>
@@ -416,7 +420,7 @@ function Well({
       })}
       {well.sensors.map((sensor, i) => {
         const detected = sensor.kind === "sampling" && well.role === "observation" && tracerArrived;
-        const colour = detected ? "#4FD6E8" : SENSOR_COLOR[sensor.kind];
+        const colour = detected ? PROCESS_COLOR.dissolved : SENSOR_COLOR[sensor.kind];
         return (
           <mesh key={`${sensor.label}-${i}`} position={[0, -sensor.depth, 0]}>
             <sphereGeometry args={[detected ? 5.5 : 4, 16, 12]} />
@@ -432,12 +436,12 @@ function Well({
             onSelect(object.id);
           }}
           className={`pointer-events-auto rounded-md bg-white/92 px-1.5 py-0.5 text-left text-[10px] whitespace-nowrap shadow-sm ${
-            selected ? "ring-2 ring-[#7B4FB3]" : "ring-1 ring-line"
+            selected ? "ring-2 ring-olivine-300" : "ring-1 ring-line"
           }`}
         >
           <span className="font-semibold text-rock">{object.code ?? object.name}</span>
           <span className="text-shale"> · {depth} m</span>
-          {showsTracer(well.role, tracerArrived) ? <span className="ml-1 font-semibold text-[#1d8fa3]">tracer detected</span> : null}
+          {showsTracer(well.role, tracerArrived) ? <span className="ml-1 font-semibold text-olivine-700">tracer detected</span> : null}
         </button>
       </Html>
     </group>
@@ -481,10 +485,10 @@ function TemGrid({ sub }: { sub: Subsurface }) {
   return (
     <group>
       <lineSegments geometry={geometry.grid} raycast={() => null}>
-        <lineBasicMaterial color="#1f6f8b" transparent opacity={0.55} />
+        <lineBasicMaterial color="#BEB290" transparent opacity={0.45} />
       </lineSegments>
       <points geometry={geometry.points} raycast={() => null}>
-        <pointsMaterial color="#0e3d4f" size={5} sizeAttenuation={false} />
+        <pointsMaterial color="#EADAC7" size={5} sizeAttenuation={false} />
       </points>
       <Html
         position={[frame.centre.x - frame.halfLength, 2, frame.centre.z - frame.halfWidth]}

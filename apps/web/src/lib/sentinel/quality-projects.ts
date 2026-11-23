@@ -1,6 +1,6 @@
 import "server-only";
 
-import { PROJECTS } from "@/lib/projects";
+import { listProjects } from "@/lib/atlas/catalog.server";
 import { findConnection } from "@/lib/registries";
 import {
   mapCertifyProjects,
@@ -33,7 +33,7 @@ function toOption(project: Project): QualityProjectOption {
 export async function listQualityProjects(
   tenantId: string,
 ): Promise<QualityProjectOption[]> {
-  const catalog = PROJECTS.filter((project) => project.tenantId === tenantId);
+  const catalog = await listProjects(tenantId);
   const connection = findConnection(tenantId, "Isometric");
   if (!connection) return uniqueProjects(catalog).map(toOption);
 
@@ -49,6 +49,7 @@ export async function listQualityProjects(
     tenantId,
     listed.nodes,
     preferredCertifyProjectId(connection),
+    catalog,
   );
   const liveIds = new Set(isometric.map((project) => project.id));
   const others = catalog.filter(

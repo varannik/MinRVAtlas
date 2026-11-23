@@ -15,7 +15,7 @@ import {
   resolveOwnedProject,
 } from "@/lib/registries/server";
 import type { PipelineResult } from "@/lib/sentinel/pipeline-types";
-import { TENANTS } from "@/lib/tenants";
+import { isKnownTenant } from "@/lib/atlas/catalog.server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -75,11 +75,11 @@ export async function GET(request: NextRequest) {
   }
 
   const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId || !TENANTS.some((tenant) => tenant.id === tenantId)) {
+  if (!tenantId || !(await isKnownTenant(tenantId))) {
     return jsonError("Unknown tenant", 403);
   }
 
-  const project = resolveOwnedProject(tenantId, projectId);
+  const project = await resolveOwnedProject(tenantId, projectId);
   if (!project) return jsonError("Unknown project", 404);
   if (project.registry !== "Isometric") {
     return Response.json(emptyAccounting("Not an Isometric project."), {
@@ -129,7 +129,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: Request) {
   const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId || !TENANTS.some((tenant) => tenant.id === tenantId)) {
+  if (!tenantId || !(await isKnownTenant(tenantId))) {
     return jsonError("Unknown tenant", 403);
   }
 
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
     return jsonError("project_id and batch_id are required", 400);
   }
 
-  const project = resolveOwnedProject(tenantId, catalogProjectId);
+  const project = await resolveOwnedProject(tenantId, catalogProjectId);
   if (!project) return jsonError("Unknown project", 404);
   if (project.registry !== "Isometric") {
     return jsonError("Certify write is only wired for Isometric", 409);

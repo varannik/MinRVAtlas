@@ -1,5 +1,5 @@
 import { resolveOwnedProject } from "@/lib/registries/server";
-import { TENANTS } from "@/lib/tenants";
+import { isKnownTenant } from "@/lib/atlas/catalog.server";
 import type { ItemKind } from "@/lib/types";
 import { getSentinelConfig, SentinelProjectMapError } from "@/lib/sentinel/config";
 import { runOperatorPipeline } from "@/lib/sentinel/pipeline";
@@ -28,7 +28,7 @@ function jsonError(message: string, status: number) {
 
 export async function POST(request: Request) {
   const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId || !TENANTS.some((tenant) => tenant.id === tenantId)) {
+  if (!tenantId || !(await isKnownTenant(tenantId))) {
     return jsonError("Unknown tenant", 403);
   }
   if (tenantId !== getSentinelConfig().tenantId) {
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     return jsonError("project_id, slot_id, batch_id and kind are required", 400);
   }
 
-  const project = resolveOwnedProject(tenantId, catalogProjectId);
+  const project = await resolveOwnedProject(tenantId, catalogProjectId);
   if (!project) return jsonError("Unknown project", 404);
 
   const files: { name: string; type: string; bytes: Uint8Array }[] = [];

@@ -11,7 +11,7 @@ import type { Project, SubmissionBatch } from "@/lib/types";
 import { useDashboard } from "@/store/dashboard-store";
 import { useJourney } from "@/store/journey-store";
 import { useLiveProjects } from "@/store/live-projects-store";
-import { hydratePipelineStore, usePipeline } from "@/store/pipeline-store";
+import { usePipeline } from "@/store/pipeline-store";
 import { useRegistrySubmit } from "@/store/registry-submit-store";
 
 /**
@@ -44,10 +44,6 @@ export function useProjectBatches(project: Project | undefined): SubmissionBatch
   const { periods } = useReportingPeriods(project);
   const pipelineByKey = usePipeline((state) => state.byKey);
   const submitByKey = useRegistrySubmit((state) => state.byKey);
-
-  useEffect(() => {
-    hydratePipelineStore();
-  }, []);
 
   const raw = useMemo(() => (project && spec ? getSubmissions(project, spec, periods) : null), [periods, project, spec]);
   return useMemo(() => (raw ? overlayBatches(raw, pipelineByKey, submitByKey) : null), [pipelineByKey, raw, submitByKey]);

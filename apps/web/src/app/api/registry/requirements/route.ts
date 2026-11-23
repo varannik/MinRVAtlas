@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { findConnection } from "@/lib/registries";
 import { bundledResult, fetchRequirementSpec, resolveOwnedProject } from "@/lib/registries/server";
-import { TENANTS } from "@/lib/tenants";
+import { isKnownTenant } from "@/lib/atlas/catalog.server";
 
 /**
  * The only door between the dashboard and a registry.
@@ -30,11 +30,11 @@ export async function GET(request: NextRequest) {
   // Stands in for the session lookup a real deployment would do here. The
   // tenant is never trusted to also name the registry credentials.
   const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId || !TENANTS.some((tenant) => tenant.id === tenantId)) {
+  if (!tenantId || !(await isKnownTenant(tenantId))) {
     return unauthorized("Unknown tenant");
   }
 
-  const project = resolveOwnedProject(tenantId, projectId);
+  const project = await resolveOwnedProject(tenantId, projectId);
   if (!project) {
     return Response.json({ error: "Unknown project" }, { status: 404 });
   }

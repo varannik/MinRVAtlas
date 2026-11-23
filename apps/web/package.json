@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "backend:up": "docker compose -f local/docker-compose.yml up -d",
+    "backend:down": "docker compose -f local/docker-compose.yml down",
+    "seed": "JITI_TSCONFIG_PATHS=true node --env-file=.env.local --import jiti/register --import ./loaders/node-test.mjs scripts/seed/load.ts",
+    "seed:export": "JITI_TSCONFIG_PATHS=true node --import jiti/register --import ./loaders/node-test.mjs scripts/seed/export.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1172.0",

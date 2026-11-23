@@ -2,12 +2,12 @@ import type { FlowKind, Px, SiteLayout, SiteObject, SitePart, SiteZone } from "@
 
 /** Zone colours, taken from the dashed outlines on the site photo. */
 export const ZONE_COLOR: Record<SiteZone, string> = {
-  surface: "#E0A526",
-  subsurface: "#7B4FB3",
-  energy: "#C6362B",
-  ancillary: "#3E9B4F",
-  storage: "#3A8FD6",
-  legacy: "#2A2A2A",
+  surface: "#414F1B",
+  subsurface: "#6F663F",
+  energy: "#8D8465",
+  ancillary: "#8B9C44",
+  storage: "#576627",
+  legacy: "#3B3E2F",
 };
 
 export const ZONE_LABEL: Record<SiteZone, string> = {
@@ -19,12 +19,26 @@ export const ZONE_LABEL: Record<SiteZone, string> = {
   legacy: "Previous surface equipment",
 };
 
+/**
+ * Site flows in the MinRV series colours, each with its own line style as
+ * well, so they stay apart without colour: solid CO₂, long-dash water,
+ * short-dash injectate, dotted power, fine-dotted data.
+ */
 export const FLOW_COLOR: Record<FlowKind, string> = {
-  co2: "#DF7626",
-  water: "#3A8FD6",
-  injectate: "#2A9D8F",
-  power: "#C6362B",
-  data: "#55632A",
+  co2: "#414F1B",
+  water: "#6F663F",
+  injectate: "#8B9C44",
+  power: "#8D8465",
+  data: "#3B3E2F",
+};
+
+/** Dash and gap, in metres along the line; a gap of 0 draws it solid. */
+export const FLOW_DASH: Record<FlowKind, { dash: number; gap: number }> = {
+  co2: { dash: 6, gap: 0 },
+  water: { dash: 5, gap: 2.4 },
+  injectate: { dash: 2.2, gap: 1.6 },
+  power: { dash: 0.6, gap: 1.6 },
+  data: { dash: 0.5, gap: 1.4 },
 };
 
 export const FLOW_LABEL: Record<FlowKind, string> = {

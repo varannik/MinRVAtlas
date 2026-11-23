@@ -38,6 +38,7 @@ interface DashboardState {
     meta: LiveSpecMeta | null,
   ) => void;
   setTenant: (id: string) => void;
+  /** Open a project's live dashboard (its live chain), or close it with null. */
   selectProject: (id: string | null) => void;
   selectSubmission: (id: string | null) => void;
   hoverProject: (id: string | null) => void;

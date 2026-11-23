@@ -89,7 +89,7 @@ async function findOrCreate(catalogId: string, name?: string): Promise<string> {
 
   return createEmptySentinelProject(
     catalogId,
-    name?.trim() || catalogProjectName(catalogId),
+    name?.trim() || (await catalogProjectName(catalogId)),
   );
 }
 
@@ -102,7 +102,7 @@ export async function ensureSentinelUuid(
   name?: string,
 ): Promise<string> {
   if (isUuid(catalogId)) return catalogId;
-  if (!isCatalogProjectId(catalogId)) {
+  if (!(await isCatalogProjectId(catalogId))) {
     throw new SentinelProjectMapError(catalogId);
   }
 

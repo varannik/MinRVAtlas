@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import { applyLocationOverlay } from "@/lib/project-locations";
-import { getProject, PROJECTS } from "@/lib/projects";
 import { uniqueProjects } from "@/lib/registries/isometric/project-map";
+import { catalogProject, useCatalogLoaded } from "@/store/catalog-store";
 import { useDashboard } from "@/store/dashboard-store";
 import { useLiveProjects } from "@/store/live-projects-store";
 import { useLocationStore } from "@/store/location-store";
@@ -24,10 +24,11 @@ export function useVisibleProjects(): Project[] {
   const liveProjects = useLiveProjects((state) => state.projects);
   const liveOrigin = useLiveProjects((state) => state.origin);
   const liveTenant = useLiveProjects((state) => state.tenantId);
+  const { projects } = useCatalogLoaded();
 
   return useMemo(() => {
     const needle = query.trim().toLowerCase();
-    const catalog = PROJECTS.filter((project) => {
+    const catalog = projects.filter((project) => {
       if (project.tenantId !== tenantId) return false;
       if (registryFilter !== "all" && project.registry !== registryFilter) {
         return false;
@@ -65,6 +66,7 @@ export function useVisibleProjects(): Project[] {
     liveProjects,
     liveTenant,
     overlay,
+    projects,
     query,
     registryFilter,
     tenantId,
@@ -75,10 +77,11 @@ export function useVisibleProjects(): Project[] {
 export function useResolvedProject(id: string | null): Project | undefined {
   const overlay = useLocationStore((state) => state.byId);
   const liveProjects = useLiveProjects((state) => state.projects);
+  const { projects } = useCatalogLoaded();
   return useMemo(() => {
     if (!id) return undefined;
     const project =
-      liveProjects.find((entry) => entry.id === id) ?? getProject(id);
+      liveProjects.find((entry) => entry.id === id) ?? catalogProject(projects, id);
     return project ? applyLocationOverlay(project, overlay) : undefined;
-  }, [id, liveProjects, overlay]);
+  }, [id, liveProjects, overlay, projects]);
 }

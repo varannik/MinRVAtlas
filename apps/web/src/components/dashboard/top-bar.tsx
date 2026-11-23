@@ -1,120 +1,26 @@
 "use client";
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import Link from "next/link";
-import { ArrowLeft, Building2, MapPin, Route, Search, Settings2, X } from "lucide-react";
+import { Building2, Search, X } from "lucide-react";
 import { AccountToolbar } from "../nav/account-toolbar";
-import { Globe3DMark } from "./globe-back-button";
-import { SubmissionChain } from "./submission-chain";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { useProjectDefinition } from "@/hooks/use-project-definition";
-import { earliestAllowedPeriodStart } from "@/lib/period-desk";
-import { journeyHref } from "@/lib/journey/atlas";
-import { latestDesignDate } from "@/lib/project-definition";
-import { getTenant } from "@/lib/tenants";
+import { useCatalog } from "@/store/catalog-store";
 import { useDashboard } from "@/store/dashboard-store";
-import { useStage } from "@/store/stage-store";
-import type { Project, SubmissionBatch } from "@/lib/types";
 
 /** Every control in the bar is the same glass pill. */
 const PILL = "glass flex h-11 items-center rounded-full";
 const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-olivine-500";
 
-/** Way into Certify project setup (design, sites, feedstocks, measurements). */
-function SetupButton({ project }: { project: Project }) {
-  const { definition, loading } = useProjectDefinition(project);
-  const openSetup = useDashboard((state) => state.openSetup);
-  if (project.registry !== "Isometric") return null;
-  const sealed = Boolean(definition?.complete);
-  const status = loading ? "Reading Certify…" : sealed ? "Design complete" : "Design incomplete";
-  return (
-    <button
-      type="button"
-      onClick={() => openSetup("design")}
-      title={`Project setup — ${status}`}
-      className={`${PILL} glass-hover gap-1.5 px-4 text-[11.5px] font-semibold text-earth ${FOCUS}`}
-    >
-      <Settings2 className="size-3.5 text-olivine-700" />
-      Setup
-      {!loading ? <span className={`size-1.5 rounded-full ${sealed ? "bg-olivine-500" : "bg-ochre"}`} aria-hidden /> : null}
-    </button>
-  );
-}
-/** Way into the project journey, on any registry. */
-function JourneyButton({ project }: { project: Project }) {
-  return (
-    <Link
-      href={journeyHref(project)}
-      title="Where this project is on its journey"
-      className={`${PILL} glass-hover gap-1.5 px-4 text-[11.5px] font-semibold text-earth ${FOCUS}`}
-    >
-      <Route className="size-3.5 text-olivine-700" />
-      Journey
-    </Link>
-  );
-}
-
-function SpecOriginBadge() {
-  const meta = useDashboard((state) => state.specMeta);
-  if (!meta) return null;
-  const live = meta.origin === "registry-api";
-  return (
-    <span
-      title={
-        live
-          ? "Monitoring requirements from Isometric Certify"
-          : meta.message || meta.fallbackReason || "Bundled rulebook"
-      }
-      className={`rounded-full px-1.5 py-px text-[8px] font-bold tracking-wide ${
-        live ? "bg-olivine-100 text-olivine-800" : "bg-strata-300/55 text-strata-700"
-      }`}
-    >
-      {live ? "LIVE" : "BUNDLED"}
-    </span>
-  );
-}
-
 /* ── Identity box (left) ────────────────────────────────────────── */
 
-function TenantMark({ project }: { project?: Project | null }) {
+/** Who is signed in, for which tenant. */
+function TenantMark() {
   const tenantId = useDashboard((state) => state.tenantId);
-  const tenant = getTenant(tenantId);
+  const tenants = useCatalog((state) => state.tenants);
+  // The catalogue is read from the Atlas table; until it arrives, show the id.
+  const tenant = tenants.find((entry) => entry.id === tenantId) ?? { id: tenantId, name: tenantId, short: tenantId.slice(0, 4).toUpperCase() };
   const user = useCurrentUser();
-  const selectProject = useDashboard((state) => state.selectProject);
 
-  /* ── Project-selected state ── */
-  if (project) {
-    return (
-      <button
-        type="button"
-        onClick={() => selectProject(null)}
-        aria-label="Back to world map"
-        title="Back to world map"
-        className={`${PILL} glass-hover gap-2 pr-4 pl-1.5 text-left ${FOCUS}`}
-      >
-        <span className="shrink-0 scale-75">
-          <Globe3DMark />
-        </span>
-
-        <div className="leading-tight">
-          <div className="max-w-40 truncate text-[13px] font-semibold tracking-tight text-earth">
-            {project.name}
-          </div>
-          <div className="mt-px flex items-center gap-1.5 text-strata-700">
-            <MapPin className="size-3" />
-            <span className="text-[11px] font-medium text-earth">
-              {project.country}
-            </span>
-            <span className="text-[9px] text-strata-400">·</span>
-            <span className="text-[10px]">{project.registry}</span>
-            <SpecOriginBadge />
-          </div>
-        </div>
-      </button>
-    );
-  }
-
-  /* ── Map state (default): who is signed in, for which tenant ── */
   const initials = (user?.name ?? user?.email ?? "?")
     .split(/[\s@.]+/)
     .filter(Boolean)
@@ -215,88 +121,22 @@ function AtlasSearch() {
   );
 }
 
-function PeriodRibbon({
-  project,
-  batches,
-  activeBatchId,
-}: {
-  project: Project;
-  batches: SubmissionBatch[];
-  activeBatchId: string | null;
-}) {
-  const { definition } = useProjectDefinition(project);
-  const notBefore = earliestAllowedPeriodStart(
-    {
-      ...project,
-      createdOn: project.createdOn ?? definition?.createdOn ?? undefined,
-    },
-    latestDesignDate(definition?.artifacts ?? []),
-  );
-  return (
-    <div className="pointer-events-none absolute inset-x-5 inset-y-0 z-0 flex items-center justify-center">
-      <SubmissionChain
-        batches={batches}
-        activeId={activeBatchId}
-        notBefore={notBefore}
-        tenantId={project.tenantId}
-      />
-    </div>
-  );
-}
-
 /* ── Top Bar ────────────────────────────────────────────────────── */
 
-export function TopBar({
-  project,
-  batches,
-  activeBatchId,
-  stageMode = false,
-  onBackToStage,
-}: {
-  project?: Project | null;
-  batches?: SubmissionBatch[] | null;
-  activeBatchId?: string | null;
-  /** The project stage is showing; it has its own block chain. */
-  stageMode?: boolean;
-  onBackToStage?: () => void;
-}) {
-  const deskOpen = useStage((state) => state.deskOpen);
-  const onMap = !project;
-
+/**
+ * The Atlas bar: who is signed in, the project search and the account
+ * tools. An open project shows its live chain over the whole screen, with
+ * its own bar.
+ */
+export function TopBar() {
   return (
     <header className="pointer-events-auto relative flex h-16 items-center px-5">
-      {/* Left cluster */}
       <div className="relative z-10 flex h-11 items-center gap-2">
-        <TenantMark project={project} />
-        {project && deskOpen && onBackToStage ? (
-          <button
-            type="button"
-            onClick={onBackToStage}
-            title="Back to the removal ledger"
-            className={`${PILL} glass-hover gap-1.5 px-4 text-[11.5px] font-semibold text-earth ${FOCUS}`}
-          >
-            <ArrowLeft className="size-3.5" />
-            Ledger
-          </button>
-        ) : null}
-        {project ? <SetupButton project={project} /> : null}
-        {project ? <JourneyButton project={project} /> : null}
+        <TenantMark />
       </div>
-
-      {/* Center slot */}
-      {onMap ? (
-        <div className="pointer-events-none absolute inset-x-5 inset-y-0 z-0 flex items-center justify-center">
-          <AtlasSearch />
-        </div>
-      ) : project && !stageMode ? (
-        <PeriodRibbon
-          project={project}
-          batches={batches ?? []}
-          activeBatchId={activeBatchId ?? null}
-        />
-      ) : null}
-
-      {/* Right cluster: one toolbar */}
+      <div className="pointer-events-none absolute inset-x-5 inset-y-0 z-0 flex items-center justify-center">
+        <AtlasSearch />
+      </div>
       <AccountToolbar className="relative z-10 ml-auto" />
     </header>
   );

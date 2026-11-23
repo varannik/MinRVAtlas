@@ -3,13 +3,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { JourneyRefusal, applyAction, parseAction, settledTasks, type JourneyRecord } from "./engine";
-import { SCENARIO_BY_ID } from "./scenarios";
+import { seedScenario } from "@/test/seed";
 import { nextStep, planFor, planOf, stepIndex } from "./steps";
 
 const NOW = "2026-11-21T12:00:00.000Z";
 
 function fujairah(): JourneyRecord {
-  const scenario = SCENARIO_BY_ID["fujairah-mineral"];
+  const scenario = seedScenario("fujairah-mineral");
   return { current: scenario.current, laps: scenario.laps, tasks: structuredClone(scenario.seed) };
 }
 

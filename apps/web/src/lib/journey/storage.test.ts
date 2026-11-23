@@ -7,7 +7,11 @@ import { GetItemCommand, TransactWriteItemsCommand, TransactionCanceledException
 import type { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 
 import { applyAction } from "./engine";
-import { JourneyConflict, changeKey, journeyKey, loadJourney, saveJourney, startingPoint, type StoredJourney } from "./storage.server";
+import { seedScenario } from "@/test/seed";
+import { JourneyConflict, changeKey, journeyKey, loadJourney, saveJourney, startingFrom, type StoredJourney } from "./storage.server";
+
+/** As the server starts it: the project's scenario from the Atlas table, else a new project. */
+const startingPoint = (projectId: string) => startingFrom(seedScenario(projectId === "fujairah-mineral" ? projectId : "new"));
 
 const NOW = "2026-11-21T12:00:00.000Z";
 const TABLE = "journeys";

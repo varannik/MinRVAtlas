@@ -1,5 +1,4 @@
 import { countryFromIso3 } from "@/lib/iso-geo";
-import { PROJECTS } from "@/lib/projects";
 import type { CertifyProject } from "@/lib/registries/isometric/api";
 import type { Project } from "@/lib/types";
 
@@ -63,11 +62,12 @@ function aliasCatalog(
 export function mapCertifyProjects(
   tenantId: string,
   rows: CertifyProject[],
-  preferredExternalId?: string | null,
+  preferredExternalId: string | null | undefined,
+  catalogProjects: Project[],
 ): Project[] {
   // Only an Isometric catalog row may stand in for a Certify project.
   // Fujairah moved to Puro, so its Certify row now lists as its own project.
-  const catalog = PROJECTS.find(
+  const catalog = catalogProjects.find(
     (project) =>
       project.tenantId === tenantId &&
       project.id === "fujairah-mineral" &&
@@ -96,10 +96,11 @@ export function mapCertifyProjects(
 export function mapCertifyProject(
   tenantId: string,
   row: CertifyProject,
-  preferredExternalId?: string | null,
+  preferredExternalId: string | null | undefined,
+  catalogProjects: Project[],
 ): Project {
   return (
-    mapCertifyProjects(tenantId, [row], preferredExternalId)[0] ??
+    mapCertifyProjects(tenantId, [row], preferredExternalId, catalogProjects)[0] ??
     asLiveProject(tenantId, row)
   );
 }

@@ -1,8 +1,7 @@
-import { getProject } from "@/lib/projects";
 import { getRequirementSpec } from "@/lib/registries";
 import { bindMethodologySlot } from "@/lib/slot-schema";
 import { isInsituMethodology } from "@/lib/stream-schema";
-import type { ItemKind } from "@/lib/types";
+import type { ItemKind, Project } from "@/lib/types";
 import {
   evaluateInsituMineralization,
   type Step3Evaluation,
@@ -13,6 +12,8 @@ export { INSITU_THRESHOLDS } from "./isometric/step3";
 
 export type RegistryRulesInput = {
   catalogProjectId: string;
+  /** The catalogue project, read by the caller from the Atlas table. */
+  project: Project | null;
   slotId: string;
   kind: ItemKind;
   csvText: string | null;
@@ -26,11 +27,10 @@ function skipped(detail: string): Step3Evaluation {
 }
 
 function cadenceForSlot(
-  catalogProjectId: string,
+  project: Project | null,
   slotId: string,
   label?: string,
 ): string | null {
-  const project = getProject(catalogProjectId);
   if (!project) return null;
   const spec = getRequirementSpec(project);
   for (const group of spec.groups) {
@@ -57,7 +57,7 @@ function cadenceForSlot(
  * routed through Sentinel’s Puro stub.
  */
 export function evaluateRegistryRules(input: RegistryRulesInput): Step3Evaluation {
-  const project = getProject(input.catalogProjectId);
+  const project = input.project;
   if (!project) return skipped("Unknown project");
   // Keyed on methodology, not registry: in-situ storage runs the same maths
   // under Isometric or Puro. Never routed through Sentinel’s Puro stub.
@@ -73,6 +73,6 @@ export function evaluateRegistryRules(input: RegistryRulesInput): Step3Evaluatio
     csvText: input.csvText,
     periodStart: input.periodStart,
     periodEnd: input.periodEnd,
-    cadence: cadenceForSlot(input.catalogProjectId, input.slotId, input.label),
+    cadence: cadenceForSlot(project, input.slotId, input.label),
   });
 }

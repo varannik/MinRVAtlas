@@ -1,5 +1,4 @@
 import { GHG_ACCOUNTING_HEADERS } from "@/lib/ghg-csv-columns";
-import { PROJECTS } from "@/lib/projects";
 import { DQA_CANONICAL } from "@/lib/sentinel/column-map";
 import type { Project, Registry } from "@/lib/types";
 
@@ -126,21 +125,23 @@ export function requiredFor(project: Project): StreamContract {
 }
 
 export function catalogProject(
+  catalog: Project[],
   tenantId: string,
   registry: Registry,
   projectId: string,
 ): Project | null {
-  const row = PROJECTS.find((project) => project.id === projectId);
+  const row = catalog.find((project) => project.id === projectId);
   if (!row) return null;
   if (row.tenantId !== tenantId || row.registry !== registry) return null;
   return row;
 }
 
 export function projectsForTenantRegistry(
+  catalog: Project[],
   tenantId: string,
   registry: Registry,
 ): Project[] {
-  return PROJECTS.filter(
+  return catalog.filter(
     (project) => project.tenantId === tenantId && project.registry === registry,
   );
 }

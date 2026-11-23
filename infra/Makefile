@@ -76,7 +76,7 @@ export STREAM_FROM STREAM_TO STREAM_PACK STREAM_LIST
 .PHONY: deps bootstrap status inventory synth diff deploy destroy push-images \
 	ci docker-build docker-push pipeline pipeline-start pipeline-status \
 	ecs-status logs rollback identity seed-cognito create-cognito-user seed-stream-s3 \
-	seed-cortex cortex-whoami cortex-search cortex-ask
+	seed-cortex seed cortex-whoami cortex-search cortex-ask
 
 deps:
 	npm install
@@ -156,6 +156,21 @@ create-cognito-user:
 # MEMBER_EMAIL, MEMBER_ROLE, MEMBER_PROJECT) one user's project grants. Safe to repeat.
 seed-cortex: identity
 	npx ts-node --prefer-ts-exts scripts/seed-cortex-tenancy.ts
+
+# Load apps/web/seed into this stage's Atlas table and bucket (deploy the data stack
+# first). Map pins the stage saved in SSM before the Atlas are copied in once.
+# Safe to run again. Never reads apps/web/.env.local, so it cannot hit the local
+# containers. Prod needs CONFIRM=yes.
+ATLAS_STAGE := $(patsubst minrv-ew2-%,%,$(APP))
+seed: identity
+	@case "$(ATLAS_STAGE)" in prod*) [ "$(CONFIRM)" = "yes" ] || { echo "Seeding $(APP) needs CONFIRM=yes"; exit 1; };; esac
+	cd $(ROOT)/apps/web && \
+	env -u ATLAS_DYNAMODB_ENDPOINT -u ATLAS_S3_ENDPOINT \
+		ATLAS_TABLE=$(APP)-atlas \
+		ATLAS_BUCKET=$(APP)-atlas-assets-$(ACCOUNT) \
+		ATLAS_LOCATIONS_PARAM=/minrv/ew2/$(ATLAS_STAGE)/project-locations \
+		JITI_TSCONFIG_PATHS=true \
+		node --import jiti/register --import ./loaders/node-test.mjs scripts/seed/load.ts --target=aws
 
 # End-to-end Cortex tool check: sign in, then initialize, tools/list and
 # tenancy___whoami through the gateway, plus two refusal checks and the

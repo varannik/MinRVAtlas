@@ -9,8 +9,6 @@ import {
   type ReportingPeriod,
 } from "@/lib/period-desk";
 
-const STORAGE_KEY = "minrv-reporting-periods";
-
 type PeriodState = {
   byProject: Record<string, ReportingPeriod[]>;
   hydrated: boolean;
@@ -31,30 +29,6 @@ type PeriodState = {
   ) => void;
 };
 
-function readStored(): Record<string, ReportingPeriod[]> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, ReportingPeriod[]>;
-    if (!parsed || typeof parsed !== "object") return {};
-    const next: Record<string, ReportingPeriod[]> = {};
-    for (const [projectId, periods] of Object.entries(parsed)) {
-      next[projectId] = (periods ?? []).filter(
-        (period) => !/^draft-.+-\d{4}$/.test(period.id),
-      );
-    }
-    return next;
-  } catch {
-    return {};
-  }
-}
-
-function writeStored(byProject: Record<string, ReportingPeriod[]>) {
-  if (typeof window === "undefined") return;
-  sessionStorage.setItem(STORAGE_KEY, JSON.stringify(byProject));
-}
-
 function ordered(periods: ReportingPeriod[]): ReportingPeriod[] {
   return withSequences(sortPeriods(periods));
 }
@@ -64,7 +38,7 @@ export const usePeriodStore = create<PeriodState>((set, get) => ({
   hydrated: false,
   hydrate: () => {
     if (get().hydrated) return;
-    set({ byProject: readStored(), hydrated: true });
+    set({ hydrated: true });
   },
   mergeFetched: (projectId, fetched) =>
     set((state) => {
@@ -88,7 +62,6 @@ export const usePeriodStore = create<PeriodState>((set, get) => ({
         ...state.byProject,
         [projectId]: ordered([...fetched, ...keptDrafts]),
       };
-      writeStored(next);
       return { byProject: next, hydrated: true };
     }),
   addDraft: (projectId, periodStart, periodEnd, notBefore) => {
@@ -128,7 +101,6 @@ export const usePeriodStore = create<PeriodState>((set, get) => ({
       ...get().byProject,
       [projectId]: ordered([...current, period]),
     };
-    writeStored(next);
     set({ byProject: next, hydrated: true });
     return { ok: true, period };
   },
@@ -139,7 +111,6 @@ export const usePeriodStore = create<PeriodState>((set, get) => ({
         ...state.byProject,
         [projectId]: ordered(current.filter((period) => period.id !== periodId)),
       };
-      writeStored(next);
       return { byProject: next };
     }),
   markStatus: (projectId, periodId, status, ghgStatementId) =>
@@ -157,7 +128,6 @@ export const usePeriodStore = create<PeriodState>((set, get) => ({
             : period,
         ),
       };
-      writeStored(next);
       return { byProject: next };
     }),
 }));

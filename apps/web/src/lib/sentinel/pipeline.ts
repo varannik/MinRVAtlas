@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getProject } from "@/lib/projects";
+import { findProject } from "@/lib/atlas/catalog.server";
 import { enginesForPipeline } from "@/lib/requirement-payload";
 import { evaluateRegistryRules } from "@/lib/registries/step3";
 import type { ItemKind } from "@/lib/types";
@@ -170,7 +170,7 @@ async function runVv(
     "catalogProjectId" | "projectName" | "projectDeveloper" | "vintage"
   >,
 ): Promise<{ id: string; detail: string; passed: boolean }> {
-  const project = getProject(input.catalogProjectId);
+  const project = await findProject(input.catalogProjectId);
   const name =
     input.projectName || project?.name || input.catalogProjectId;
   const created = await sentinelUpstreamJson<{ id: string }>("v2/vv/projects", {
@@ -400,6 +400,7 @@ export async function runOperatorPipeline(
         }
         const step3 = evaluateRegistryRules({
           catalogProjectId: input.catalogProjectId,
+          project: await findProject(input.catalogProjectId),
           slotId: input.slotId,
           kind: input.kind,
           csvText,

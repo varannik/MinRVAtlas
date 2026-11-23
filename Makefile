@@ -31,14 +31,14 @@ SINCE      ?= 1h
 .PHONY: bootstrap deploy diff destroy synth status inventory push-images \
 	ci docker-build docker-push pipeline pipeline-start pipeline-status \
 	ecs-status logs rollback seed-stream-s3 create-cognito-user \
-	seed-cortex cortex-whoami cortex-search cortex-ask
+	seed-cortex seed cortex-whoami cortex-search cortex-ask
 
 # Empty AWS_PROFILE= on the child command line is auto-exported and makes
 # `aws` look up a profile named "". Same for IMAGE_TAG vs the git-SHA default.
 bootstrap deploy diff destroy synth status inventory push-images \
 ci docker-build docker-push pipeline pipeline-start pipeline-status \
 ecs-status logs rollback seed-stream-s3 create-cognito-user \
-seed-cortex cortex-whoami cortex-search cortex-ask:
+seed-cortex seed cortex-whoami cortex-search cortex-ask:
 	$(MAKE) -C infra $@ \
 		ACCOUNT=$(ACCOUNT) \
 		REGION=$(REGION) \

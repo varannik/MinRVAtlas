@@ -1,0 +1,2482 @@
+{
+ "projectId": "fujairah-mineral",
+ "name": "Fujairah injection site",
+ "photo": {
+  "src": "assets/fujairah-aerial.jpg",
+  "width": 1499,
+  "height": 945,
+  "metresPerPixel": 0.16,
+  "scaleNote": "From the shipping containers in the storage yard: about 75 px long for a 12 m (40 ft) container."
+ },
+ "pads": [
+  {
+   "id": "surface-pad",
+   "color": "#5b5f63",
+   "points": [
+    [
+     385,
+     245
+    ],
+    [
+     520,
+     205
+    ],
+    [
+     612,
+     148
+    ],
+    [
+     795,
+     142
+    ],
+    [
+     818,
+     322
+    ],
+    [
+     780,
+     372
+    ],
+    [
+     650,
+     430
+    ],
+    [
+     565,
+     522
+    ],
+    [
+     470,
+     556
+    ],
+    [
+     385,
+     520
+    ]
+   ]
+  },
+  {
+   "id": "storage-pad",
+   "color": "#6a6e72",
+   "points": [
+    [
+     1068,
+     52
+    ],
+    [
+     1240,
+     45
+    ],
+    [
+     1245,
+     140
+    ],
+    [
+     1075,
+     150
+    ]
+   ]
+  }
+ ],
+ "fence": [
+  [
+   300,
+   565
+  ],
+  [
+   300,
+   912
+  ],
+  [
+   1285,
+   912
+  ],
+  [
+   1285,
+   760
+  ],
+  [
+   1178,
+   388
+  ]
+ ],
+ "objects": [
+  {
+   "id": "water-tank",
+   "name": "Water tank",
+   "zone": "surface",
+   "description": "Open water store feeding the water injection system.",
+   "parts": [
+    {
+     "shape": "cylinder",
+     "at": [
+      687,
+      270
+     ],
+     "radiusPx": 64,
+     "heightM": 4,
+     "water": true,
+     "color": "#c9c3b6"
+    }
+   ]
+  },
+  {
+   "id": "water-injection",
+   "name": "Water Injection System",
+   "zone": "surface",
+   "description": "Pumps water from the tank to the CO₂ injection skid.",
+   "parts": [
+    {
+     "shape": "box",
+     "at": [
+      575,
+      325
+     ],
+     "size": [
+      72,
+      26
+     ],
+     "heightM": 2.6,
+     "color": "#d9d6cf"
+    },
+    {
+     "shape": "box",
+     "at": [
+      597,
+      292
+     ],
+     "size": [
+      26,
+      22
+     ],
+     "heightM": 2.2,
+     "color": "#e8e5de"
+    },
+    {
+     "shape": "box",
+     "at": [
+      552,
+      290
+     ],
+     "size": [
+      18,
+      18
+     ],
+     "heightM": 1.6,
+     "color": "#bdb7aa"
+    }
+   ],
+   "labelAt": [
+    565,
+    255
+   ],
+   "sensors": [
+    {
+     "id": "water-flow",
+     "label": "Water flow",
+     "metric": "WATER_FLOW_m3h",
+     "unit": "m³/h",
+     "demo": {
+      "base": 31,
+      "jitter": 1.4,
+      "decimals": 1
+     },
+     "warnBelow": 24
+    }
+   ]
+  },
+  {
+   "id": "metering",
+   "name": "Metering CO₂ Infusion System",
+   "zone": "surface",
+   "description": "Receives liquefied CO₂, vaporises it and meters it into the water stream.",
+   "parts": [
+    {
+     "shape": "box",
+     "at": [
+      535,
+      462
+     ],
+     "size": [
+      28,
+      108
+     ],
+     "heightM": 3,
+     "color": "#cfd2d4"
+    },
+    {
+     "shape": "box",
+     "at": [
+      548,
+      420
+     ],
+     "size": [
+      16,
+      18
+     ],
+     "heightM": 3.6,
+     "color": "#a9adb0"
+    }
+   ],
+   "sensors": [
+    {
+     "id": "co2-total",
+     "label": "CO₂ totaliser",
+     "metric": "CO2_TOTAL_SENSOR_m3",
+     "unit": "m³",
+     "demo": {
+      "base": 182400,
+      "jitter": 0,
+      "risePerSec": 0.9,
+      "decimals": 0
+     }
+    },
+    {
+     "id": "inj-rate-2",
+     "label": "Injection rate 2",
+     "metric": "INJ_RATE_FT02_m3h",
+     "unit": "m³/h",
+     "demo": {
+      "base": 3.2,
+      "jitter": 0.25,
+      "decimals": 2
+     },
+     "warnAbove": 4.2,
+     "alarmAbove": 5
+    },
+    {
+     "id": "venting",
+     "label": "CO₂ venting",
+     "metric": "CO2_VENTED_SITE_kg",
+     "unit": "kg/day",
+     "proposed": true,
+     "measurement": "estimated",
+     "demo": {
+      "base": 21,
+      "jitter": 0,
+      "decimals": 0
+     },
+     "warnAbove": 100
+    }
+   ]
+  },
+  {
+   "id": "co2-injection",
+   "name": "CO₂ Injection System",
+   "zone": "surface",
+   "description": "Dissolves CO₂ in water and pressurises the mix for the injection well.",
+   "parts": [
+    {
+     "shape": "box",
+     "at": [
+      592,
+      402
+     ],
+     "size": [
+      70,
+      46
+     ],
+     "heightM": 3.8,
+     "color": "#c7cbcf"
+    },
+    {
+     "shape": "cylinder",
+     "at": [
+      632,
+      370
+     ],
+     "radiusPx": 12,
+     "heightM": 5,
+     "color": "#f2f2f0"
+    },
+    {
+     "shape": "box",
+     "at": [
+      560,
+      385
+     ],
+     "size": [
+      20,
+      20
+     ],
+     "heightM": 2.4,
+     "color": "#9ea3a7"
+    }
+   ],
+   "labelAt": [
+    640,
+    405
+   ],
+   "sensors": [
+    {
+     "id": "inj-rate-1",
+     "label": "Injection rate 1",
+     "metric": "INJ_RATE_FT01_m3h",
+     "unit": "m³/h",
+     "demo": {
+      "base": 18.4,
+      "jitter": 0.8,
+      "decimals": 1
+     },
+     "warnAbove": 22,
+     "alarmAbove": 25
+    },
+    {
+     "id": "tracer-dose",
+     "label": "Tracer dosing",
+     "metric": "TRACER_DOSE_L_h",
+     "unit": "L/h",
+     "proposed": true,
+     "measurement": "continuous",
+     "demo": {
+      "base": 2.4,
+      "jitter": 0.1,
+      "decimals": 2
+     }
+    },
+    {
+     "id": "water-ph",
+     "group": "Sampling (lab)",
+     "label": "Injected water pH",
+     "metric": "INJECTED_WATER_PH",
+     "unit": "pH",
+     "proposed": true,
+     "measurement": "discrete",
+     "demo": {
+      "base": 7.9,
+      "jitter": 0,
+      "decimals": 1
+     }
+    },
+    {
+     "id": "tracer-conc",
+     "group": "Sampling (lab)",
+     "label": "Tracer concentration",
+     "metric": "TRACER_CONC_ppb",
+     "unit": "ppb",
+     "proposed": true,
+     "measurement": "discrete",
+     "demo": {
+      "base": 52,
+      "jitter": 0,
+      "decimals": 0
+     }
+    },
+    {
+     "id": "injectate-ph",
+     "group": "Sampling (lab)",
+     "label": "Water + CO₂ + tracer pH",
+     "metric": "INJECTATE_PH",
+     "unit": "pH",
+     "proposed": true,
+     "measurement": "discrete",
+     "demo": {
+      "base": 4.6,
+      "jitter": 0,
+      "decimals": 1
+     },
+     "warnAbove": 5.5
+    }
+   ]
+  },
+  {
+   "id": "control-room",
+   "name": "Control Room",
+   "zone": "ancillary",
+   "description": "Operator cabin for the injection systems.",
+   "parts": [
+    {
+     "shape": "box",
+     "at": [
+      590,
+      455
+     ],
+     "size": [
+      44,
+      28
+     ],
+     "heightM": 3,
+     "color": "#f4f3ef"
+    }
+   ]
+  },
+  {
+   "id": "mmrv",
+   "name": "MMRV Station",
+   "zone": "ancillary",
+   "description": "Collects the monitoring data and sends it on to MinRV.",
+   "parts": [
+    {
+     "shape": "box",
+     "at": [
+      976,
+      375
+     ],
+     "size": [
+      24,
+      70
+     ],
+     "heightM": 3,
+     "color": "#f4f3ef"
+    }
+   ],
+   "sensors": [
+    {
+     "id": "latency",
+     "label": "Ingestion latency",
+     "metric": "INGESTION_LATENCY_sec",
+     "unit": "s",
+     "demo": {
+      "base": 42,
+      "jitter": 9,
+      "decimals": 0
+     },
+     "warnAbove": 120,
+     "alarmAbove": 300
+    }
+   ]
+  },
+  {
+   "id": "welfare",
+   "name": "Welfare Station",
+   "zone": "ancillary",
+   "description": "Staff welfare cabins.",
+   "parts": [
+    {
+     "shape": "box",
+     "at": [
+      1096,
+      880
+     ],
+     "size": [
+      74,
+      34
+     ],
+     "heightM": 3,
+     "color": "#f4f3ef"
+    },
+    {
+     "shape": "box",
+     "at": [
+      1040,
+      885
+     ],
+     "size": [
+      20,
+      20
+     ],
+     "heightM": 2.4,
+     "color": "#e2e0da"
+    }
+   ]
+  },
+  {
+   "id": "storage",
+   "name": "Storage Space",
+   "zone": "storage",
+   "description": "Yard for procured materials not yet in use.",
+   "parts": [
+    {
+     "shape": "box",
+     "at": [
+      1017,
+      342
+     ],
+     "size": [
+      26,
+      76
+     ],
+     "heightM": 2.6,
+     "color": "#2f6fb5",
+     "rotateDeg": -4
+    },
+    {
+     "shape": "box",
+     "at": [
+      1058,
+      332
+     ],
+     "size": [
+      26,
+      76
+     ],
+     "heightM": 2.6,
+     "color": "#2f6fb5",
+     "rotateDeg": -4
+    },
+    {
+     "shape": "box",
+     "at": [
+      1088,
+      322
+     ],
+     "size": [
+      26,
+      72
+     ],
+     "heightM": 2.6,
+     "color": "#3a7cc2",
+     "rotateDeg": -4
+    },
+    {
+     "shape": "box",
+     "at": [
+      1128,
+      306
+     ],
+     "size": [
+      28,
+      70
+     ],
+     "heightM": 2.6,
+     "color": "#e07a2c",
+     "rotateDeg": -4
+    },
+    {
+     "shape": "box",
+     "at": [
+      1166,
+      314
+     ],
+     "size": [
+      48,
+      52
+     ],
+     "heightM": 3.4,
+     "color": "#f4f3ef",
+     "rotateDeg": -4
+    },
+    {
+     "shape": "box",
+     "at": [
+      1125,
+      70
+     ],
+     "size": [
+      70,
+      26
+     ],
+     "heightM": 1.4,
+     "color": "#3c3f42"
+    },
+    {
+     "shape": "box",
+     "at": [
+      1185,
+      92
+     ],
+     "size": [
+      22,
+      58
+     ],
+     "heightM": 1.2,
+     "color": "#3c3f42"
+    },
+    {
+     "shape": "box",
+     "at": [
+      1275,
+      230
+     ],
+     "size": [
+      60,
+      14
+     ],
+     "heightM": 0.8,
+     "color": "#6b4a3a"
+    }
+   ],
+   "labelAt": [
+    1090,
+    320
+   ]
+  },
+  {
+   "id": "solar",
+   "name": "Solar + Battery",
+   "zone": "energy",
+   "description": "Solar array and battery that power the injection activities.",
+   "parts": [
+    {
+     "shape": "solar",
+     "at": [
+      1115,
+      600
+     ],
+     "size": [
+      190,
+      345
+     ],
+     "rows": 14,
+     "rotateDeg": -10
+    },
+    {
+     "shape": "box",
+     "at": [
+      995,
+      612
+     ],
+     "size": [
+      24,
+      34
+     ],
+     "heightM": 2.6,
+     "color": "#3a7cc2"
+    },
+    {
+     "shape": "box",
+     "at": [
+      966,
+      545
+     ],
+     "size": [
+      26,
+      26
+     ],
+     "heightM": 2.4,
+     "color": "#f4f3ef"
+    },
+    {
+     "shape": "box",
+     "at": [
+      962,
+      470
+     ],
+     "size": [
+      30,
+      20
+     ],
+     "heightM": 2.2,
+     "color": "#7b8186"
+    },
+    {
+     "shape": "box",
+     "at": [
+      978,
+      497
+     ],
+     "size": [
+      14,
+      12
+     ],
+     "heightM": 1.6,
+     "color": "#c0473a"
+    }
+   ],
+   "labelAt": [
+    1115,
+    600
+   ],
+   "sensors": [
+    {
+     "id": "energy-per-t",
+     "label": "Energy per tonne",
+     "metric": "ENERGY_PER_TONNE_kWht",
+     "unit": "kWh/t",
+     "demo": {
+      "base": 118,
+      "jitter": 6,
+      "decimals": 0
+     },
+     "warnAbove": 150,
+     "alarmAbove": 180
+    },
+    {
+     "id": "power",
+     "label": "Power to injection",
+     "metric": "SITE_POWER_kW",
+     "unit": "kW",
+     "proposed": true,
+     "measurement": "continuous",
+     "demo": {
+      "base": 160,
+      "jitter": 12,
+      "decimals": 0
+     }
+    }
+   ]
+  },
+  {
+   "id": "hasa-4",
+   "name": "Injection Well",
+   "code": "HASA 4",
+   "zone": "subsurface",
+   "description": "Injects the carbonated water into the peridotite.",
+   "parts": [
+    {
+     "shape": "well",
+     "at": [
+      430,
+      540
+     ],
+     "depthM": 900
+    }
+   ],
+   "sensors": [
+    {
+     "id": "whp-a",
+     "label": "Wellhead pressure",
+     "metric": "WHP_WELL_A_bar",
+     "unit": "bar",
+     "demo": {
+      "base": 42,
+      "jitter": 1.6,
+      "decimals": 1
+     },
+     "warnAbove": 55,
+     "alarmAbove": 62
+    },
+    {
+     "id": "annulus",
+     "label": "Annulus pressure",
+     "metric": "ANNULUS_PRESS_bar",
+     "unit": "bar",
+     "demo": {
+      "base": 7.8,
+      "jitter": 0.4,
+      "decimals": 1
+     },
+     "warnAbove": 12,
+     "alarmAbove": 15
+    },
+    {
+     "id": "reversal",
+     "label": "CO₂ leakage (reversal)",
+     "metric": "CO2_REVERSAL_t",
+     "unit": "t",
+     "proposed": true,
+     "measurement": "estimated",
+     "demo": {
+      "base": 0,
+      "jitter": 0,
+      "decimals": 2
+     },
+     "warnAbove": 0.01
+    }
+   ]
+  },
+  {
+   "id": "hasa-2",
+   "name": "Shallow aquifer monitoring",
+   "code": "HASA 2",
+   "zone": "subsurface",
+   "description": "Watches the shallow aquifer for any CO₂ that moves upward.",
+   "parts": [
+    {
+     "shape": "well",
+     "at": [
+      757,
+      585
+     ],
+     "depthM": 100
+    }
+   ],
+   "sensors": [
+    {
+     "id": "tracer",
+     "label": "CO₂ tracer",
+     "metric": "CO2_TRACER_01_ppm",
+     "unit": "ppm",
+     "demo": {
+      "base": 412,
+      "jitter": 7,
+      "decimals": 0
+     },
+     "warnAbove": 470,
+     "alarmAbove": 520
+    }
+   ]
+  },
+  {
+   "id": "hasa-1",
+   "name": "Seismic monitoring well",
+   "code": "HASA 1",
+   "zone": "subsurface",
+   "description": "Downhole geophones that listen for induced seismicity.",
+   "parts": [
+    {
+     "shape": "well",
+     "at": [
+      838,
+      572
+     ],
+     "depthM": 600
+    }
+   ],
+   "sensors": [
+    {
+     "id": "whp-b",
+     "label": "Wellhead pressure",
+     "metric": "WHP_WELL_B_bar",
+     "unit": "bar",
+     "demo": {
+      "base": 11.6,
+      "jitter": 0.5,
+      "decimals": 1
+     },
+     "warnAbove": 16,
+     "alarmAbove": 20
+    }
+   ]
+  },
+  {
+   "id": "hasa-3",
+   "name": "Monitoring Well",
+   "code": "HASA 3",
+   "zone": "subsurface",
+   "description": "Samples formation water to track mineralisation.",
+   "parts": [
+    {
+     "shape": "well",
+     "at": [
+      352,
+      648
+     ],
+     "depthM": 900
+    }
+   ],
+   "sensors": [
+    {
+     "id": "temp-2",
+     "label": "Temperature",
+     "metric": "TEMP_SURF_02_degC",
+     "unit": "°C",
+     "demo": {
+      "base": 34.5,
+      "jitter": 0.6,
+      "decimals": 1
+     },
+     "warnAbove": 45
+    }
+   ]
+  },
+  {
+   "id": "old-injection",
+   "name": "Old Injection Site",
+   "zone": "legacy",
+   "description": "Equipment from earlier injection work. Not used by this project.",
+   "parts": [
+    {
+     "shape": "box",
+     "at": [
+      762,
+      745
+     ],
+     "size": [
+      50,
+      40
+     ],
+     "heightM": 4,
+     "color": "#d8d6d0"
+    },
+    {
+     "shape": "box",
+     "at": [
+      776,
+      800
+     ],
+     "size": [
+      68,
+      62
+     ],
+     "heightM": 6,
+     "color": "#ecebe7"
+    },
+    {
+     "shape": "box",
+     "at": [
+      876,
+      695
+     ],
+     "size": [
+      60,
+      40
+     ],
+     "heightM": 5,
+     "color": "#d8d6d0"
+    },
+    {
+     "shape": "box",
+     "at": [
+      876,
+      790
+     ],
+     "size": [
+      38,
+      50
+     ],
+     "heightM": 4,
+     "color": "#e2e0da"
+    },
+    {
+     "shape": "box",
+     "at": [
+      880,
+      842
+     ],
+     "size": [
+      30,
+      30
+     ],
+     "heightM": 3,
+     "color": "#d8d6d0"
+    },
+    {
+     "shape": "box",
+     "at": [
+      932,
+      772
+     ],
+     "size": [
+      18,
+      36
+     ],
+     "heightM": 2.6,
+     "color": "#cdb48a"
+    },
+    {
+     "shape": "box",
+     "at": [
+      830,
+      780
+     ],
+     "size": [
+      16,
+      34
+     ],
+     "heightM": 2.6,
+     "color": "#e2e0da"
+    }
+   ],
+   "labelAt": [
+    820,
+    760
+   ]
+  }
+ ],
+ "flows": [
+  {
+   "id": "co2-in",
+   "kind": "co2",
+   "label": "Liquid CO₂ delivery → metering",
+   "path": [
+    [
+     395,
+     360
+    ],
+    [
+     470,
+     420
+    ],
+    [
+     520,
+     440
+    ]
+   ]
+  },
+  {
+   "id": "co2-to-injection",
+   "kind": "co2",
+   "label": "Vaporised CO₂ → injection skid",
+   "path": [
+    [
+     540,
+     410
+    ],
+    [
+     560,
+     402
+    ]
+   ]
+  },
+  {
+   "id": "water",
+   "kind": "water",
+   "label": "Water tank → water injection → injection skid",
+   "path": [
+    [
+     630,
+     310
+    ],
+    [
+     600,
+     325
+    ],
+    [
+     600,
+     360
+    ],
+    [
+     592,
+     380
+    ]
+   ]
+  },
+  {
+   "id": "injectate",
+   "kind": "injectate",
+   "label": "CO₂ dissolved in water → HASA 4",
+   "path": [
+    [
+     580,
+     425
+    ],
+    [
+     555,
+     520
+    ],
+    [
+     470,
+     540
+    ],
+    [
+     430,
+     540
+    ]
+   ]
+  },
+  {
+   "id": "power",
+   "kind": "power",
+   "label": "Solar + battery → injection systems",
+   "path": [
+    [
+     995,
+     612
+    ],
+    [
+     920,
+     520
+    ],
+    [
+     800,
+     400
+    ],
+    [
+     640,
+     410
+    ]
+   ]
+  },
+  {
+   "id": "data-hasa4",
+   "kind": "data",
+   "label": "HASA 4 → MMRV",
+   "path": [
+    [
+     430,
+     540
+    ],
+    [
+     976,
+     375
+    ]
+   ]
+  },
+  {
+   "id": "data-hasa3",
+   "kind": "data",
+   "label": "HASA 3 → MMRV",
+   "path": [
+    [
+     352,
+     648
+    ],
+    [
+     976,
+     375
+    ]
+   ]
+  },
+  {
+   "id": "data-hasa2",
+   "kind": "data",
+   "label": "HASA 2 → MMRV",
+   "path": [
+    [
+     757,
+     585
+    ],
+    [
+     976,
+     375
+    ]
+   ]
+  },
+  {
+   "id": "data-hasa1",
+   "kind": "data",
+   "label": "HASA 1 → MMRV",
+   "path": [
+    [
+     838,
+     572
+    ],
+    [
+     976,
+     375
+    ]
+   ]
+  },
+  {
+   "id": "data-skids",
+   "kind": "data",
+   "label": "Injection skids → MMRV",
+   "path": [
+    [
+     592,
+     402
+    ],
+    [
+     976,
+     375
+    ]
+   ]
+  },
+  {
+   "id": "data-metering",
+   "kind": "data",
+   "label": "Metering → MMRV",
+   "path": [
+    [
+     535,
+     462
+    ],
+    [
+     976,
+     375
+    ]
+   ]
+  },
+  {
+   "id": "data-uplink",
+   "kind": "data",
+   "label": "MMRV → MinRV",
+   "path": [
+    [
+     976,
+     375
+    ]
+   ],
+   "uplink": true
+  }
+ ],
+ "assumptions": [
+  "Positions and sizes are traced from one annotated drone photo; heights are estimates.",
+  "Scale is about 0.16 m per pixel, from container length.",
+  "Well depths follow the published Fujairah figures (two wells to about 900 m); HASA 1 and HASA 2 depths are assumed.",
+  "The CO₂ delivery point at the west edge of the pad is assumed.",
+  "Sensor values are a demo signal; each sensor is tied to its stream column for live data later."
+ ],
+ "highlights": [
+  {
+   "host": "co2-injection",
+   "sensor": "inj-rate-1"
+  },
+  {
+   "host": "hasa-4",
+   "sensor": "whp-a"
+  },
+  {
+   "host": "hasa-2",
+   "sensor": "tracer"
+  }
+ ],
+ "feedstock": {
+  "commodity": "co2",
+  "name": "CO₂ feedstock: capture to storage",
+  "map": {
+   "exaggeration": 1.6,
+   "wide": {
+    "bearing": 10,
+    "pitch": 58
+   },
+   "tall": {
+    "bearing": 80,
+    "pitch": 55
+   }
+  },
+  "nodes": [
+   {
+    "id": "holcim",
+    "name": "Holcim Emirates Cement",
+    "role": "capture",
+    "at": [
+     25.562073,
+     55.982615
+    ],
+    "address": "Holcim Emirates Cement LLC, Al Banah, Fujairah, HX5P+J7J",
+    "description": "Capture site. CO₂ is captured from the cement plant's flue gas, then liquefied for road transport.",
+    "sensors": [
+     {
+      "id": "flue-in",
+      "group": "Capture unit",
+      "label": "Untreated flue gas in",
+      "metric": "FLUE_GAS_IN_Nm3h",
+      "unit": "Nm³/h",
+      "proposed": true,
+      "measurement": "continuous",
+      "demo": {
+       "base": 12400,
+       "jitter": 300,
+       "decimals": 0
+      }
+     },
+     {
+      "id": "flue-out",
+      "group": "Capture unit",
+      "label": "Treated flue gas out",
+      "metric": "FLUE_GAS_OUT_Nm3h",
+      "unit": "Nm³/h",
+      "proposed": true,
+      "measurement": "continuous",
+      "demo": {
+       "base": 11250,
+       "jitter": 280,
+       "decimals": 0
+      }
+     },
+     {
+      "id": "power",
+      "group": "Capture unit",
+      "label": "Electricity",
+      "metric": "CAPTURE_POWER_kW",
+      "unit": "kW",
+      "proposed": true,
+      "measurement": "continuous",
+      "demo": {
+       "base": 820,
+       "jitter": 25,
+       "decimals": 0
+      }
+     },
+     {
+      "id": "solvent-new",
+      "group": "Capture unit",
+      "label": "New solvent make-up",
+      "metric": "SOLVENT_NEW_kg",
+      "unit": "kg/day",
+      "proposed": true,
+      "measurement": "estimated",
+      "demo": {
+       "base": 140,
+       "jitter": 0,
+       "decimals": 0
+      }
+     },
+     {
+      "id": "solvent-used",
+      "group": "Capture unit",
+      "label": "Used solvent out",
+      "metric": "SOLVENT_USED_kg",
+      "unit": "kg/day",
+      "proposed": true,
+      "measurement": "estimated",
+      "demo": {
+       "base": 118,
+       "jitter": 0,
+       "decimals": 0
+      }
+     },
+     {
+      "id": "water",
+      "group": "Capture unit",
+      "label": "Water use",
+      "metric": "CAPTURE_WATER_m3",
+      "unit": "m³/day",
+      "proposed": true,
+      "measurement": "estimated",
+      "demo": {
+       "base": 18,
+       "jitter": 0,
+       "decimals": 0
+      }
+     },
+     {
+      "id": "venting",
+      "group": "Liquefaction unit",
+      "label": "CO₂ venting",
+      "metric": "CO2_VENTED_CAPTURE_kg",
+      "unit": "kg/day",
+      "proposed": true,
+      "measurement": "estimated",
+      "demo": {
+       "base": 34,
+       "jitter": 0,
+       "decimals": 0
+      },
+      "warnAbove": 120
+     },
+     {
+      "id": "c14",
+      "group": "Sampling (lab)",
+      "label": "Biogenic CO₂ (C-14)",
+      "metric": "BIOGENIC_FRACTION_pct",
+      "unit": "%",
+      "proposed": true,
+      "measurement": "discrete",
+      "demo": {
+       "base": 38,
+       "jitter": 0,
+       "decimals": 0
+      }
+     },
+     {
+      "id": "purity",
+      "group": "Sampling (lab)",
+      "label": "CO₂ purity (impurities analysis)",
+      "metric": "CO2_PURITY_pct",
+      "unit": "%",
+      "proposed": true,
+      "measurement": "discrete",
+      "demo": {
+       "base": 99.7,
+       "jitter": 0,
+       "decimals": 1
+      },
+      "warnBelow": 99
+     }
+    ]
+   },
+   {
+    "id": "storage",
+    "name": "ACE2.5 Storage Site",
+    "role": "site",
+    "at": [
+     25.4860833,
+     56.30925
+    ],
+    "address": "Adgat, Fujairah, F8P5+CMQ",
+    "description": "Receives liquid CO₂ into surface storage, conditions it and injects it into reactive rock for permanent storage.",
+    "sensors": [
+     {
+      "id": "received",
+      "label": "Liquid CO₂ received today",
+      "metric": "LCO2_DELIVERED_t",
+      "unit": "t",
+      "proposed": true,
+      "measurement": "discrete",
+      "demo": {
+       "base": 55.8,
+       "jitter": 0,
+       "risePerSec": 0.004,
+       "decimals": 1
+      }
+     },
+     {
+      "id": "venting",
+      "label": "CO₂ venting at site",
+      "metric": "CO2_VENTED_SITE_kg",
+      "unit": "kg/day",
+      "proposed": true,
+      "measurement": "estimated",
+      "demo": {
+       "base": 21,
+       "jitter": 0,
+       "decimals": 0
+      },
+      "warnAbove": 100
+     }
+    ]
+   }
+  ],
+  "routes": [
+   {
+    "id": "route-holcim",
+    "from": "holcim",
+    "to": "storage",
+    "role": "primary",
+    "name": "Liquid CO₂ by road",
+    "provider": "Gulf Cryo",
+    "description": "Gulf Cryo tankers carry liquefied CO₂ from the capture site to the storage site. Every trip is weighed on the weighing bridge. The slide gives the distance as about 65 km.",
+    "distanceKm": 73.1,
+    "durationMin": 81,
+    "sensors": [
+     {
+      "id": "net-per-trip",
+      "group": "Weighing bridge",
+      "label": "Net liquid CO₂ per trip",
+      "metric": "NET_LCO2_PER_TRIP_t",
+      "unit": "t",
+      "proposed": true,
+      "measurement": "discrete",
+      "demo": {
+       "base": 18.6,
+       "jitter": 0.3,
+       "decimals": 1
+      },
+      "warnBelow": 15
+     },
+     {
+      "id": "delivered",
+      "group": "Weighing bridge",
+      "label": "Delivered today",
+      "metric": "LCO2_DELIVERED_t",
+      "unit": "t",
+      "proposed": true,
+      "measurement": "discrete",
+      "demo": {
+       "base": 55.8,
+       "jitter": 0,
+       "risePerSec": 0.004,
+       "decimals": 1
+      }
+     },
+     {
+      "id": "trips",
+      "group": "Weighing bridge",
+      "label": "Tanker trips today",
+      "metric": "LCO2_TANKER_TRIPS",
+      "unit": "trips",
+      "proposed": true,
+      "measurement": "discrete",
+      "demo": {
+       "base": 3,
+       "jitter": 0,
+       "decimals": 0
+      }
+     },
+     {
+      "id": "fuel",
+      "group": "Tanker",
+      "label": "Fuel per trip",
+      "metric": "FUEL_PER_TRIP_L",
+      "unit": "L",
+      "proposed": true,
+      "measurement": "estimated",
+      "demo": {
+       "base": 38,
+       "jitter": 0,
+       "decimals": 0
+      }
+     },
+     {
+      "id": "leakage",
+      "group": "Tanker",
+      "label": "CO₂ leakage in transit",
+      "metric": "CO2_TRANSIT_LOSS_kg",
+      "unit": "kg/trip",
+      "proposed": true,
+      "measurement": "estimated",
+      "demo": {
+       "base": 12,
+       "jitter": 0,
+       "decimals": 0
+      },
+      "warnAbove": 60
+     }
+    ],
+    "path": [
+     [
+      25.56208,
+      55.98224
+     ],
+     [
+      25.56511,
+      55.98224
+     ],
+     [
+      25.56425,
+      55.97455
+     ],
+     [
+      25.55055,
+      55.97504
+     ],
+     [
+      25.5351,
+      55.98812
+     ],
+     [
+      25.51231,
+      55.98999
+     ],
+     [
+      25.51206,
+      56.01538
+     ],
+     [
+      25.50907,
+      56.02007
+     ],
+     [
+      25.50016,
+      56.02513
+     ],
+     [
+      25.49261,
+      56.03674
+     ],
+     [
+      25.49171,
+      56.05198
+     ],
+     [
+      25.49749,
+      56.06158
+     ],
+     [
+      25.49999,
+      56.07157
+     ],
+     [
+      25.51388,
+      56.07749
+     ],
+     [
+      25.5242,
+      56.11324
+     ],
+     [
+      25.53376,
+      56.1238
+     ],
+     [
+      25.52968,
+      56.14162
+     ],
+     [
+      25.53078,
+      56.14953
+     ],
+     [
+      25.54796,
+      56.16786
+     ],
+     [
+      25.55922,
+      56.18844
+     ],
+     [
+      25.5572,
+      56.1977
+     ],
+     [
+      25.55818,
+      56.21028
+     ],
+     [
+      25.54958,
+      56.21962
+     ],
+     [
+      25.54307,
+      56.23311
+     ],
+     [
+      25.55382,
+      56.23747
+     ],
+     [
+      25.59676,
+      56.27788
+     ],
+     [
+      25.60163,
+      56.29804
+     ],
+     [
+      25.59881,
+      56.32586
+     ],
+     [
+      25.60185,
+      56.33022
+     ],
+     [
+      25.60184,
+      56.33686
+     ],
+     [
+      25.59278,
+      56.3509
+     ],
+     [
+      25.58548,
+      56.35202
+     ],
+     [
+      25.57095,
+      56.34803
+     ],
+     [
+      25.55789,
+      56.35386
+     ],
+     [
+      25.52609,
+      56.35522
+     ],
+     [
+      25.52332,
+      56.32326
+     ],
+     [
+      25.52004,
+      56.32332
+     ],
+     [
+      25.51709,
+      56.30606
+     ],
+     [
+      25.51216,
+      56.30672
+     ],
+     [
+      25.50967,
+      56.31051
+     ],
+     [
+      25.50588,
+      56.30914
+     ],
+     [
+      25.49902,
+      56.31208
+     ],
+     [
+      25.48614,
+      56.30896
+     ]
+    ]
+   }
+  ],
+  "highlights": [
+   {
+    "host": "route-holcim",
+    "sensor": "delivered"
+   },
+   {
+    "host": "route-holcim",
+    "sensor": "net-per-trip"
+   },
+   {
+    "host": "holcim",
+    "sensor": "c14"
+   }
+  ],
+  "assumptions": [
+   "Capture and storage site coordinates are from the logistic chain slide.",
+   "The route is the fastest road route from OSRM (73 km); the slide gives about 65 km. Recorded tanker tracks would replace it.",
+   "Measurements follow the process block diagram: continuous meters, discrete samples and weighing tickets, and estimated values.",
+   "Satellite imagery: Sentinel-2 cloudless 2016 by EOX (CC BY 4.0). Terrain: AWS Terrain Tiles, heights exaggerated ×1.6.",
+   "Columns marked 'proposed' are not in the stream schema yet; values are a demo signal."
+  ]
+ },
+ "water": {
+  "commodity": "water",
+  "name": "Water supply for injection",
+  "map": {
+   "exaggeration": 1.6,
+   "wide": {
+    "bearing": 70,
+    "pitch": 52
+   },
+   "tall": {
+    "bearing": 0,
+    "pitch": 55
+   }
+  },
+  "nodes": [
+   {
+    "id": "stp-al-hayl",
+    "name": "Al Hayl Treatment Plant",
+    "role": "primary",
+    "at": [
+     25.084561,
+     56.278517
+    ],
+    "address": "Sewage Treatment Plant (STP), Fujairah, 37MH+PFV",
+    "description": "Primary water supply. Treated wastewater is loaded onto tankers here.",
+    "sensors": [
+     {
+      "id": "dispatched",
+      "label": "Dispatched today",
+      "metric": "WATER_DISPATCHED_m3",
+      "unit": "m³",
+      "proposed": true,
+      "demo": {
+       "base": 286,
+       "jitter": 0,
+       "risePerSec": 0.02,
+       "decimals": 0
+      }
+     },
+     {
+      "id": "trips",
+      "label": "Tanker trips today",
+      "metric": "TANKER_TRIPS",
+      "unit": "trips",
+      "proposed": true,
+      "demo": {
+       "base": 11,
+       "jitter": 0,
+       "decimals": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "stp-tawain",
+    "name": "Tawain Treatment Plant",
+    "role": "backup",
+    "at": [
+     25.547348,
+     56.03343
+    ],
+    "address": "Sewage Treatment Plant Tawain, Fujairah, G2WM+W9M",
+    "description": "Back-up water supply, used when Al Hayl cannot meet demand.",
+    "sensors": [
+     {
+      "id": "dispatched",
+      "label": "Dispatched today",
+      "metric": "WATER_DISPATCHED_m3",
+      "unit": "m³",
+      "proposed": true,
+      "demo": {
+       "base": 26,
+       "jitter": 0,
+       "decimals": 0
+      }
+     },
+     {
+      "id": "trips",
+      "label": "Tanker trips today",
+      "metric": "TANKER_TRIPS",
+      "unit": "trips",
+      "proposed": true,
+      "demo": {
+       "base": 1,
+       "jitter": 0,
+       "decimals": 0
+      }
+     }
+    ]
+   },
+   {
+    "id": "site",
+    "name": "CO₂ Storage Site",
+    "role": "site",
+    "at": [
+     25.4860833,
+     56.30925
+    ],
+    "description": "Receives the water into the site tank for the injection system. Each delivery records its source plant.",
+    "sensors": [
+     {
+      "id": "received",
+      "label": "Received today",
+      "metric": "WATER_RECEIVED_m3",
+      "unit": "m³",
+      "proposed": true,
+      "demo": {
+       "base": 304,
+       "jitter": 0,
+       "risePerSec": 0.02,
+       "decimals": 0
+      }
+     },
+     {
+      "id": "tank-level",
+      "label": "Water tank level",
+      "metric": "WATER_TANK_LEVEL_pct",
+      "unit": "%",
+      "proposed": true,
+      "demo": {
+       "base": 71,
+       "jitter": 4,
+       "decimals": 0
+      },
+      "warnBelow": 30
+     },
+     {
+      "id": "water-flow",
+      "label": "Water to injection",
+      "metric": "WATER_FLOW_m3h",
+      "unit": "m³/h",
+      "demo": {
+       "base": 31,
+       "jitter": 1.4,
+       "decimals": 1
+      },
+      "warnBelow": 24
+     }
+    ]
+   }
+  ],
+  "routes": [
+   {
+    "id": "route-al-hayl",
+    "from": "stp-al-hayl",
+    "to": "site",
+    "role": "primary",
+    "distanceKm": 66.5,
+    "durationMin": 81,
+    "path": [
+     [
+      25.08448,
+      56.27846
+     ],
+     [
+      25.08864,
+      56.28144
+     ],
+     [
+      25.10091,
+      56.27152
+     ],
+     [
+      25.12017,
+      56.2981
+     ],
+     [
+      25.12995,
+      56.30194
+     ],
+     [
+      25.12985,
+      56.31719
+     ],
+     [
+      25.16018,
+      56.35139
+     ],
+     [
+      25.19803,
+      56.35158
+     ],
+     [
+      25.2446,
+      56.36029
+     ],
+     [
+      25.266,
+      56.36102
+     ],
+     [
+      25.28108,
+      56.34817
+     ],
+     [
+      25.30202,
+      56.35292
+     ],
+     [
+      25.3189,
+      56.34149
+     ],
+     [
+      25.35391,
+      56.35219
+     ],
+     [
+      25.36316,
+      56.34797
+     ],
+     [
+      25.41482,
+      56.35015
+     ],
+     [
+      25.45651,
+      56.36115
+     ],
+     [
+      25.47241,
+      56.36271
+     ],
+     [
+      25.49061,
+      56.35655
+     ],
+     [
+      25.51176,
+      56.36285
+     ],
+     [
+      25.5134,
+      56.35597
+     ],
+     [
+      25.52178,
+      56.35479
+     ],
+     [
+      25.51169,
+      56.32372
+     ],
+     [
+      25.51804,
+      56.31522
+     ],
+     [
+      25.51715,
+      56.30619
+     ],
+     [
+      25.49896,
+      56.31209
+     ],
+     [
+      25.48732,
+      56.30923
+     ]
+    ]
+   },
+   {
+    "id": "route-tawain",
+    "from": "stp-tawain",
+    "to": "site",
+    "role": "backup",
+    "distanceKm": 69.3,
+    "durationMin": 84,
+    "path": [
+     [
+      25.54779,
+      56.03274
+     ],
+     [
+      25.53052,
+      56.01264
+     ],
+     [
+      25.52208,
+      56.00721
+     ],
+     [
+      25.51705,
+      56.01132
+     ],
+     [
+      25.51206,
+      56.01538
+     ],
+     [
+      25.50907,
+      56.02007
+     ],
+     [
+      25.50016,
+      56.02513
+     ],
+     [
+      25.49261,
+      56.03674
+     ],
+     [
+      25.49178,
+      56.05252
+     ],
+     [
+      25.50039,
+      56.07202
+     ],
+     [
+      25.51388,
+      56.07749
+     ],
+     [
+      25.5242,
+      56.11324
+     ],
+     [
+      25.53376,
+      56.1238
+     ],
+     [
+      25.52968,
+      56.14162
+     ],
+     [
+      25.53078,
+      56.14953
+     ],
+     [
+      25.54796,
+      56.16786
+     ],
+     [
+      25.55922,
+      56.18844
+     ],
+     [
+      25.5572,
+      56.1977
+     ],
+     [
+      25.55818,
+      56.21028
+     ],
+     [
+      25.54958,
+      56.21962
+     ],
+     [
+      25.54307,
+      56.23311
+     ],
+     [
+      25.55382,
+      56.23747
+     ],
+     [
+      25.59676,
+      56.27788
+     ],
+     [
+      25.60163,
+      56.29804
+     ],
+     [
+      25.59881,
+      56.32586
+     ],
+     [
+      25.60185,
+      56.33022
+     ],
+     [
+      25.60184,
+      56.33686
+     ],
+     [
+      25.59278,
+      56.3509
+     ],
+     [
+      25.58548,
+      56.35202
+     ],
+     [
+      25.57095,
+      56.34803
+     ],
+     [
+      25.55789,
+      56.35386
+     ],
+     [
+      25.52609,
+      56.35522
+     ],
+     [
+      25.52332,
+      56.32326
+     ],
+     [
+      25.52004,
+      56.32332
+     ],
+     [
+      25.51709,
+      56.30606
+     ],
+     [
+      25.51216,
+      56.30672
+     ],
+     [
+      25.50967,
+      56.31051
+     ],
+     [
+      25.50588,
+      56.30914
+     ],
+     [
+      25.49896,
+      56.31209
+     ],
+     [
+      25.48732,
+      56.30923
+     ]
+    ]
+   }
+  ],
+  "highlights": [
+   {
+    "host": "site",
+    "sensor": "received"
+   },
+   {
+    "host": "stp-al-hayl",
+    "sensor": "trips"
+   },
+   {
+    "host": "site",
+    "sensor": "tank-level"
+   }
+  ],
+  "assumptions": [
+   "Plant coordinates are from the water transport slide.",
+   "The storage site position is from the logistic chain slide (ACE2.5, Adgat).",
+   "Routes are the fastest road routes from OSRM, not recorded tanker tracks.",
+   "Satellite imagery: Sentinel-2 cloudless 2016 by EOX (CC BY 4.0). Terrain: AWS Terrain Tiles, heights exaggerated ×1.6.",
+   "Columns marked 'proposed' are not in the stream schema yet; values are a demo signal."
+  ]
+ },
+ "subsurface": {
+  "block": {
+   "length": 700,
+   "width": 300,
+   "bottom": 950
+  },
+  "centreOn": "hasa-4",
+  "reservoir": {
+   "top": 650,
+   "base": 900
+  },
+  "layers": [
+   {
+    "id": "surface",
+    "name": "Surface & alluvial sediments",
+    "top": 0,
+    "base": 15,
+    "color": "#EADAC7",
+    "evidence": "interpreted",
+    "description": "Wadi gravels and weathered surface material. Thickness assumed."
+   },
+   {
+    "id": "aquifer",
+    "name": "Shallow freshwater aquifer",
+    "top": 15,
+    "base": 100,
+    "color": "#BEB290",
+    "evidence": "interpreted",
+    "description": "Highly fractured, weathered rock holding the shallow freshwater aquifer (0–100 m). A separate system from the injection reservoir."
+   },
+   {
+    "id": "upper",
+    "name": "Upper ultramafic: groundwater-bearing fractures",
+    "top": 100,
+    "base": 400,
+    "color": "#8D8465",
+    "evidence": "interpreted",
+    "description": "Peridotite with a groundwater-bearing fracture network (100–400 m)."
+   },
+   {
+    "id": "serpentinised",
+    "name": "Serpentinised peridotite",
+    "top": 400,
+    "base": 650,
+    "color": "#6F663F",
+    "evidence": "interpreted",
+    "description": "Higher resistivity, less conductive groundwater and lower fracture porosity. Most fractures here are sealed. The degree of serpentinisation is assumed."
+   },
+   {
+    "id": "reservoir",
+    "name": "Deep fractured injection reservoir",
+    "top": 650,
+    "base": 900,
+    "color": "#57544A",
+    "evidence": "interpreted",
+    "description": "Selected mineralisation interval (650–900 m). Low matrix porosity: fluid moves through discrete, connected fractures. Reported temperature 60–90 °C."
+   },
+   {
+    "id": "below",
+    "name": "Peridotite below drilled depth",
+    "top": 900,
+    "base": 950,
+    "color": "#3B3E2F",
+    "evidence": "interpreted",
+    "description": "Below the ~900 m wells; not characterised."
+   }
+  ],
+  "wells": [
+   {
+    "objectId": "hasa-4",
+    "role": "injection",
+    "evidence": "measured",
+    "note": "Depth from the assessment's two ~900 m wells; mapping them to HASA 4 and HASA 3 is this plan's assumption.",
+    "intervals": [
+     {
+      "label": "Casing & cement",
+      "top": 0,
+      "base": 650,
+      "kind": "casing"
+     },
+     {
+      "label": "Perforated injection interval",
+      "top": 650,
+      "base": 900,
+      "kind": "perforated"
+     }
+    ],
+    "sensors": [
+     {
+      "label": "Downhole pressure & temperature",
+      "depth": 645,
+      "kind": "pressure-temperature"
+     }
+    ]
+   },
+   {
+    "objectId": "hasa-3",
+    "role": "observation",
+    "evidence": "measured",
+    "note": "About 21 m from HASA 4 in this plan; the assessment's reference observation well sat about 15 m from the injector.",
+    "intervals": [
+     {
+      "label": "Casing & cement",
+      "top": 0,
+      "base": 650,
+      "kind": "casing"
+     },
+     {
+      "label": "Screened sampling interval",
+      "top": 650,
+      "base": 900,
+      "kind": "screen"
+     }
+    ],
+    "sensors": [
+     {
+      "label": "Groundwater sampling (tracer, pH, DIC, Mg, Ca, C-14)",
+      "depth": 700,
+      "kind": "sampling"
+     },
+     {
+      "label": "Pressure & temperature",
+      "depth": 760,
+      "kind": "pressure-temperature"
+     },
+     {
+      "label": "Groundwater sampling (tracer, pH, DIC, Mg, Ca, C-14)",
+      "depth": 840,
+      "kind": "sampling"
+     }
+    ]
+   },
+   {
+    "objectId": "hasa-2",
+    "role": "shallow-aquifer",
+    "evidence": "interpreted",
+    "note": "Depth assumed to span the 0–100 m shallow aquifer.",
+    "intervals": [
+     {
+      "label": "Casing",
+      "top": 0,
+      "base": 30,
+      "kind": "casing"
+     },
+     {
+      "label": "Aquifer screen",
+      "top": 30,
+      "base": 100,
+      "kind": "screen"
+     }
+    ],
+    "sensors": [
+     {
+      "label": "Aquifer sampling (CO₂ tracer, chemistry)",
+      "depth": 65,
+      "kind": "sampling"
+     }
+    ]
+   },
+   {
+    "objectId": "hasa-1",
+    "role": "seismic",
+    "evidence": "interpreted",
+    "note": "Depth and geophone spacing assumed.",
+    "intervals": [
+     {
+      "label": "Casing",
+      "top": 0,
+      "base": 300,
+      "kind": "casing"
+     },
+     {
+      "label": "Downhole geophone array",
+      "top": 300,
+      "base": 600,
+      "kind": "geophones"
+     }
+    ],
+    "sensors": [
+     {
+      "label": "Geophone",
+      "depth": 350,
+      "kind": "geophone"
+     },
+     {
+      "label": "Geophone",
+      "depth": 450,
+      "kind": "geophone"
+     },
+     {
+      "label": "Geophone",
+      "depth": 550,
+      "kind": "geophone"
+     }
+    ]
+   }
+  ],
+  "dfn": {
+   "seed": 4401,
+   "sets": [
+    {
+     "name": "Steep NE-dipping set",
+     "dip": [
+      60,
+      85
+     ],
+     "azimuth": [
+      30,
+      70
+     ]
+    },
+    {
+     "name": "Steep NW-dipping set",
+     "dip": [
+      55,
+      80
+     ],
+     "azimuth": [
+      300,
+      340
+     ]
+    },
+    {
+     "name": "Low-angle veins",
+     "dip": [
+      5,
+      25
+     ],
+     "azimuth": [
+      0,
+      360
+     ]
+    }
+   ],
+   "zones": [
+    {
+     "layerId": "aquifer",
+     "count": 60,
+     "radius": 340,
+     "length": [
+      6,
+      24
+     ],
+     "aperture": [
+      0.2,
+      2
+     ],
+     "states": {
+      "open": 0.6,
+      "partial": 0.3,
+      "sealed": 0.1
+     },
+     "filling": "weathering products"
+    },
+    {
+     "layerId": "upper",
+     "count": 110,
+     "radius": 340,
+     "length": [
+      8,
+      40
+     ],
+     "aperture": [
+      0.1,
+      1.2
+     ],
+     "states": {
+      "open": 0.45,
+      "partial": 0.35,
+      "sealed": 0.2
+     },
+     "filling": "serpentine, carbonate"
+    },
+    {
+     "layerId": "serpentinised",
+     "count": 45,
+     "radius": 300,
+     "length": [
+      5,
+      20
+     ],
+     "aperture": [
+      0.05,
+      0.4
+     ],
+     "states": {
+      "open": 0.05,
+      "partial": 0.2,
+      "sealed": 0.75
+     },
+     "filling": "serpentine"
+    },
+    {
+     "layerId": "reservoir",
+     "count": 240,
+     "radius": 140,
+     "length": [
+      18,
+      80
+     ],
+     "aperture": [
+      0.1,
+      1
+     ],
+     "states": {
+      "open": 0.55,
+      "partial": 0.3,
+      "sealed": 0.15
+     },
+     "filling": "serpentine, minor carbonate"
+    }
+   ]
+  },
+  "tem": {
+   "stationSpacing": 50,
+   "evidence": "measured"
+  },
+  "parameters": [
+   {
+    "label": "Well depth (two wells)",
+    "value": "~900 m",
+    "evidence": "measured"
+   },
+   {
+    "label": "Deep reservoir interval",
+    "value": "650–900 m",
+    "evidence": "interpreted"
+   },
+   {
+    "label": "Surface TEM survey area",
+    "value": "700 × 300 m",
+    "evidence": "measured"
+   },
+   {
+    "label": "Reservoir temperature",
+    "value": "60–90 °C",
+    "evidence": "measured"
+   },
+   {
+    "label": "TEM time-lapse test",
+    "value": "150 m³ CO₂-bearing water",
+    "evidence": "measured"
+   },
+   {
+    "label": "Injector–observation spacing",
+    "value": "≈21 m (plan) · ≈15 m (assessment)",
+    "evidence": "interpreted"
+   }
+  ],
+  "sources": [
+   "44.01 — Monitoring, Measurement, Reporting and Verification framework (2024)",
+   "University of Bern / ETH Zürich — Geological storage of CO₂ by in-situ mineralisation, for the Swiss Federal Office for the Environment (2025)",
+   "Characterizing flow paths in peridotite formations (2025)"
+  ],
+  "notes": [
+   "Reference scenario from public sources, mapped onto this site plan. Not 44.01's proprietary reservoir data.",
+   "The fracture network is generated from assumed sets, densities and apertures. Image-log interpretations would replace it.",
+   "Fluid migration, reaction and carbonate precipitation are illustrative, not a reactive-transport simulation.",
+   "TEM measures electrical resistivity, not carbonate: a low-resistivity anomaly shows where conductive injected fluid went.",
+   "The 2025 assessment did not report direct observation of new carbonate at depth, so mineralised carbon is shown as simulated."
+  ]
+ }
+}

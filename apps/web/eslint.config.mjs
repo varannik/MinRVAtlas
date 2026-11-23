@@ -17,6 +17,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The old project page, kept for reference and not maintained (src/legacy/README.md).
+    "src/legacy/**",
   ]),
 ]);
 

@@ -132,6 +132,16 @@ export function isometricSecretName(stage: StageName): string {
 }
 
 /** Operator-entered WGS84 pins. Not a secret; Isometric does not return site coordinates. */
+/** The Atlas table: catalogue, 3D site model pointers, practice journeys (apps/web/src/lib/atlas/keys.ts). */
+export function atlasTableName(stage: StageName): string {
+  return resourceName(stage, "atlas");
+}
+
+/** The Atlas bucket: 3D site model versions and seeded monitoring histories. */
+export function atlasBucketName(stage: StageName, account = ACCOUNT): string {
+  return `${STACK_PREFIX}-${stage}-atlas-assets-${account}`;
+}
+
 export function projectLocationsParamName(stage: StageName): string {
   return `/minrv/ew2/${stage}/project-locations`;
 }

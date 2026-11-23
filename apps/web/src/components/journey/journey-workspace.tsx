@@ -9,8 +9,8 @@ import { ArrowLeft, CircleAlert, Cloud, LoaderCircle, RotateCcw, X } from "lucid
 import { useCortexProjects } from "@/components/cortex/cortex-projects";
 import { atlasSeed, type AtlasProjectHint } from "@/lib/journey/atlas";
 import { formatLocation } from "@/lib/journey/cortex";
-import { SCENARIO_BY_ID, isScenarioId } from "@/lib/journey/scenarios";
 import { stepState } from "@/lib/journey/steps";
+import type { Tasks } from "@/lib/journey/engine";
 import type { ScenarioId } from "@/lib/journey/types";
 import { stepProgress, usePlan, useJourney } from "@/store/journey-store";
 import { FLOOR_IDS, type FloorNumber } from "./floors/floor-anchors";
@@ -118,27 +118,27 @@ function SyncNote() {
       </p>
     );
   }
-  if (!project) {
+  if (sync.state === "loading" || sync.state === "saving" || !project) {
+    return (
+      <p role="status" className={`${base} text-calcite/75`}>
+        <LoaderCircle className="mt-px size-3.5 shrink-0 animate-spin" aria-hidden />
+        {sync.state === "saving" ? "Saving…" : "Opening the journey…"}
+      </p>
+    );
+  }
+  if (project.practice) {
     return (
       <p className={`${base} items-center text-calcite/75`}>
-        Practice: nothing here is saved.
+        Practice: saved for you only.
         <button
           type="button"
-          onClick={() => load(scenarioId, practiceSeed ?? undefined)}
+          onClick={() => void load(scenarioId, practiceSeed ?? undefined, true)}
           title="Start this practice journey again from its starting point"
           className="ml-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold text-calcite hover:bg-calcite/10"
         >
           <RotateCcw className="size-3" />
           Start again
         </button>
-      </p>
-    );
-  }
-  if (sync.state === "loading" || sync.state === "saving") {
-    return (
-      <p role="status" className={`${base} text-calcite/75`}>
-        <LoaderCircle className="mt-px size-3.5 shrink-0 animate-spin" aria-hidden />
-        {sync.state === "loading" ? "Opening the project's journey…" : "Saving…"}
       </p>
     );
   }
@@ -231,20 +231,21 @@ export function JourneyWorkspace({ request }: { request: JourneyRequest }) {
   const { reply, error: projectsError } = useCortexProjects();
   const reduce = useReducedMotion();
   const plan = usePlan();
-  const scenario = SCENARIO_BY_ID[scenarioId];
+  const scenario = useJourney((state) => state.scenario);
   const here = useHereFloor();
   const scrollRef = useRef<HTMLElement>(null);
   const viewing = useFloorInView(scrollRef);
   // The header follows what has been answered, so a new project fills in as it goes.
-  const name = useJourney((state) => state.tasks["setup.name"]?.value) || (project ? project.name : scenario.name);
+  const name = useJourney((state) => state.tasks["setup.name"]?.value) || project?.name || scenario?.name || "";
   const location = useJourney((state) => state.tasks["setup.location"]?.value);
-  const place = project
-    ? location
-      ? formatLocation(location)
-      : "Location not given yet"
-    : scenarioId === "new" && location
-      ? formatLocation(location)
-      : scenario.place;
+  const place =
+    project && !project.practice
+      ? location
+        ? formatLocation(location)
+        : "Location not given yet"
+      : scenarioId === "new" && location
+        ? formatLocation(location)
+        : (scenario?.place ?? "");
   const projects = useMemo(() => (reply?.configured && reply.tenantStatus === "active" ? reply.projects : []), [reply]);
   const methodology = plan.methodology
     ? [plan.methodology.label, plan.methodology.version].filter(Boolean).join(" ")
@@ -258,33 +259,34 @@ export function JourneyWorkspace({ request }: { request: JourneyRequest }) {
   useEffect(() => {
     if (opened.current || (!reply && !projectsError)) return;
     opened.current = true;
-    const practise = (id: ScenarioId) => {
-      const state = useJourney.getState();
-      if (state.project || state.scenarioId !== id) load(id);
-    };
+    // Practice journeys are kept on the server, one per person, so opening one
+    // again picks up where it was left.
+    const practise = (id: ScenarioId, seed?: Tasks) => void load(id, seed);
     const wanted = request.project ?? (request.practice ? null : projects[0]?.id ?? null);
     const stored = wanted ? projects.find((option) => option.id === wanted) : undefined;
-    if (stored) {
-      void openProject(stored.id, stored.name).then((result) => {
+    void (async () => {
+      const scenarios = await fetch("/api/journey/scenarios", { cache: "no-store" })
+        .then((response) => (response.ok ? (response.json() as Promise<{ scenarios: { id: string }[] }>) : { scenarios: [] }))
+        .catch(() => ({ scenarios: [] }));
+      const known = new Set(scenarios.scenarios.map((entry) => entry.id));
+      if (stored) {
+        const result = await openProject(stored.id, stored.name);
         // Journeys not set up on this deployment: practise on the same scenario if there is one.
-        if (result === "unavailable") practise(isScenarioId(stored.id) ? stored.id : "new");
-      });
-      return;
-    }
-    const scenarioWanted = request.practice ?? request.project;
-    if (isScenarioId(scenarioWanted)) {
-      practise(scenarioWanted);
-      return;
-    }
-    // An Atlas project without a saved journey, on any registry: practise on it as itself,
-    // keeping this tab's answers if it is already open.
-    if (request.atlas) {
-      const state = useJourney.getState();
-      const same = !state.project && state.practiceSeed?.["setup.name"]?.value === request.atlas.name;
-      if (!same) load("new", atlasSeed(request.atlas));
-      return;
-    }
-    practise("fujairah-mineral");
+        if (result === "unavailable") practise(known.has(stored.id) ? stored.id : "new");
+        return;
+      }
+      const scenarioWanted = request.practice ?? request.project;
+      if (scenarioWanted && known.has(scenarioWanted)) {
+        practise(scenarioWanted);
+        return;
+      }
+      // An Atlas project without a saved journey, on any registry: practise on it as itself.
+      if (request.atlas) {
+        practise("new", atlasSeed(request.atlas));
+        return;
+      }
+      practise("fujairah-mineral");
+    })();
   }, [reply, projectsError, projects, request, load, openProject]);
 
   useEffect(() => {

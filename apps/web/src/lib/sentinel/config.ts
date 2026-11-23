@@ -1,8 +1,7 @@
 import "server-only";
 
 import { isCertifyProjectId } from "@/lib/iso-geo";
-import { PROJECTS } from "@/lib/projects";
-import { TENANTS } from "@/lib/tenants";
+import { findProject, isKnownTenant } from "@/lib/atlas/catalog.server";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -83,17 +82,17 @@ export async function getSentinelConfigAsync(): Promise<SentinelConfig> {
   return getSentinelConfig();
 }
 
-export function isCatalogProjectId(value: string): boolean {
-  return PROJECTS.some((project) => project.id === value) || isCertifyProjectId(value);
+export async function isCatalogProjectId(value: string): Promise<boolean> {
+  return isCertifyProjectId(value) || (await findProject(value)) !== null;
 }
 
-export function catalogProjectName(localId: string): string {
-  return PROJECTS.find((project) => project.id === localId)?.name ?? localId;
+export async function catalogProjectName(localId: string): Promise<string> {
+  return (await findProject(localId))?.name ?? localId;
 }
 
-export function resolveRequestTenant(request: Request): string | null {
+export async function resolveRequestTenant(request: Request): Promise<string | null> {
   const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId || !TENANTS.some((tenant) => tenant.id === tenantId)) {
+  if (!tenantId || !(await isKnownTenant(tenantId))) {
     return null;
   }
   return tenantId;

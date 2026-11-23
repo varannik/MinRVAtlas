@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { SEED_PROJECTS } from "@/test/seed";
 import { assembleWideCsv, buildCoverage, parseObservationsCsv } from "./stream-coverage";
 import {
   assertKeyInPrefix,
@@ -12,9 +13,9 @@ import {
 
 describe("stream prefix", () => {
   it("scopes tenant, registry, and project", () => {
-    const fujairah = catalogProject("fourfourone", "Puro.earth", "fujairah-mineral");
+    const fujairah = catalogProject(SEED_PROJECTS, "fourfourone", "Puro.earth", "fujairah-mineral");
     assert.ok(fujairah);
-    assert.equal(catalogProject("fourfourone", "Isometric", "fujairah-mineral"), null);
+    assert.equal(catalogProject(SEED_PROJECTS, "fourfourone", "Isometric", "fujairah-mineral"), null);
     assert.equal(registrySlug("Isometric"), "isometric");
     assert.equal(registrySlug("Puro.earth"), "puro");
     assert.equal(
@@ -22,10 +23,10 @@ describe("stream prefix", () => {
       "fourfourone/puro/fujairah-mineral/",
     );
     assert.equal(
-      catalogProject("terrafix", "Puro.earth", "fujairah-mineral"),
+      catalogProject(SEED_PROJECTS, "terrafix", "Puro.earth", "fujairah-mineral"),
       null,
     );
-    assert.equal(catalogProject("fourfourone", "Isometric", "north-sea-dac"), null);
+    assert.equal(catalogProject(SEED_PROJECTS, "fourfourone", "Isometric", "north-sea-dac"), null);
   });
 
   it("rejects keys outside the prefix", () => {

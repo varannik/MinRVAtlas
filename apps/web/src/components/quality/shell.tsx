@@ -11,7 +11,7 @@ import {
   type QualityProjectOption,
 } from "@/lib/sentinel/quality-client";
 import {
-  readStoredQualityCatalogId,
+  requestedQualityCatalogId,
   useQuality,
 } from "@/store/quality-store";
 import { isQualityNavActive, QUALITY_NAV } from "./nav";
@@ -59,7 +59,7 @@ export function QualityShell({ children }: { children: ReactNode }) {
         if (cancelled) return;
         setProjects(list);
         setLoaded(true);
-        const stored = readStoredQualityCatalogId();
+        const stored = requestedQualityCatalogId();
         const match = stored
           ? list.find((project) => project.id === stored)
           : undefined;

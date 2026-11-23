@@ -4,7 +4,7 @@ import { ensureSentinelUuid } from "./bind";
 const PROJECT_ID_KEYS = new Set(["project_id", "projectId"]);
 
 async function rewriteId(value: string): Promise<string> {
-  if (!isCatalogProjectId(value)) return value;
+  if (!(await isCatalogProjectId(value))) return value;
   return ensureSentinelUuid(value);
 }
 
@@ -12,7 +12,7 @@ export async function rewritePath(path: string): Promise<string> {
   const parts = path.split("/");
   const next = await Promise.all(
     parts.map(async (part) => {
-      if (!part || !isCatalogProjectId(part)) return part;
+      if (!part || !(await isCatalogProjectId(part))) return part;
       return ensureSentinelUuid(part);
     }),
   );
@@ -58,7 +58,7 @@ export async function rewriteFormData(form: FormData): Promise<FormData> {
     if (
       PROJECT_ID_KEYS.has(key) &&
       typeof value === "string" &&
-      isCatalogProjectId(value)
+      (await isCatalogProjectId(value))
     ) {
       next.append(key, await ensureSentinelUuid(value));
       continue;

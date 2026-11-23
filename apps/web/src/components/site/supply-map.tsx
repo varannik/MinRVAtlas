@@ -77,9 +77,9 @@ function mapStyle(exaggeration: number): StyleSpecification {
     ],
     terrain: { source: "terrain", exaggeration },
     sky: {
-      "sky-color": "#9cc4e4",
-      "horizon-color": "#e8eef2",
-      "fog-color": "#e6e9ea",
+      "sky-color": "#D4C6AB",
+      "horizon-color": "#EEE5DB",
+      "fog-color": "#EEE5DB",
       "sky-horizon-blend": 0.55,
       "horizon-fog-blend": 0.7,
       "fog-ground-blend": 0.25,
@@ -213,8 +213,8 @@ function Tankers({
       const element = document.createElement("div");
       element.style.pointerEvents = "none";
       element.innerHTML = `<svg width="14" height="30" viewBox="0 0 14 30" aria-hidden="true">
-        <rect x="1" y="9" width="12" height="20" rx="5" fill="${loaded ? TANKER_COLOR[commodity] : "#c9ccd0"}" stroke="#ffffff" stroke-width="1.4"/>
-        <rect x="2" y="1" width="10" height="7" rx="2" fill="#f7f7f4" stroke="#3a3a3a" stroke-width="0.8"/>
+        <rect x="1" y="9" width="12" height="20" rx="5" fill="${loaded ? TANKER_COLOR[commodity] : "#BEB290"}" stroke="#ffffff" stroke-width="1.4"/>
+        <rect x="2" y="1" width="10" height="7" rx="2" fill="#f7f7f4" stroke="#0D1802" stroke-width="0.8"/>
       </svg>`;
       const marker = new Marker({
         element,
@@ -484,9 +484,15 @@ export function SupplyMap({
     });
 
     // Credits stay one tap away (ⓘ) instead of a full line across the map.
-    instance.once("idle", () => {
-      element.querySelector(".maplibregl-compact-show")?.classList.remove("maplibregl-compact-show");
-    });
+    // MapLibre opens them again whenever a source adds its credit, so keep
+    // closing them until someone touches the map, then leave them be.
+    let touched = false;
+    element.addEventListener("pointerdown", () => (touched = true), { once: true });
+    const closeCredits = () => {
+      if (!touched) element.querySelector(".maplibregl-compact-show")?.classList.remove("maplibregl-compact-show");
+    };
+    instance.on("idle", closeCredits);
+    instance.on("sourcedata", closeCredits);
 
     instance.on("click", (event) => {
       // Labels and chips are DOM markers with their own handlers; a click on
@@ -550,7 +556,7 @@ export function SupplyMap({
 
   return (
     // MapLibre makes its container position: relative, so it fills an absolute wrapper.
-    <div className="absolute inset-0 bg-[#e6e9ea]">
+    <div className="absolute inset-0 bg-[#EEE5DB]">
       <div ref={container} className="h-full w-full" />
       {map ? (
         <>
@@ -563,7 +569,7 @@ export function SupplyMap({
                   <span
                     className={`text-[11px] whitespace-nowrap ${
                       place.sea
-                        ? "font-medium tracking-[0.25em] text-[#d8eef8] uppercase italic"
+                        ? "font-medium tracking-[0.25em] text-calcite uppercase italic"
                         : "font-semibold text-white"
                     }`}
                     style={{ textShadow: "0 1px 3px rgba(0,0,0,0.75)" }}

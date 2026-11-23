@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { Html, Line } from "@react-three/drei";
 import type { FlowKind, SiteFlow, SiteLayout } from "@/lib/site-layouts";
-import { FLOW_COLOR, projector } from "./site-geometry";
+import { FLOW_COLOR, FLOW_DASH, projector } from "./site-geometry";
 
 const PIPE_Y = 1.1;
 const UPLINK_HEIGHT = 48;
@@ -105,6 +105,7 @@ function FlowLine({
 }) {
   const line = useRef<ComponentRef<typeof Line>>(null);
   const color = FLOW_COLOR[flow.kind];
+  const style = FLOW_DASH[flow.kind];
   const isData = flow.kind === "data";
 
   useFrame((_, delta) => {
@@ -121,16 +122,16 @@ function FlowLine({
         points={points}
         color={color}
         lineWidth={isData ? 1.6 : 3.4}
-        dashed
-        dashSize={isData ? 2 : 3}
-        gapSize={isData ? 2.2 : 1.2}
+        dashed={style.gap > 0}
+        dashSize={style.dash}
+        gapSize={style.gap}
         transparent
         opacity={isData ? 0.85 : 0.95}
       />
       {!isData ? <Beads points={points} color={color} /> : null}
       {flow.uplink && !compact ? (
         <Html position={points[points.length - 1]} center zIndexRange={[30, 10]}>
-          <span className="rounded-full bg-carbon-400 px-2.5 py-1 text-[10.5px] font-semibold whitespace-nowrap text-white shadow">
+          <span className="rounded-full bg-olivine-800 px-2.5 py-1 text-[10.5px] font-semibold whitespace-nowrap text-calcite shadow">
             MinRV · Sentinel
           </span>
         </Html>

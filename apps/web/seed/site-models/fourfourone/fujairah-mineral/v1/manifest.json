@@ -1,0 +1,24 @@
+{
+ "format": "minrv-site-model@1",
+ "tenantId": "fourfourone",
+ "projectId": "fujairah-mineral",
+ "version": 1,
+ "createdAt": "2026-11-23T09:29:48.779Z",
+ "layout": {
+  "key": "layout.json",
+  "contentType": "application/json",
+  "sha256": "9270c56d3fea9a91538adab1a72ff2b621692c6b9650f8aa36ea2e363006ab11",
+  "bytes": 41875
+ },
+ "assets": [
+  {
+   "key": "assets/fujairah-aerial.jpg",
+   "role": "source-photo",
+   "contentType": "image/jpeg",
+   "width": 1499,
+   "height": 945,
+   "sha256": "5f2cb2e7c3ddf5087198f9325c5b6ce3601744982d55ebc96be23f4904cb4964",
+   "bytes": 722835
+  }
+ ]
+}

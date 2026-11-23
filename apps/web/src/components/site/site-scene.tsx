@@ -12,7 +12,8 @@ import type { Subsurface, SubsurfaceView } from "./subsurface/model";
 import { SubsurfaceScene } from "./subsurface/subsurface-scene";
 import type { SensorReadings } from "./use-site-sensors";
 
-const SKY = "#ECE7DD";
+/** Behind the site: Calcite above ground, the Peridotite at depth. */
+const SKY = { surface: "#EEE5DB", deep: "#0D1802" } as const;
 const CAMERA_START = new THREE.Vector3(-330, 380, 520);
 
 // ---------------------------------------------------------------------------
@@ -49,9 +50,9 @@ function fbm(x: number, y: number): number {
   return sum;
 }
 
-const LOW = new THREE.Color("#CDBF9F");
-const MID = new THREE.Color("#9C8466");
-const HIGH = new THREE.Color("#5E4E3E");
+const LOW = new THREE.Color("#D4C6AB");
+const MID = new THREE.Color("#989077");
+const HIGH = new THREE.Color("#57544A");
 
 function Terrain({ layout, ghost }: { layout: SiteLayout; ghost: boolean }) {
   const geometry = useMemo(() => {
@@ -143,7 +144,7 @@ function Fence({ layout }: { layout: SiteLayout }) {
     });
   }, [layout]);
   if (!points) return null;
-  return <Line points={points} color="#3d3a33" lineWidth={1.2} />;
+  return <Line points={points} color="#3B3E2F" lineWidth={1.2} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -255,7 +256,7 @@ export type SiteSceneProps = {
   sub: Subsurface | null;
   subsurfaceView: SubsurfaceView | null;
   flows: Record<FlowKind, boolean>;
-  /** Preview column: no labels, surface view only, slow orbit. */
+  /** Preview card: no labels, a slow orbit. */
   compact: boolean;
   /** Stop rendering while hidden behind another full-screen panel. */
   paused?: boolean;
@@ -266,7 +267,7 @@ export type SiteSceneProps = {
 
 export function SiteScene(props: SiteSceneProps) {
   const { layout, selectedId, compact, sub, subsurfaceView } = props;
-  const subsurface = props.subsurface && !compact;
+  const subsurface = props.subsurface;
   const views = useMemo(() => ({ surface: SURFACE_VIEW, deep: deepView(sub) }), [sub]);
 
   const focus = useMemo(() => {
@@ -290,8 +291,8 @@ export function SiteScene(props: SiteSceneProps) {
         props.onSelectFracture(null);
       }}
     >
-      <color attach="background" args={[SKY]} />
-      <fog attach="fog" args={[SKY, subsurface ? 2200 : 420, subsurface ? 4200 : 1100]} />
+      <color attach="background" args={[SKY[subsurface ? "deep" : "surface"]]} />
+      <fog attach="fog" args={[SKY[subsurface ? "deep" : "surface"], subsurface ? 2200 : 420, subsurface ? 4200 : 1100]} />
 
       <hemisphereLight intensity={0.85} color="#fffaf0" groundColor="#b8a988" />
       <directionalLight

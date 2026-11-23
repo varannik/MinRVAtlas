@@ -1,4 +1,4 @@
-import { siteLayoutFor, type SiteLayout, type SiteSensor } from "../site-layouts";
+import type { SiteLayout, SiteSensor } from "../site-layouts";
 import { leaves } from "./calc/tree";
 import type { CalcSpec, SeriesAggregate } from "./calc/types";
 
@@ -78,8 +78,8 @@ function fromSpec(spec: CalcSpec): PulseReading[] {
   });
 }
 
-export function pulseReadingsFor(projectId: string, spec: CalcSpec): PulseReading[] {
-  const layout = siteLayoutFor(projectId);
+/** `layout` is the project's stored 3D site model, when it has one. */
+export function pulseReadingsFor(layout: SiteLayout | null, spec: CalcSpec): PulseReading[] {
   const readings = layout ? fromLayout(layout) : fromSpec(spec);
   return readings.slice(0, MAX_READINGS);
 }

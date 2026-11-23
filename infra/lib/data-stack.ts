@@ -1,4 +1,5 @@
 import * as cdk from "aws-cdk-lib";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as elasticache from "aws-cdk-lib/aws-elasticache";
 import * as iam from "aws-cdk-lib/aws-iam";
@@ -9,6 +10,8 @@ import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
 import {
   ACCOUNT,
+  atlasBucketName,
+  atlasTableName,
   cfnStackName,
   evidenceBucketName,
   logsBucketName,
@@ -28,6 +31,8 @@ export class DataStack extends Ew2Stack {
   public readonly evidenceBucket: s3.Bucket;
   public readonly streamBucket: s3.Bucket;
   public readonly logsBucket: s3.Bucket;
+  public readonly atlasTable: dynamodb.Table;
+  public readonly atlasBucket: s3.Bucket;
   public readonly cluster: rds.DatabaseCluster;
   public readonly proxy: rds.DatabaseProxy;
   public readonly valkey: elasticache.CfnServerlessCache;
@@ -98,12 +103,50 @@ export class DataStack extends Ew2Stack {
       removalPolicy: removal,
     });
 
+    // The Atlas: what the web shows about projects, read from here and never
+    // bundled into the browser. The table holds the catalogue, which 3D site
+    // model version is live, and each person's practice journeys; the bucket
+    // holds every site model version under its own prefix (never overwritten)
+    // and the seeded monitoring histories. Loaded by `npm run seed` in apps/web.
+    this.atlasTable = new dynamodb.Table(this, "Atlas", {
+      tableName: atlasTableName(cfg.stageName),
+      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
+      encryptionKey: key,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      deletionProtection: cfg.deletionProtection,
+      removalPolicy: removal,
+    });
+
+    this.atlasBucket = new s3.Bucket(this, "AtlasAssets", {
+      bucketName: atlasBucketName(cfg.stageName),
+      encryption: s3.BucketEncryption.KMS,
+      encryptionKey: key,
+      bucketKeyEnabled: true,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      versioned: true,
+      lifecycleRules: [
+        {
+          abortIncompleteMultipartUploadAfter: cdk.Duration.days(7),
+          noncurrentVersionExpiration: cdk.Duration.days(cfg.deletionProtection ? 365 : 90),
+        },
+      ],
+      removalPolicy: removal,
+    });
+
     this.exportValue(this.evidenceBucket.bucketArn);
     this.exportValue(this.evidenceBucket.bucketName);
     this.exportValue(this.streamBucket.bucketArn);
     this.exportValue(this.streamBucket.bucketName);
     this.exportValue(this.logsBucket.bucketArn);
     this.exportValue(this.logsBucket.bucketName);
+    this.exportValue(this.atlasTable.tableArn);
+    this.exportValue(this.atlasTable.tableName);
+    this.exportValue(this.atlasBucket.bucketArn);
+    this.exportValue(this.atlasBucket.bucketName);
 
     const proxySg = new ec2.SecurityGroup(this, "ProxySg", {
       vpc,

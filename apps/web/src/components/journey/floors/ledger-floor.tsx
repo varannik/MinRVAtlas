@@ -12,7 +12,7 @@ import type { BlockStage } from "@/lib/mrv/types";
 import type { StepId } from "@/lib/journey/types";
 import { stepProgress, usePlan, useJourney } from "@/store/journey-store";
 import { formatTonnes } from "@/components/stage/format";
-import { CubeShell } from "@/components/stage/ledger/block-chain";
+import { CubeShell } from "@/components/stage/ledger/cube-shell";
 import { BLOCK_TONE, ORIGIN_BADGE } from "@/components/stage/theme";
 import { useElementSize } from "@/components/stage/use-element-size";
 import { CortexAvatar } from "../task-card";

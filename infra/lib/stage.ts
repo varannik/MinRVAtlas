@@ -64,6 +64,8 @@ export class MinrvStage extends cdk.Stage {
       valkey: this.data.valkey,
       logsBucket: this.data.logsBucket,
       streamBucket: this.data.streamBucket,
+      atlasTable: this.data.atlasTable,
+      atlasBucket: this.data.atlasBucket,
       userPoolId: this.identity.userPool.userPoolId,
       userPoolArn: this.identity.userPool.userPoolArn,
       userPoolClientId: this.identity.userPoolClient.userPoolClientId,

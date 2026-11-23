@@ -1,6 +1,5 @@
 import type { NextRequest } from "next/server";
 
-import { PROJECTS } from "@/lib/projects";
 import { findConnection } from "@/lib/registries";
 import { mapCertifyProjects } from "@/lib/registries/isometric/project-map";
 import { listCertifyProjects } from "@/lib/registries/isometric/server";
@@ -8,7 +7,7 @@ import {
   preferredCertifyProjectId,
   resolveOrgCredentials,
 } from "@/lib/registries/server";
-import { TENANTS } from "@/lib/tenants";
+import { isKnownTenant, listProjects } from "@/lib/atlas/catalog.server";
 
 export const dynamic = "force-dynamic";
 
@@ -18,14 +17,13 @@ function unauthorized(message: string) {
 
 export async function GET(request: NextRequest) {
   const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId || !TENANTS.some((tenant) => tenant.id === tenantId)) {
+  if (!tenantId || !(await isKnownTenant(tenantId))) {
     return unauthorized("Unknown tenant");
   }
 
   const connection = findConnection(tenantId, "Isometric");
-  const catalog = PROJECTS.filter(
-    (project) => project.tenantId === tenantId && project.registry === "Isometric",
-  );
+  const tenantProjects = await listProjects(tenantId);
+  const catalog = tenantProjects.filter((project) => project.registry === "Isometric");
 
   if (!connection) {
     return Response.json(
@@ -59,7 +57,7 @@ export async function GET(request: NextRequest) {
   }
 
   const preferred = preferredCertifyProjectId(connection);
-  const projects = mapCertifyProjects(tenantId, listed.nodes, preferred);
+  const projects = mapCertifyProjects(tenantId, listed.nodes, preferred, tenantProjects);
 
   return Response.json(
     {

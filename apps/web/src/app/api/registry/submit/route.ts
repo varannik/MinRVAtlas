@@ -11,7 +11,7 @@ import {
   type SlotWriteResult,
 } from "@/lib/registries/isometric/write";
 import type { PipelineResult } from "@/lib/sentinel/pipeline-types";
-import { TENANTS } from "@/lib/tenants";
+import { isKnownTenant } from "@/lib/atlas/catalog.server";
 import type { ItemKind } from "@/lib/types";
 
 /**
@@ -81,7 +81,7 @@ async function readFiles(form: FormData): Promise<
 
 export async function POST(request: Request) {
   const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId || !TENANTS.some((tenant) => tenant.id === tenantId)) {
+  if (!tenantId || !(await isKnownTenant(tenantId))) {
     return jsonError("Unknown tenant", 403);
   }
 
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     return jsonError("project_id and batch_id are required", 400);
   }
 
-  const project = resolveOwnedProject(tenantId, catalogProjectId);
+  const project = await resolveOwnedProject(tenantId, catalogProjectId);
   if (!project) return jsonError("Unknown project", 404);
   if (project.registry !== "Isometric") {
     return jsonError("Certify write is only wired for Isometric", 409);

@@ -12,7 +12,7 @@ import {
   withdrawPeriodEvidence,
 } from "@/lib/registries/isometric/server";
 import type { SubmissionStatus } from "@/lib/types";
-import { TENANTS } from "@/lib/tenants";
+import { isKnownTenant } from "@/lib/atlas/catalog.server";
 
 export const dynamic = "force-dynamic";
 
@@ -38,11 +38,11 @@ export async function GET(request: NextRequest) {
   if (!projectId) return jsonError("projectId is required", 400);
 
   const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId || !TENANTS.some((tenant) => tenant.id === tenantId)) {
+  if (!tenantId || !(await isKnownTenant(tenantId))) {
     return jsonError("Unknown tenant", 403);
   }
 
-  const project = resolveOwnedProject(tenantId, projectId);
+  const project = await resolveOwnedProject(tenantId, projectId);
   if (!project) return jsonError("Unknown project", 404);
 
   const connection = findConnection(tenantId, project.registry, project.id);
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId || !TENANTS.some((tenant) => tenant.id === tenantId)) {
+  if (!tenantId || !(await isKnownTenant(tenantId))) {
     return jsonError("Unknown tenant", 403);
   }
 
@@ -111,7 +111,7 @@ export async function DELETE(request: NextRequest) {
     return jsonError("projectId, periodStart and periodEnd are required", 400);
   }
 
-  const project = resolveOwnedProject(tenantId, projectId);
+  const project = await resolveOwnedProject(tenantId, projectId);
   if (!project) return jsonError("Unknown project", 404);
 
   const connection = findConnection(tenantId, project.registry, project.id);

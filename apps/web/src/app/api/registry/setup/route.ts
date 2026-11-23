@@ -15,7 +15,7 @@ import {
   resolveOrgCredentials,
   resolveOwnedProject,
 } from "@/lib/registries/server";
-import { TENANTS } from "@/lib/tenants";
+import { isKnownTenant } from "@/lib/atlas/catalog.server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -47,11 +47,11 @@ export async function GET(request: NextRequest) {
   if (!projectId) return jsonError("projectId is required", 400);
 
   const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId || !TENANTS.some((tenant) => tenant.id === tenantId)) {
+  if (!tenantId || !(await isKnownTenant(tenantId))) {
     return jsonError("Unknown tenant", 403);
   }
 
-  const project = resolveOwnedProject(tenantId, projectId);
+  const project = await resolveOwnedProject(tenantId, projectId);
   if (!project) return jsonError("Unknown project", 404);
   if (project.registry !== "Isometric") {
     return Response.json(
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: Request) {
   const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId || !TENANTS.some((tenant) => tenant.id === tenantId)) {
+  if (!tenantId || !(await isKnownTenant(tenantId))) {
     return jsonError("Unknown tenant", 403);
   }
 
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
   const catalogProjectId = String(form.get("project_id") ?? "").trim();
   if (!catalogProjectId) return jsonError("project_id is required", 400);
 
-  const project = resolveOwnedProject(tenantId, catalogProjectId);
+  const project = await resolveOwnedProject(tenantId, catalogProjectId);
   if (!project) return jsonError("Unknown project", 404);
   if (project.registry !== "Isometric") {
     return jsonError("Certify write is only wired for Isometric", 409);

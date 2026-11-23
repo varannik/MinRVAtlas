@@ -19,8 +19,8 @@ type Project = ReturnType<typeof projector>;
 
 export const STATUS_COLOR = {
   ok: "#8B9C44",
-  warn: "#E8923A",
-  alarm: "#C6362B",
+  warn: "#A77618",
+  alarm: "#963E32",
 } as const;
 
 function PartMesh({

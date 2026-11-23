@@ -9,10 +9,10 @@ import {
 } from "@aws-sdk/client-dynamodb";
 
 import { settledTasks, type JourneyAction, type JourneyRecord, type Outcome, type Tasks } from "./engine";
-import { SCENARIO_BY_ID } from "./scenarios";
+import { scenarioOrNew } from "@/lib/atlas/scenarios.server";
 import { planOf } from "./steps";
 import { journeySummary } from "./summary";
-import type { StepId } from "./types";
+import type { JourneyScenario, StepId } from "./types";
 
 /**
  * A project's journey in the Cortex journeys table (infra/lib/cortex/core-stack.ts).
@@ -55,8 +55,13 @@ export function changeKey(version: number): string {
 }
 
 /** Where a project with nothing saved starts: its review scenario if it has one, else a new project. */
-export function startingPoint(projectId: string): StoredJourney {
-  const scenario = projectId in SCENARIO_BY_ID ? SCENARIO_BY_ID[projectId as keyof typeof SCENARIO_BY_ID] : SCENARIO_BY_ID.new;
+/** Where a journey with nothing saved yet begins: its scenario in the Atlas table, else an empty project. */
+export async function startingPoint(projectId: string): Promise<StoredJourney> {
+  return startingFrom(await scenarioOrNew(projectId));
+}
+
+/** A journey at a scenario's starting point, not saved yet. */
+export function startingFrom(scenario: JourneyScenario): StoredJourney {
   return {
     current: scenario.current,
     laps: scenario.laps,
@@ -91,7 +96,7 @@ export async function loadJourney(
       ConsistentRead: true,
     }),
   );
-  return Item ? fromItem(Item) : startingPoint(projectId);
+  return Item ? fromItem(Item) : await startingPoint(projectId);
 }
 
 /**

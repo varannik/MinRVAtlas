@@ -2,7 +2,16 @@
 
 import { create } from "zustand";
 
-const STORAGE_KEY = "minrv-quality-catalog-project-id";
+/** The chosen project rides in the address (?project=), so a reload keeps it without browser storage. */
+const PARAM = "project";
+
+function setParam(value: string | null) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (value) url.searchParams.set(PARAM, value);
+  else url.searchParams.delete(PARAM);
+  window.history.replaceState(window.history.state, "", url);
+}
 
 type QualityState = {
   catalogProjectId: string | null;
@@ -21,9 +30,7 @@ export const useQuality = create<QualityState>((set) => ({
   projectId: null,
   projectName: null,
   setBoundProject: (catalogProjectId, sentinelProjectId, name) => {
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem(STORAGE_KEY, catalogProjectId);
-    }
+    setParam(catalogProjectId);
     set({
       catalogProjectId,
       projectId: sentinelProjectId,
@@ -31,14 +38,13 @@ export const useQuality = create<QualityState>((set) => ({
     });
   },
   clearProject: () => {
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem(STORAGE_KEY);
-    }
+    setParam(null);
     set({ catalogProjectId: null, projectId: null, projectName: null });
   },
 }));
 
-export function readStoredQualityCatalogId(): string | null {
+/** The project the address asks for, if any. */
+export function requestedQualityCatalogId(): string | null {
   if (typeof window === "undefined") return null;
-  return sessionStorage.getItem(STORAGE_KEY);
+  return new URLSearchParams(window.location.search).get(PARAM);
 }

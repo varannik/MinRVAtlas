@@ -1,7 +1,7 @@
 import "server-only";
 
 import { isCertifyProjectId, scopedCertifyId } from "@/lib/iso-geo";
-import { PROJECTS } from "@/lib/projects";
+import { findProject, listProjects } from "@/lib/atlas/catalog.server";
 import { findConnection } from "./connections";
 import { mapCertifyProject } from "@/lib/registries/isometric/project-map";
 import type { Project, Registry } from "../types";
@@ -76,11 +76,11 @@ function withPreferredExternal(project: Project): Project {
  * Tenant-owned catalog row, or a Certify `prj_…` this tenant's Isometric
  * connection is allowed to read.
  */
-export function resolveOwnedProject(
+export async function resolveOwnedProject(
   tenantId: string,
   projectId: string,
-): Project | null {
-  const catalog = PROJECTS.find((candidate) => candidate.id === projectId);
+): Promise<Project | null> {
+  const catalog = await findProject(projectId);
   if (catalog) {
     if (catalog.tenantId !== tenantId) return null;
     return withPreferredExternal(catalog);
@@ -90,13 +90,18 @@ export function resolveOwnedProject(
   const connection = findConnection(tenantId, "Isometric", projectId);
   if (!connection) return null;
 
-  return mapCertifyProject(tenantId, {
+  return mapCertifyProject(
+    tenantId,
+    {
     id: projectId,
     name: projectId,
     country_code: "ARE",
     description: null,
     short_description: null,
-  });
+  },
+    undefined,
+    await listProjects(tenantId),
+  );
 }
 
 export function bundledResult(

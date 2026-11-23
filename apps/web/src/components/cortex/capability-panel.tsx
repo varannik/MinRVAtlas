@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import {
   ArrowUpRight,
   Database,
@@ -338,6 +338,11 @@ function describe(item: StagedItem, capability: Capability): string {
 function StagedList({ capability, lobe }: { capability: Capability; lobe: Lobe }) {
   const staged = useCortex((state) => state.staged);
   const unstage = useCortex((state) => state.unstage);
+  const loadStaged = useCortex((state) => state.loadStaged);
+  // What was staged before lives on the server; read it when the list first shows.
+  useEffect(() => {
+    void loadStaged();
+  }, [loadStaged]);
   const items = stagedFor(staged, capability.id);
 
   if (items.length === 0) {

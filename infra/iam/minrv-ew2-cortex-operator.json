@@ -11,6 +11,18 @@
       ]
     },
     {
+      "Sid": "AtlasSeed",
+      "Effect": "Allow",
+      "Action": ["dynamodb:DescribeTable", "dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:Query"],
+      "Resource": "arn:aws:dynamodb:eu-west-2:625239230739:table/minrv-ew2-*-atlas"
+    },
+    {
+      "Sid": "AtlasSeedSavedPins",
+      "Effect": "Allow",
+      "Action": "ssm:GetParameter",
+      "Resource": "arn:aws:ssm:eu-west-2:625239230739:parameter/minrv/ew2/*/project-locations"
+    },
+    {
       "Sid": "CortexTenantSessionForLocalWeb",
       "Effect": "Allow",
       "Action": ["sts:AssumeRole", "sts:TagSession"],

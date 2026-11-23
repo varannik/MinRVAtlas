@@ -1,4 +1,5 @@
 import * as cdk from "aws-cdk-lib";
+import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as ecr from "aws-cdk-lib/aws-ecr";
 import * as ecs from "aws-cdk-lib/aws-ecs";
@@ -35,7 +36,6 @@ import {
   isometricHost,
   isometricSecretName,
   logGroupName,
-  projectLocationsParamName,
   resourceName,
   sessionKeySecretName,
   webTaskRoleName,
@@ -52,6 +52,8 @@ export interface ComputeStackProps extends Ew2StackProps {
   valkey: elasticache.CfnServerlessCache;
   logsBucket: s3.IBucket;
   streamBucket: s3.IBucket;
+  atlasTable: dynamodb.ITable;
+  atlasBucket: s3.IBucket;
   userPoolId: string;
   userPoolArn: string;
   userPoolClientId: string;
@@ -201,10 +203,11 @@ export class ComputeStack extends Ew2Stack {
         AWS_REGION: REGION,
         AWS_DEFAULT_REGION: REGION,
         MINRV_STAGE: cfg.stageName,
-        PROJECT_LOCATIONS_PARAM: projectLocationsParamName(cfg.stageName),
         SENTINEL_BASE_URL: `http://${this.internalAlb.loadBalancerDnsName}:8000`,
         SENTINEL_TENANT_ID: "fourfourone",
         STREAM_S3_BUCKET: props.streamBucket.bucketName,
+        ATLAS_TABLE: props.atlasTable.tableName,
+        ATLAS_BUCKET: props.atlasBucket.bucketName,
         ISOMETRIC_API_HOST: isometricHost(cfg.isometricApi),
         DB_HOST: props.proxy.endpoint,
         DB_PORT: "5432",
@@ -613,15 +616,12 @@ export class ComputeStack extends Ew2Stack {
         resources: [props.userPoolArn],
       }),
     );
-    role.addToPolicy(
-      new iam.PolicyStatement({
-        sid: "ProjectLocations",
-        actions: ["ssm:GetParameter", "ssm:PutParameter"],
-        resources: [
-          `arn:aws:ssm:${REGION}:${ACCOUNT}:parameter${projectLocationsParamName(cfg.stageName)}`,
-        ],
-      }),
-    );
+    // The Atlas: the catalogue, map pins, site model pointers and practice
+    // journeys in the table; site model files and seeded histories in the bucket,
+    // which the web only reads (models are published by the seed or an admin tool).
+    // The grants add the KMS permissions the stage key needs.
+    props.atlasTable.grantReadWriteData(role);
+    props.atlasBucket.grantRead(role);
     role.addToPolicy(
       new iam.PolicyStatement({
         sid: "DenyBedrock",

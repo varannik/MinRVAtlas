@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { loadDataset } from "@/lib/mrv/data/load";
 import { resolveOwnedProject } from "@/lib/registries/server";
-import { TENANTS } from "@/lib/tenants";
+import { isKnownTenant } from "@/lib/atlas/catalog.server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -17,11 +17,11 @@ export async function GET(request: NextRequest) {
   if (!projectId) return jsonError("projectId is required", 400);
 
   const tenantId = request.headers.get("x-tenant-id");
-  if (!tenantId || !TENANTS.some((tenant) => tenant.id === tenantId)) {
+  if (!tenantId || !(await isKnownTenant(tenantId))) {
     return jsonError("Unknown tenant", 403);
   }
 
-  const project = resolveOwnedProject(tenantId, projectId);
+  const project = await resolveOwnedProject(tenantId, projectId);
   if (!project) return jsonError("Unknown project", 404);
 
   const dataset = await loadDataset(project);

@@ -1,0 +1,28 @@
+# The web app's backend on a laptop: the Atlas table in DynamoDB and its
+# assets bucket in S3, as the AWS stacks create them.
+#   npm run backend:up      start both, then `npm run seed`
+#   npm run backend:down    stop them (the table survives in the volume)
+# S3 runs in LocalStack without persistence: run `npm run seed` after each start.
+name: minrv-local
+
+services:
+  dynamodb:
+    image: amazon/dynamodb-local:2.5.4
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-dbPath", "/home/dynamodblocal/data"]
+    user: root
+    working_dir: /home/dynamodblocal
+    ports:
+      - "8100:8000"
+    volumes:
+      - dynamodb:/home/dynamodblocal/data
+
+  s3:
+    image: localstack/localstack:4.4.0
+    environment:
+      SERVICES: s3
+      AWS_DEFAULT_REGION: eu-west-2
+    ports:
+      - "4566:4566"
+
+volumes:
+  dynamodb:
