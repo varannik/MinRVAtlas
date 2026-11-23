@@ -1,6 +1,6 @@
 // Loads apps/web/seed into the Atlas table and its assets bucket.
 //   npm run seed                      the local containers (ATLAS_*_ENDPOINT set)
-//   make seed  (repo root)            an AWS stage's table and bucket (runs this with --target=aws and the stage's names)
+//   make seed  (in infra/)            an AWS stage's table and bucket (runs this with --target=aws and the stage's names)
 // With ATLAS_LOCATIONS_PARAM, map pins a stage saved in SSM before the Atlas are copied into
 // the table once; a pin already in the table is never replaced.
 // Safe to run again: every item and object is overwritten with the same content.

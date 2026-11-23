@@ -5,7 +5,7 @@ Application builds and deploys run in **eu-west-2**. GitHub is the source reposi
 ```text
 Developer
     |
-    | git push  (or: make pipeline-start)
+    | git push  (or, in infra/: make pipeline-start)
     v
 GitHub  varannik/MinRVAtlas  (configured branch, default main)
     |
@@ -163,9 +163,10 @@ CodeBuild prints commit SHA, image URI, digest, ECR repository, ECS cluster, and
 
 ## 10. Makefile commands
 
-From the repo root (delegates to `infra/`):
+Every target lives in `infra/Makefile`. Run them in `infra/`:
 
 ```bash
+cd infra
 make ci                 # local lint/typecheck/pytest (no deploy)
 make docker-build       # linux/amd64 images tagged with Git SHA + :local
 make docker-push        # build + push SHA tags to ECR (no ECS update)
@@ -209,7 +210,7 @@ aws sts get-caller-identity   # must be 625239230739
 cd infra && npx cdk synth minrv-ew2-ecr 'minrv-ew2-sandbox/*'
 
 # 3. Landing zone + pipeline stacks (sandbox)
-cd /path/to/MinRVAtlas && make deploy
+cd /path/to/MinRVAtlas/infra && make deploy
 
 # 4. Complete GitHub connection in the eu-west-2 console (PENDING → AVAILABLE)
 

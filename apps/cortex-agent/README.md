@@ -59,7 +59,7 @@ To make the web app on localhost use the local agent, set `CORTEX_AGENT_URL=http
 
 ## Release
 
-The pipeline builds and pushes the image (`linux/arm64`) on every push to main. To roll a build out to the runtime:
+The pipeline builds and pushes the image (`linux/arm64`) on every push to main. To roll a build out to the runtime, in `infra/`:
 
 ```bash
 make deploy CORTEX_AGENT_IMAGE_TAG=<commit sha>

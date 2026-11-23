@@ -38,14 +38,15 @@ With both up: `npm run sentinel:smoke`.
 
 [docs/aws-eu-west-2-system-design.md](docs/aws-eu-west-2-system-design.md) · [infra/README.md](infra/README.md) · [docs/cicd.md](docs/cicd.md)
 
-Releases are **CodePipeline**, not GitHub Actions:
+Releases are **CodePipeline**, not GitHub Actions. Every `make` target lives in `infra/Makefile`; run them in `infra/`:
 
 ```bash
+cd infra
 make deploy           # CloudFormation landing zone (not an app release)
 make pipeline-start   # build + ECR SHA tag + ECS task-definition deploy
 make ecs-status
 ```
 
-Laptop-only image push (does not update ECS): `make docker-push`.
+Laptop-only image push (does not update ECS): `make docker-push` (in `infra/`).
 
 Do not expose Sentinel `:8000` on the public ALB. Operators use `dmrv-web` `/quality`.

@@ -1,8 +1,13 @@
+# 3DMinRV + Data Sentinel — eu-west-2. Every make action lives here: run them in infra/.
+# Real AWS only (no LocalStack). App releases are AWS CodePipeline (docs/cicd.md),
+# not GitHub Actions. Local UI: npm run dev in apps/web.
+
 ACCOUNT    ?= 625239230739
 REGION     ?= eu-west-2
 APP        ?= minrv-ew2-sandbox
 CONFIRM    ?=
-# Sandbox HTTPS URL (Cognito). Set 0 to skip us-east-1 CloudFront.
+# Sandbox HTTPS URL (Cognito): the us-east-1 CloudFront stack, fed by cross-region
+# exports from the compute stack. Keep it 1: a deploy with 0 removes those exports.
 ENABLE_CLOUDFRONT ?= 1
 AWS_PROFILE ?=
 SERVICE    ?= web

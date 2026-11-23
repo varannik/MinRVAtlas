@@ -6,6 +6,7 @@ import {
   sandboxConfig,
   type StageConfig,
 } from "../lib/config";
+import { liveCognitoUrls } from "../lib/live-cognito-urls";
 import { liveCortexAgentImageTag, resolveLiveImageTags } from "../lib/live-image-tags";
 import { PipelineStack } from "../lib/pipeline-stack";
 import { RegistryStack } from "../lib/registry-stack";
@@ -63,6 +64,24 @@ const githubConnectionArn =
   process.env.GITHUB_CONNECTION_ARN ??
   registry.githubConnectionArn;
 
+/**
+ * Sign-in and sign-out addresses: given (context or COGNITO_CALLBACK_URL / COGNITO_LOGOUT_URL),
+ * or the ones the stage's web runs with now, so a deploy from a terminal without the
+ * variables keeps sandbox sign-in on its HTTPS address instead of localhost.
+ */
+const loggedCognito = new Set<string>();
+function cognitoUrls(stage: "sandbox" | "prod"): { cognitoCallbackUrl?: string; cognitoLogoutUrl?: string } {
+  const callback = optionalString(app, "cognitoCallbackUrl") ?? process.env.COGNITO_CALLBACK_URL;
+  const logout = optionalString(app, "cognitoLogoutUrl") ?? process.env.COGNITO_LOGOUT_URL;
+  if (domainName || (callback && logout)) return { cognitoCallbackUrl: callback, cognitoLogoutUrl: logout };
+  const live = liveCognitoUrls(stage);
+  if (live.callbackUrl && !callback && !loggedCognito.has(stage)) {
+    loggedCognito.add(stage);
+    console.log(`[minrv] live Cognito sign-in ${stage}: ${live.callbackUrl}`);
+  }
+  return { cognitoCallbackUrl: callback ?? live.callbackUrl, cognitoLogoutUrl: logout ?? live.logoutUrl };
+}
+
 function extras(stage: "sandbox" | "prod"): Partial<StageConfig> {
   return {
     domainName,
@@ -82,10 +101,7 @@ function extras(stage: "sandbox" | "prod"): Partial<StageConfig> {
     scaleToZero,
     enableCloudFront,
     enableRegionalSecurityServices: stage === "sandbox" && !skipRegionalSecurity,
-    cognitoCallbackUrl:
-      optionalString(app, "cognitoCallbackUrl") ?? process.env.COGNITO_CALLBACK_URL,
-    cognitoLogoutUrl:
-      optionalString(app, "cognitoLogoutUrl") ?? process.env.COGNITO_LOGOUT_URL,
+    ...cognitoUrls(stage),
   };
 }
 
