@@ -57,6 +57,18 @@
       ]
     },
     {
+      "Sid": "QualityRuns",
+      "Effect": "Allow",
+      "Action": ["states:StartExecution", "states:ListExecutions"],
+      "Resource": "arn:aws:states:eu-west-2:625239230739:stateMachine:minrv-ew2-*-quality-run"
+    },
+    {
+      "Sid": "QualityRunDetail",
+      "Effect": "Allow",
+      "Action": ["states:DescribeExecution", "states:GetExecutionHistory"],
+      "Resource": "arn:aws:states:eu-west-2:625239230739:execution:minrv-ew2-*-quality-run:*"
+    },
+    {
       "Sid": "CortexIngestionRuns",
       "Effect": "Allow",
       "Action": ["states:ListExecutions"],

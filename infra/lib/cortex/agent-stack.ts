@@ -34,6 +34,8 @@ export interface CortexAgentStackProps extends Ew2StackProps {
   tenantSessionRole: iam.IRole;
   searchFn: lambda.IFunction;
   traceFn?: lambda.IFunction;
+  /** The data quality engine's runs and findings (infra/lib/quality); the quality tool reads them. */
+  qualityTable?: dynamodb.ITable;
 }
 
 /** One gateway target: a Lambda and the tools it serves. Tool names become `<target>___<tool>`. */
@@ -139,6 +141,29 @@ export class CortexAgentStack extends Ew2Stack {
     );
     props.journeysTable.encryptionKey?.grantDecrypt(journeyFn);
 
+    // What the data quality engine found: reads the latest finished run of the caller's project.
+    const qualityFn = props.qualityTable
+      ? new lambda.Function(this, "QualityFindings", {
+          functionName: resourceName(stage, "cortex-tool-quality"),
+          description: "MCP quality.findings: the data quality engine's verdict and findings for the caller's project",
+          runtime: PYTHON,
+          handler: "quality_tool.handler",
+          code,
+          timeout: cdk.Duration.seconds(10),
+          memorySize: 256,
+          logGroup: new logs.LogGroup(this, "QualityFindingsLogs", {
+            logGroupName: logGroupName(stage, "cortex-tool-quality"),
+            retention,
+            removalPolicy: removal,
+          }),
+          environment: { QUALITY_TABLE: props.qualityTable.tableName },
+        })
+      : undefined;
+    if (qualityFn && props.qualityTable) {
+      qualityFn.addToRolePolicy(new iam.PolicyStatement({ actions: ["dynamodb:Query"], resources: [props.qualityTable.tableArn] }));
+      props.qualityTable.encryptionKey?.grantDecrypt(qualityFn);
+    }
+
     const targets: ToolTarget[] = [
       {
         name: "tenancy",
@@ -196,6 +221,31 @@ export class CortexAgentStack extends Ew2Stack {
         },
       ],
     });
+    if (qualityFn) {
+      targets.push({
+        name: "quality",
+        description: "What the data quality engine found in a project's monitoring data",
+        fn: qualityFn,
+        tools: [
+          {
+            name: "findings",
+            description:
+              "The data quality engine's latest run on a project: the verdict (blocked, needs a look or clear) for its whole history or for the dates given, and each finding in plain English (what's wrong, what was seen, why it matters for the credit, what to do), most severe first. Verdicts come from the engine's checks, not from you.",
+            inputSchema: {
+              type: "object",
+              required: ["project_id"],
+              properties: {
+                project_id: PROJECT_PROPERTY,
+                from: { type: "string", description: "First day to report on, YYYY-MM-DD (a monitoring period's start)." },
+                to: { type: "string", description: "Last day to report on, YYYY-MM-DD." },
+                severity: { type: "string", description: "Only findings of this severity: blocks, look or info." },
+                caller: CALLER_PROPERTY,
+              },
+            },
+          },
+        ],
+      });
+    }
     if (props.traceFn) {
       targets.push({
         name: "graph",

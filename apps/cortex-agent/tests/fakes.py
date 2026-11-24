@@ -38,6 +38,10 @@ def evidence_use(task_id: str = "", document: str = "", tool_id: str = "toolu_e"
     return {"type": "tool_use", "id": tool_id, "name": "evidence_links", "input": {"task_id": task_id, "document": document}}
 
 
+def quality_use(start: str = "", end: str = "", tool_id: str = "toolu_q") -> dict:
+    return {"type": "tool_use", "id": tool_id, "name": "data_quality", "input": {"from": start, "to": end}}
+
+
 def text(value: str) -> dict:
     return {"type": "text", "text": value}
 
@@ -96,6 +100,13 @@ EVIDENCE = {
 }
 
 
+QUALITY = {
+    "checked": True,
+    "verdict": "blocked",
+    "findings": [{"id": "F-1", "severity": "blocks", "headline": "No readings at all for 3 days, 18–20 Feb 2026.", "todo": "Ask the site for the missing export."}],
+}
+
+
 class FakeKnowledge:
     def __init__(self, results: list[dict] | None = None, error: Exception | None = None, journey: dict | None = None):
         self.results = results or []
@@ -104,6 +115,7 @@ class FakeKnowledge:
         self.journey_result = journey if journey is not None else JOURNEY
         self.journey_steps: list[str] = []
         self.evidence_asked: list[tuple[str, str]] = []
+        self.quality_asked: list[tuple[str, str]] = []
 
     async def journey(self, step: str) -> dict:
         self.journey_steps.append(step)
@@ -116,6 +128,12 @@ class FakeKnowledge:
         if self.error:
             raise self.error
         return EVIDENCE
+
+    async def quality(self, start: str, end: str) -> dict:
+        self.quality_asked.append((start, end))
+        if self.error:
+            raise self.error
+        return QUALITY
 
     async def search(self, query: str) -> list[dict]:
         self.queries.append(query)

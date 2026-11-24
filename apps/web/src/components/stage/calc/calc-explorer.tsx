@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ChevronsDownUp, ChevronsUpDown, CircleAlert, Info, ListChecks, TriangleAlert, X } from "lucide-react";
+import type { QualityState } from "@/hooks/use-quality";
 import { evaluate, type DailyPoint, type DatasetIndex } from "@/lib/mrv/calc/evaluate";
 import { findNode, pathTo } from "@/lib/mrv/calc/tree";
 import type { CalcNode, CalcSpec, EquationNode } from "@/lib/mrv/calc/types";
@@ -12,7 +13,9 @@ import { CALC_TONE, SEVERITY_TONE } from "../theme";
 import { CalcRootCard, CalcTermCard } from "./calc-cards";
 import { CalcInspector } from "./calc-inspector";
 import { equationIds, equationsToDepth, layoutTree } from "./calc-layout";
+import { CalcTrendPanel } from "./calc-trend";
 import { CalcViewport } from "./calc-viewport";
+import { useNodeFlags } from "./node-flags";
 
 const SEVERITY_ICON: Record<IssueSeverity, typeof TriangleAlert> = { blocker: TriangleAlert, warning: CircleAlert, info: Info };
 
@@ -47,9 +50,10 @@ export function CalcLegend({ className = "" }: { className?: string }) {
 /**
  * How one window's credited number is built: the root on the left, each
  * equation fanning out into its terms until every branch ends in a value from
- * our data, with the selected node's inspector beside it. Red dashed branches
- * have no data yet. Used full screen by CalcExplorer and on the journey's
- * calculation floor.
+ * our data. Beside it, what the selected node is and how it is worked out;
+ * under it, full width, the node's value day by day with the data quality
+ * engine's findings marked on it. Red dashed branches have no data yet. Used
+ * on the journey's calculation floor.
  */
 export function CalcTreeView({
   spec,
@@ -60,6 +64,7 @@ export function CalcTreeView({
   initialNodeId = null,
   wheel = "zoom",
   inspectorClassName = "",
+  quality = null,
 }: {
   spec: CalcSpec;
   index: DatasetIndex | null;
@@ -70,10 +75,14 @@ export function CalcTreeView({
   /** "modifier": plain scrolling moves the page; pinch or ⌘/Ctrl-scroll zooms the tree. */
   wheel?: "zoom" | "modifier";
   inspectorClassName?: string;
+  /** The data quality engine's findings for the project, marked on the trend and the cards. */
+  quality?: QualityState | null;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(() => initialExpanded(spec.root, initialNodeId));
   const [selectedId, setSelectedId] = useState<string>(() => initialNodeId ?? spec.root.id);
   const [checksOpen, setChecksOpen] = useState(false);
+  const [trendTall, setTrendTall] = useState(false);
+  const flags = useNodeFlags(spec.root, quality?.view?.findings, range);
 
   const evaluation = useMemo(() => (index && range ? evaluate(spec, index, range) : null), [index, range, spec]);
   const findings = useMemo(() => {
@@ -111,7 +120,8 @@ export function CalcTreeView({
   const allOpen = expanded.size >= allIds.length;
 
   return (
-    <div className="flex min-h-0 flex-1">
+    <div className="flex min-h-0 flex-1 flex-col">
+    <div className={`flex min-h-0 ${trendTall ? "h-[34%] shrink-0" : "flex-1"}`}>
       <main className="relative min-w-0 flex-1 overflow-hidden">
         <div aria-hidden className="calc-stage__grid absolute inset-0" />
 
@@ -176,9 +186,17 @@ export function CalcTreeView({
                     creditUnit={spec.creditUnit}
                     selected={selectedId === card.node.id}
                     onSelect={() => setSelectedId(spec.root.id)}
+                    flag={flags.get(card.node.id)}
                   />
                 ) : (
-                  <CalcTermCard key={card.node.id} card={card} result={result} selected={selectedId === card.node.id} onSelect={() => toggle(card.node)} />
+                  <CalcTermCard
+                    key={card.node.id}
+                    card={card}
+                    result={result}
+                    selected={selectedId === card.node.id}
+                    onSelect={() => toggle(card.node)}
+                    flag={flags.get(card.node.id)}
+                  />
                 );
               })}
             </CalcViewport>
@@ -192,7 +210,7 @@ export function CalcTreeView({
                       onClick={() => setChecksOpen(false)}
                       className="mb-1.5 flex w-full items-center justify-between text-[10px] font-semibold tracking-[0.16em] text-white/45 uppercase hover:text-white/70"
                     >
-                      Data checks · {findings.length}
+                      Calculation checks · {findings.length}
                       <X className="size-3.5" />
                     </button>
                     <ul className="scroll-slim max-h-48 space-y-0.5 overflow-y-auto">
@@ -221,7 +239,7 @@ export function CalcTreeView({
                     className="flex items-center gap-2 rounded-full border border-white/10 bg-black/50 px-3.5 py-2 text-[11.5px] font-semibold text-white/80 backdrop-blur-md hover:text-white"
                   >
                     <ListChecks className="size-4" style={{ color: findings.some((finding) => finding.severity === "blocker") ? CALC_TONE.missing.line : CALC_TONE.partial.line }} />
-                    Data checks · {findings.length}
+                    Calculation checks · {findings.length}
                   </button>
                 )}
               </section>
@@ -235,6 +253,12 @@ export function CalcTreeView({
           <CalcInspector key={selected.id} node={selected} evaluation={evaluation} index={index} range={range} onNavigate={navigate} />
         ) : null}
       </aside>
+    </div>
+    {evaluation && index && range ? (
+      <div data-no-pan className={`border-t border-white/10 bg-black/30 ${trendTall ? "min-h-0 flex-1" : "h-[clamp(240px,36%,330px)] shrink-0"}`}>
+        <CalcTrendPanel node={selected} index={index} range={range} quality={quality} tall={trendTall} onToggleTall={() => setTrendTall(!trendTall)} />
+      </div>
+    ) : null}
     </div>
   );
 }

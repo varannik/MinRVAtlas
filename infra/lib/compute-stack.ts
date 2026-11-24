@@ -30,6 +30,8 @@ import {
   cortexTenancyTableName,
   cortexTenantSessionRoleName,
   ecrSentinelRepo,
+  qualityRunStateMachineName,
+  qualityTableName,
   ecrWebRepo,
   entraSecretName,
   evidenceBucketName,
@@ -236,6 +238,9 @@ export class ComputeStack extends Ew2Stack {
               CORTEX_MOVE_STATE_MACHINE_ARN: `arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:${cortexMoveStateMachineName(cfg.stageName)}`,
               // Ask Cortex: the agent runtime's ARN, published by the cortex-agent stack.
               CORTEX_AGENT_RUNTIME_PARAM: cortexAgentRuntimeParamName(cfg.stageName),
+              // Data quality engine (quality stack, deployed after this one): runs, findings, decisions.
+              QUALITY_TABLE: qualityTableName(cfg.stageName),
+              QUALITY_RUN_STATE_MACHINE_ARN: `arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:${qualityRunStateMachineName(cfg.stageName)}`,
             }
           : {}),
       },

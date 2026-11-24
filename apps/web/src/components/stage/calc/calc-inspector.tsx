@@ -1,13 +1,12 @@
 "use client";
 
 import { BookOpen, CircleAlert, Wrench } from "lucide-react";
-import { fixedRowsFor, seriesValues, type DatasetIndex } from "@/lib/mrv/calc/evaluate";
+import { fixedRowsFor, type DatasetIndex } from "@/lib/mrv/calc/evaluate";
 import { OP_GLYPH, formulaText } from "@/lib/mrv/calc/tree";
 import type { CalcNode, Evaluation, InputNode } from "@/lib/mrv/calc/types";
 import { formatDay } from "@/lib/mrv/days";
 import type { DateRange } from "@/lib/mrv/types";
 import { formatPercent, formatQuantity } from "../format";
-import { Sparkline } from "../sparkline";
 import { CALC_TONE } from "../theme";
 import { KindIcon, sourceLabel } from "./calc-cards";
 
@@ -29,67 +28,50 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+const FOLD: Record<string, string> = {
+  sum: "readings added up",
+  mean: "mean of the readings",
+  max: "highest reading",
+  min: "lowest reading",
+  last: "last reading",
+};
+
+/** What a leaf is and how it is read: description only. Its values are on the trend under the tree. */
 function InputSourceDetail({ node, index, range }: { node: InputNode; index: DatasetIndex; range: DateRange }) {
   const source = node.source;
   if (source.type === "series") {
-    const points = seriesValues(index, source.metric, source.aggregate, range, source.scale ?? 1);
-    const present = points.filter((point) => point.value != null).map((point) => point.value as number);
     return (
-      <Section title="Stream data">
-        <Row label="Metric" value={source.metric} />
-        <Row label="Folded by" value={`${source.aggregate} over the window`} />
-        <Row label="Days with rows" value={`${present.length} / ${points.length}`} />
-        {present.length ? (
-          <>
-            <Row label="Daily min · max" value={`${formatQuantity(Math.min(...present))} · ${formatQuantity(Math.max(...present))} ${node.unit}`} />
-            <div className="mt-3 rounded-lg bg-white/[0.04] p-2">
-              <Sparkline values={points.map((point) => point.value)} width={290} height={64} color="#BEB290" />
-              <div className="mt-1 flex justify-between text-[9.5px] text-white/40">
-                <span>{formatDay(range.start)}</span>
-                <span>{formatDay(range.end)}</span>
-              </div>
-            </div>
-          </>
-        ) : null}
+      <Section title="How it's measured">
+        <Row label="Stream metric" value={source.metric} />
+        <Row label="Each day" value={FOLD[source.aggregate]} />
+        <Row label="Over the period" value={source.aggregate === "sum" ? "days added up" : FOLD[source.aggregate]} />
+        {source.scale && source.scale !== 1 ? <Row label="Into the unit" value={`× ${source.scale}`} /> : null}
+        <p className="mt-2 text-[11px] leading-relaxed text-white/45">Its value day by day, and what the data quality checks found in it, are on the trend under the tree.</p>
       </Section>
     );
   }
   if (source.type === "fixed") {
     const rows = fixedRowsFor(index, source.key, range);
+    const origins = [...new Set(rows.map((row) => row.source))];
     return (
-      <Section title="Dated values">
-        <Row label="Key" value={source.key} />
-        <Row label="Applied as" value={source.scaling === "prorata" ? "total, shared out by days" : "factor"} />
-        {rows.length ? (
-          <ul className="mt-2 space-y-1.5">
-            {rows.map((row, index_) => (
-              <li key={`${row.validFrom}-${index_}`} className="rounded-lg bg-white/[0.04] px-2.5 py-1.5 text-[11px]">
-                <div className="flex justify-between font-mono text-white/85">
-                  <span>
-                    {formatQuantity(row.value)} {row.unit ?? ""}
-                  </span>
-                  <span className="text-white/45">
-                    {row.validFrom ? formatDay(row.validFrom) : "open"} → {row.validTo ? formatDay(row.validTo) : "open"}
-                  </span>
-                </div>
-                <p className="mt-0.5 text-white/45">{row.source}</p>
-              </li>
-            ))}
-          </ul>
-        ) : null}
+      <Section title="How it's measured">
+        <Row label="Dated value" value={source.key} />
+        <Row label="Applied as" value={source.scaling === "prorata" ? "a total, shared out by days" : "a factor, held until the next value"} />
+        <Row label="Values in the period" value={String(rows.length)} />
+        {origins.length ? <p className="mt-2 text-[11px] leading-relaxed text-white/55">From {origins.join(", ")}.</p> : null}
       </Section>
     );
   }
   if (source.type === "constant") {
     return (
-      <Section title="Constant">
+      <Section title="How it's measured">
         <Row label="Value" value={formatQuantity(source.value)} />
         <Row label="Set by" value={source.origin} />
       </Section>
     );
   }
   return (
-    <Section title="Window">
+    <Section title="How it's measured">
       <Row label="Counted in" value={source.unit === "h" ? "hours" : "days"} />
       <Row label="From · to" value={`${formatDay(range.start)} · ${formatDay(range.end)}`} />
     </Section>

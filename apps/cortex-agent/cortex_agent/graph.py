@@ -22,7 +22,7 @@ from langgraph.graph import END, START, StateGraph
 
 from . import knowledge
 from .gateway import ToolError
-from .prompt import EVIDENCE_TOOL, JOURNEY_TOOL, SEARCH_ONLY
+from .prompt import EVIDENCE_TOOL, JOURNEY_TOOL, QUALITY_TOOL, SEARCH_ONLY
 
 # Searches Claude may run for one question before it must answer.
 MAX_TOOL_ROUNDS = 4
@@ -63,6 +63,8 @@ class Knowledge(Protocol):
     async def journey(self, step: str) -> dict: ...
 
     async def evidence(self, task_id: str, document: str) -> dict: ...
+
+    async def quality(self, start: str, end: str) -> dict: ...
 
 
 def journey_text(result: dict) -> str:
@@ -172,6 +174,17 @@ def build(model: Any, model_id: str, effort: str, tools: Knowledge) -> StateGrap
                 return {"type": "tool_result", "tool_use_id": call["id"], "is_error": True, "content": str(error)}
             return {"type": "tool_result", "tool_use_id": call["id"], "content": journey_text(result)}
 
+        async def quality(call: dict) -> dict:
+            given = call.get("input") or {}
+            start = str(given.get("from") or "").strip()
+            end = str(given.get("to") or "").strip()
+            write({"type": "status", "text": f"Reading the data quality checks: {start} to {end}" if start or end else "Reading the data quality checks"})
+            try:
+                result = await tools.quality(start, end)
+            except ToolError as error:
+                return {"type": "tool_result", "tool_use_id": call["id"], "is_error": True, "content": str(error)}
+            return {"type": "tool_result", "tool_use_id": call["id"], "content": journey_text(result)}
+
         async def run(call: dict, seen: dict[str, dict]) -> dict:
             if call.get("name") not in offered:
                 return not_run([call["id"]], f"There is no tool called {call.get('name')}.")[0]
@@ -179,6 +192,8 @@ def build(model: Any, model_id: str, effort: str, tools: Knowledge) -> StateGrap
                 return await journey(call)
             if call.get("name") == EVIDENCE_TOOL:
                 return await evidence(call)
+            if call.get("name") == QUALITY_TOOL:
+                return await quality(call)
             query = str((call.get("input") or {}).get("query") or "").strip()
             if not query:
                 return not_run([call["id"]], "Give a query to search for.")[0]

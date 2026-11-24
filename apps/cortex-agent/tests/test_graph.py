@@ -7,7 +7,7 @@ from cortex_agent.gateway import ToolError
 from cortex_agent.graph import MAX_TOOL_ROUNDS, answer_text, build, unanswered_tool_uses
 from cortex_agent.prompt import SEARCH_ONLY, TOOLS
 
-from .fakes import EVIDENCE, JOURNEY, PASSAGE, FakeClaude, FakeKnowledge, evidence_use, journey_use, message, text, thinking, tool_use
+from .fakes import EVIDENCE, JOURNEY, PASSAGE, QUALITY, FakeClaude, FakeKnowledge, evidence_use, journey_use, message, quality_use, text, thinking, tool_use
 
 CONFIG = {"configurable": {"thread_id": "fourfourone#fujairah-mineral#user-1#c1"}, "recursion_limit": 20}
 
@@ -117,7 +117,7 @@ def test_claude_reads_the_journey_then_answers():
     assert tools.journey_steps == [""]
     result = state["messages"][2]["content"][0]
     assert result["tool_use_id"] == "toolu_j" and json.loads(result["content"]) == JOURNEY
-    assert [tool["name"] for tool in claude.requests[0]["tools"]] == ["search_knowledge", "journey_status", "evidence_links"]
+    assert [tool["name"] for tool in claude.requests[0]["tools"]] == ["search_knowledge", "journey_status", "evidence_links", "data_quality"]
     assert state["tools"] == TOOLS
 
 
@@ -160,6 +160,29 @@ def test_claude_follows_the_evidence_links_for_a_task():
     assert shown[0] == {"type": "status", "text": "Following the evidence links: onboarding.kyc"}
     assert tools.evidence_asked == [("onboarding.kyc", "")]
     assert json.loads(state["messages"][2]["content"][0]["content"]) == EVIDENCE
+
+
+def test_claude_reads_the_data_quality_checks_for_a_period():
+    claude = FakeClaude(
+        message([thinking(), quality_use("2026-01-01", "2026-03-31")], "tool_use"),
+        message([thinking(), text("The engine blocks Q1: no readings for 18–20 Feb 2026.")]),
+    )
+    tools = FakeKnowledge()
+    events, state = run_turn(claude, tools, "Is Q1 ready to submit?", InMemorySaver(), offered=TOOLS)
+    shown = [event for event in events if event["type"] != "_usage"]
+    assert shown[0] == {"type": "status", "text": "Reading the data quality checks: 2026-01-01 to 2026-03-31"}
+    assert tools.quality_asked == [("2026-01-01", "2026-03-31")]
+    assert json.loads(state["messages"][2]["content"][0]["content"]) == QUALITY
+
+
+def test_a_conversation_begun_with_three_tools_does_not_get_the_fourth():
+    three = TOOLS[:3]
+    claude = FakeClaude(message([quality_use()], "tool_use"), message([text("Not available.")]))
+    tools = FakeKnowledge()
+    _, state = run_turn(claude, tools, "q", InMemorySaver(), offered=three)
+    assert [tool["name"] for tool in claude.requests[0]["tools"]] == ["search_knowledge", "journey_status", "evidence_links"]
+    assert tools.quality_asked == []
+    assert "no tool called data_quality" in state["messages"][2]["content"][0]["content"]
 
 
 def test_a_conversation_begun_with_two_tools_does_not_get_the_third():

@@ -13,6 +13,7 @@ import { EdgeStack } from "./edge-stack";
 import { IdentityStack } from "./identity-stack";
 import { NetworkStack } from "./network-stack";
 import { ObservabilityStack } from "./observability-stack";
+import { QualityStack } from "./quality/quality-stack";
 import { SecurityStack } from "./security-stack";
 
 export interface MinrvStageProps extends cdk.StageProps {
@@ -32,6 +33,7 @@ export class MinrvStage extends cdk.Stage {
     core: CortexCoreStack;
     knowledge: CortexKnowledgeStack;
     graph?: CortexGraphStack;
+    quality: QualityStack;
     agent: CortexAgentStack;
   };
 
@@ -129,7 +131,7 @@ export class MinrvStage extends cdk.Stage {
     }
   }
 
-  /** Cortex stacks (see the Cortex AWS Blueprint): core, knowledge, graph, agent. */
+  /** Cortex stacks (see the Cortex AWS Blueprint): core, knowledge, graph, agent; and the quality engine on their rails. */
   private createCortex(props: MinrvStageProps): NonNullable<MinrvStage["cortex"]> {
     const { cfg, env } = props;
     const keyArn = this.security.key.keyArn;
@@ -159,6 +161,12 @@ export class MinrvStage extends cdk.Stage {
     graph?.addStackDependency(this.security);
     graph?.addStackDependency(core);
 
+    // Data quality engine: its own stack and store; Cortex's bus, tenant session and gateway.
+    const quality = new QualityStack(this, "quality", { env, cfg, keyArn, eventBus: core.eventBus });
+    quality.addStackDependency(this.data);
+    quality.addStackDependency(this.compute);
+    quality.addStackDependency(knowledge);
+
     const agent = new CortexAgentStack(this, "cortex-agent", {
       env,
       cfg,
@@ -171,13 +179,15 @@ export class MinrvStage extends cdk.Stage {
       tenantSessionRole: knowledge.tenantSessionRole,
       searchFn: knowledge.searchFn,
       traceFn: graph?.traceFn,
+      qualityTable: quality.table,
     });
     agent.addStackDependency(this.identity);
     agent.addStackDependency(knowledge);
+    agent.addStackDependency(quality);
     if (graph) {
       agent.addStackDependency(graph);
     }
 
-    return { core, knowledge, graph, agent };
+    return { core, knowledge, graph, quality, agent };
   }
 }

@@ -81,7 +81,7 @@ export STREAM_FROM STREAM_TO STREAM_PACK STREAM_LIST
 .PHONY: deps bootstrap status inventory synth diff deploy destroy push-images \
 	ci docker-build docker-push pipeline pipeline-start pipeline-status \
 	ecs-status logs rollback identity seed-cognito create-cognito-user seed-stream-s3 \
-	seed-cortex seed cortex-whoami cortex-search cortex-ask
+	seed-cortex seed cortex-whoami cortex-search cortex-ask quality-test quality-run
 
 deps:
 	npm install
@@ -112,9 +112,15 @@ destroy:
 	npx ts-node --prefer-ts-exts scripts/resume-deploy.ts destroy
 
 # Local tests — does not build images or deploy.
-ci:
+ci: quality-test
 	cd $(ROOT)/apps/web && npm ci && npx tsc --noEmit && npm run lint
 	cd $(ROOT)/apps/sentinel/backend && python3 -m pip install -q -r requirements.txt pytest && ENVIRONMENT=test python3 -m pytest tests/ -q --tb=short
+
+# The data quality engine's checks, detectors and words, and the Cortex tool that reads
+# its findings. Standard library only: no install needed.
+quality-test:
+	cd $(ROOT)/apps/quality-engine && python3 -m unittest discover -s tests
+	cd $(ROOT)/infra/test/python && python3 -m unittest test_quality_tool
 
 # linux/amd64 images matching CI. Does not login, push, or deploy.
 docker-build:
@@ -193,6 +199,13 @@ cortex-search: identity
 # CORTEX_AGENT_URL=http://127.0.0.1:8080/invocations uses a local agent).
 cortex-ask: identity
 	npx ts-node --prefer-ts-exts scripts/cortex-ask.ts
+
+# Run the data quality engine on one project now and print its verdict (deploy the
+# quality stack first). QUALITY_PROJECT=fujairah-mineral [QUALITY_TENANT=fourfourone]
+# [QUALITY_REGISTRY=puro] [QUALITY_TZ=Asia/Dubai]. The web also starts runs by itself
+# when a project's data moves past the last run.
+quality-run: identity
+	npx ts-node --prefer-ts-exts scripts/quality-run.ts
 
 # After minrv-ew2-{stage}-data has StreamBucketName.
 # From repo root: make seed-stream-s3

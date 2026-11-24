@@ -8,6 +8,8 @@ import type { CalcNode, EquationNode, InputNode, NodeResult } from "@/lib/mrv/ca
 import { formatPercent, formatQuantity } from "../format";
 import { CALC_TONE } from "../theme";
 import { ROOT_ORB_Y, type PlacedCard } from "./calc-layout";
+import { QUALITY_TONE } from "./calc-trend";
+import type { NodeFlag } from "./node-flags";
 
 // WebGL only runs in the browser.
 const Co2Cloud = dynamic(() => import("./co2-cloud").then((mod) => mod.Co2Cloud), { ssr: false });
@@ -74,18 +76,36 @@ function Value({ result, unit, size }: { result: NodeResult; unit: string; size:
 
 const shared = (node: CalcNode) => node.id.includes("@");
 
+/** Data quality findings under a card: the worst one's mark, named, and how many. */
+function QualityFlag({ flag, className = "" }: { flag: NodeFlag; className?: string }) {
+  const tone = QUALITY_TONE[flag.severity];
+  return (
+    <span
+      className={`flex items-center gap-1 rounded-full bg-black/70 px-1.5 py-px text-[9.5px] font-semibold ${className}`}
+      style={{ color: tone.color }}
+      title={`${flag.count} data quality finding${flag.count === 1 ? "" : "s"} in this period · worst: ${tone.label}`}
+    >
+      <tone.Icon className="size-3" />
+      <span className="sr-only">{tone.label}: </span>
+      {flag.count}
+    </span>
+  );
+}
+
 export function CalcRootCard({
   card,
   result,
   creditUnit,
   selected,
   onSelect,
+  flag,
 }: {
   card: PlacedCard;
   result: NodeResult;
   creditUnit: string;
   selected: boolean;
   onSelect: () => void;
+  flag?: NodeFlag;
 }) {
   const node = card.node as EquationNode;
   const tone = CALC_TONE[result.status];
@@ -118,6 +138,7 @@ export function CalcRootCard({
       <span className="mt-1.5 font-mono text-[10.5px] text-white/45">
         {node.symbol} = {formulaText(node)}
       </span>
+      {flag ? <QualityFlag flag={flag} className="mt-2" /> : null}
     </button>
   );
 }
@@ -127,11 +148,13 @@ export function CalcTermCard({
   result,
   selected,
   onSelect,
+  flag,
 }: {
   card: PlacedCard;
   result: NodeResult;
   selected: boolean;
   onSelect: () => void;
+  flag?: NodeFlag;
 }) {
   const { node } = card;
   const tone = CALC_TONE[result.status];
@@ -154,6 +177,7 @@ export function CalcTermCard({
       }}
     >
       <span aria-hidden className="absolute inset-y-2 left-0 w-[3px] rounded-r" style={{ background: tone.line }} />
+      {flag ? <QualityFlag flag={flag} className="absolute -top-2 right-3" /> : null}
       <span className="flex items-center gap-1.5">
         <KindIcon node={node} className="size-3 shrink-0 text-white/45" />
         <span className="shrink-0 font-mono text-[10.5px] font-semibold" style={{ color: tone.ink }}>{node.symbol}</span>

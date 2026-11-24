@@ -237,6 +237,25 @@ export function cortexMoveStateMachineName(stage: StageName): string {
   return resourceName(stage, "cortex-move");
 }
 
+/**
+ * Data quality engine (infra/lib/quality, apps/quality-engine): each project's runs,
+ * findings and people's decisions on them. Fixed names, so the web and the Cortex
+ * tool reach them without cross-stack exports.
+ */
+export function qualityTableName(stage: StageName): string {
+  return resourceName(stage, "quality");
+}
+
+/** Intermediate day summaries of a run (deleted after two weeks). */
+export function qualityBucketName(stage: StageName, account = ACCOUNT): string {
+  return `${STACK_PREFIX}-${stage}-quality-${account}`;
+}
+
+/** State machine the web starts to check a project's monitoring data. */
+export function qualityRunStateMachineName(stage: StageName): string {
+  return resourceName(stage, "quality-run");
+}
+
 export function webTaskRoleName(stage: StageName): string {
   return resourceName(stage, "web-task");
 }
@@ -317,10 +336,12 @@ export const STACK_ORDER = [
 
 export type StackSuffix = (typeof STACK_ORDER)[number];
 
+/** The quality engine sits on Cortex's rails (event bus, tenant session), so it deploys with them, before the agent whose tool reads it. */
 export const CORTEX_STACKS = [
   "cortex-core",
   "cortex-knowledge",
   "cortex-graph",
+  "quality",
   "cortex-agent",
 ] as const;
 

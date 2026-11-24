@@ -3,6 +3,7 @@
 import { Calculator } from "lucide-react";
 
 import type { Ledger } from "@/hooks/use-ledger";
+import { useQuality } from "@/hooks/use-quality";
 import { isGenericSpec } from "@/lib/mrv/calc/specs";
 import { formatRange, rangeDays } from "@/lib/mrv/days";
 import { STAGE_META } from "@/lib/mrv/registry-pipeline";
@@ -24,10 +25,12 @@ function emptyReason(ledger: Ledger | null, box: PeriodBox | null): string {
 /**
  * Floor 3: how the selected period's CO₂ removal is calculated. The same tree
  * as the ledger's calculation view: the credited figure at the root, each
- * equation fanning out into its terms down to the monitored values. A plain
- * scroll moves the page; pinch or ⌘-scroll zooms the tree.
+ * equation fanning out into its terms down to the monitored values. Under it,
+ * the selected term day by day with the data quality engine's findings marked.
+ * A plain scroll moves the page; pinch or ⌘-scroll zooms the tree.
  */
-export function CalcFloor({ ledger, box }: { ledger: Ledger | null; box: PeriodBox | null }) {
+export function CalcFloor({ ledger, box, projectId }: { ledger: Ledger | null; box: PeriodBox | null; projectId: string | null }) {
+  const quality = useQuality(projectId);
   const range = box?.range ?? null;
   const spec = ledger?.spec ?? null;
   const badge = ORIGIN_BADGE[ledger?.dataset?.origin ?? "none"];
@@ -84,6 +87,7 @@ export function CalcFloor({ ledger, box }: { ledger: Ledger | null; box: PeriodB
             loading={false}
             wheel="modifier"
             inspectorClassName="max-lg:hidden"
+            quality={quality}
           />
         ) : (
           <div className="grid flex-1 place-items-center px-6 text-center text-[13px] text-calcite/60">{emptyReason(ledger, box)}</div>

@@ -70,7 +70,7 @@ def parse(payload) -> Ask:
 
 
 class ProjectKnowledge:
-    """knowledge___search, journey___status and graph___evidence for one project, as the signed-in user."""
+    """knowledge___search, journey___status, graph___evidence and quality___findings for one project, as the signed-in user."""
 
     def __init__(self, gateway: Gateway, project_id: str):
         self.gateway = gateway
@@ -78,6 +78,7 @@ class ProjectKnowledge:
         self.calls: list[dict] = []
         self.journey_reads: list[str] = []
         self.evidence_reads: list[str] = []
+        self.quality_reads: list[str] = []
 
     async def journey(self, step: str) -> dict:
         arguments: dict = {"project_id": self.project_id}
@@ -94,6 +95,15 @@ class ProjectKnowledge:
             arguments["document"] = document
         self.evidence_reads.append(task_id or document or "project")
         return await self.gateway.call_tool("graph___evidence", arguments)
+
+    async def quality(self, start: str, end: str) -> dict:
+        arguments: dict = {"project_id": self.project_id}
+        if start:
+            arguments["from"] = start
+        if end:
+            arguments["to"] = end
+        self.quality_reads.append(f"{start or '…'}/{end or '…'}")
+        return await self.gateway.call_tool("quality___findings", arguments)
 
     async def search(self, query: str) -> list[dict]:
         payload = await self.gateway.call_tool(
@@ -181,7 +191,7 @@ class Cortex:
                 if earlier:
                     yield {"type": "sources", "sources": earlier}
                 record.update(outcome="answered", stop_reason=after.get("stop_reason"), searches=tools.calls, journey_reads=tools.journey_reads,
-                              evidence_reads=tools.evidence_reads,
+                              evidence_reads=tools.evidence_reads, quality_reads=tools.quality_reads,
                               read=list(sources), cited=cited, usage=usage)
                 yield {"type": "done", "turn": after.get("turns") or 1, "cited": cited}
         except (BadRequest, Unauthorized, ToolError) as error:

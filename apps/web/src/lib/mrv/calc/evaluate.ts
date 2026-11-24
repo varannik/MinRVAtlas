@@ -210,6 +210,11 @@ function evaluateNode(node: CalcNode, index: DatasetIndex, range: DateRange, out
   return result;
 }
 
+/** One subtree over one window: the trend under the tree evaluates a node day by day. */
+export function evaluateSubtree(node: CalcNode, index: DatasetIndex, range: DateRange): NodeResult {
+  return evaluateNode(node, index, range, new Map());
+}
+
 /** Share of a window's days that have any stream rows, 0–1. */
 export function streamCoverage(index: DatasetIndex, range: DateRange): number {
   return daysIn(index, range).length / rangeDays(range);
