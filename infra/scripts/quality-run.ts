@@ -58,7 +58,9 @@ async function main() {
       throw new Error(`The run ${execution.status.toLowerCase()}: ${execution.error ?? ""} ${execution.cause ?? ""}`.trim());
     }
     const detail = (JSON.parse(execution.output ?? "{}") as { judged?: { detail?: Record<string, unknown> } }).judged?.detail ?? {};
-    console.log(JSON.stringify(detail, null, 2));
+    // The findings' ids are for the graph; the words are on the calculation tree and in Ask Cortex.
+    const { findings: _links, ...shown } = detail;
+    console.log(JSON.stringify(shown, null, 2));
     return;
   }
   throw new Error("The run is still going after 10 minutes; see the minrv-ew2 quality-run state machine.");

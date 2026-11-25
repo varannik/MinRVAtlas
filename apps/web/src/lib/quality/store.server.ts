@@ -6,7 +6,7 @@ import { randomBytes } from "node:crypto";
 
 import type { Registry } from "@/lib/types";
 import { registrySlug } from "@/lib/stream-schema";
-import { withReview, type FindingReview, type FindingStatus, type QualityFinding, type QualityRun } from "./types";
+import { withReview, type FindingReview, type FindingStatus, type QualityFinding, type QualityRun, type RunSummary } from "./types";
 
 /**
  * The data quality engine's table, read and written as the user's project.
@@ -87,6 +87,7 @@ export function runFromItem(item: Record<string, AttributeValue>): QualityRun {
     range: result.range ?? null,
     versions: result.versions,
     error: text(item, "error"),
+    summary: parseJson<RunSummary>(text(item, "summary")) ?? undefined,
   };
 }
 

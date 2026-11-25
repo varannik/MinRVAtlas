@@ -298,6 +298,11 @@ export const CORTEX_AGENT_EFFORT = "medium";
  * Haiku 4.5, the newest small Claude this account is allowed (Nov 2026).
  */
 export const CORTEX_LABEL_MODEL = "eu.anthropic.claude-haiku-4-5-20251001-v1:0";
+/**
+ * The model that writes a quality run's optional summary for operators (EU inference
+ * profile, so findings stay in EU regions). The agent's model: it already runs here.
+ */
+export const QUALITY_SUMMARY_MODEL = CORTEX_AGENT_MODEL;
 
 /**
  * Claude for proposing registry values (a number, its clause and a quoted sentence)

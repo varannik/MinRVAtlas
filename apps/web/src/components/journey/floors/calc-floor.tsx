@@ -3,13 +3,13 @@
 import { Calculator } from "lucide-react";
 
 import type { Ledger } from "@/hooks/use-ledger";
-import { useQuality } from "@/hooks/use-quality";
 import { isGenericSpec } from "@/lib/mrv/calc/specs";
 import { formatRange, rangeDays } from "@/lib/mrv/days";
 import { STAGE_META } from "@/lib/mrv/registry-pipeline";
 import { CalcLegend, CalcTreeView } from "@/components/stage/calc/calc-explorer";
 import { ORIGIN_BADGE } from "@/components/stage/theme";
 import { FloorHeading } from "./floor-parts";
+import { useJourneyQuality } from "./journey-quality";
 import type { PeriodBox } from "./periods";
 
 /** Why there is no tree to show. */
@@ -29,8 +29,8 @@ function emptyReason(ledger: Ledger | null, box: PeriodBox | null): string {
  * the selected term day by day with the data quality engine's findings marked.
  * A plain scroll moves the page; pinch or ⌘-scroll zooms the tree.
  */
-export function CalcFloor({ ledger, box, projectId }: { ledger: Ledger | null; box: PeriodBox | null; projectId: string | null }) {
-  const quality = useQuality(projectId);
+export function CalcFloor({ ledger, box }: { ledger: Ledger | null; box: PeriodBox | null }) {
+  const quality = useJourneyQuality();
   const range = box?.range ?? null;
   const spec = ledger?.spec ?? null;
   const badge = ORIGIN_BADGE[ledger?.dataset?.origin ?? "none"];
@@ -88,6 +88,7 @@ export function CalcFloor({ ledger, box, projectId }: { ledger: Ledger | null; b
             wheel="modifier"
             inspectorClassName="max-lg:hidden"
             quality={quality}
+            heading={box ? `Block #${box.sequence} · ${box.label}` : undefined}
           />
         ) : (
           <div className="grid flex-1 place-items-center px-6 text-center text-[13px] text-calcite/60">{emptyReason(ledger, box)}</div>

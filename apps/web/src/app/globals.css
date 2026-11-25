@@ -958,6 +958,13 @@ body {
   background: linear-gradient(in oklab 180deg, #57544a 0%, #3b3e2f 22%, #252c19 48%, #0d1802 78%, #0d1802 100%);
 }
 
+/* The calculation tree on the whole screen: the floor's own depth behind it. */
+.calc-fullscreen {
+  background:
+    radial-gradient(80% 60% at 30% 20%, color-mix(in oklab, #3b3e2f 55%, transparent) 0%, transparent 70%),
+    linear-gradient(in oklab 180deg, #252c19 0%, #0d1802 60%);
+}
+
 /* Fine mineral grain on each floor, under its content. */
 .journey-floor::before {
   content: "";

@@ -251,6 +251,38 @@ class SeedTest(unittest.TestCase):
         lab = next(f for f in found if f.kind == "fixed_coverage")
         self.assertEqual(lab.start, "2026-10-01")
 
+class TaskAndSummaryTest(unittest.TestCase):
+    def test_a_finding_names_the_journey_task_its_records_are_filed_on(self):
+        from quality_engine.findings import Finding
+
+        delivered = Finding("out_of_range", "blocks", {}, "2026-08-01", "2026-08-01", metric="LCO2_DELIVERED_t")
+        lab = Finding("fixed_coverage", "blocks", {}, "2026-10-01", "2026-11-21", fixed_key="BIOGENIC_FRACTION_pct")
+        whole_days = Finding("missing_days", "blocks", {}, "2026-08-03", "2026-08-05")
+        self.assertEqual((delivered.task, lab.task, whole_days.task), ("monitor.chain", "monitor.biogenic", ""))
+        self.assertEqual(delivered.to_json()["task"], "monitor.chain")
+        self.assertEqual(lab.link()["fixed_key"], "BIOGENIC_FRACTION_pct")
+
+    def test_claude_reads_open_findings_most_severe_first(self):
+        from quality_engine import run_summary
+
+        findings = [
+            {"id": "F-b", "severity": "look", "status": "open", "start": "2026-01-02", "text": {"headline": "Unusual day"}},
+            {"id": "F-a", "severity": "blocks", "status": "open", "start": "2026-03-01", "text": {"headline": "Three days missing"}},
+            {"id": "F-c", "severity": "blocks", "status": "dismissed", "start": "2026-01-01"},
+        ]
+        asked = run_summary.facts("blocked", findings)
+        self.assertEqual([f["id"] for f in asked["findings"]], ["F-a", "F-b"])
+        self.assertIn("blocked", run_summary.prompt(asked))
+        self.assertTrue(run_summary.needs_summary(findings))
+        self.assertFalse(run_summary.needs_summary([findings[2]]))
+
+    def test_an_answer_without_an_overview_is_not_kept(self):
+        from quality_engine import run_summary
+
+        self.assertIsNone(run_summary.checked({"overview": " ", "groups": [], "first": {}}, {"F-a"}))
+        kept = run_summary.checked({"overview": "One gap.", "groups": [{"title": "Gap", "cause": "", "finding_ids": ["F-x"]}], "first": {"finding_ids": ["F-a", "F-a"], "why": "It blocks."}}, {"F-a"})
+        self.assertEqual(kept, {"overview": "One gap.", "groups": [], "first": {"finding_ids": ["F-a"], "why": "It blocks."}})
+
 
 if __name__ == "__main__":
     unittest.main()

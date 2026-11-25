@@ -53,6 +53,37 @@ export function trendShape(node: CalcNode): TrendShape {
   return nodeSources(node).metrics.size ? "line" : "step";
 }
 
+/**
+ * True when one day's value is that day's share of a total (tonnes delivered,
+ * hours run), so the trend reads "t a day"; false for a rate, a mean or a
+ * factor, which reads in its own unit. A product of a total and factors is a
+ * total; a total over a total is not.
+ */
+export function isDailyTotal(node: CalcNode): boolean {
+  if (node.kind === "input") {
+    switch (node.source.type) {
+      case "series":
+        return node.source.aggregate === "sum";
+      case "fixed":
+        return node.source.scaling === "prorata";
+      case "duration":
+        return true;
+      case "constant":
+        return false;
+    }
+  }
+  if (node.op === "quotient") {
+    const [top, ...under] = node.children;
+    return Boolean(top && isDailyTotal(top)) && !under.some(isDailyTotal);
+  }
+  return node.children.some(isDailyTotal);
+}
+
+/** The trend's y-axis unit, e.g. "t a day" or "kW". */
+export function trendUnit(node: CalcNode): string {
+  return isDailyTotal(node) ? `${node.unit} a day` : node.unit;
+}
+
 /** What the trend says a node is, in a few words. */
 export function trendKind(node: CalcNode): string {
   if (node.kind === "equation") return "worked out each day from its terms";

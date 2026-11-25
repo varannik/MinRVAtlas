@@ -39,6 +39,8 @@ class Metric:
     cadence_minutes: float | None = None
     # Factor from the unit to tonnes of CO₂ (or CO₂e), when it is one.
     to_tonnes: float | None = None
+    # The journey task whose records back it (journey.yaml), where a fix is filed.
+    task: str = ""
 
     @property
     def daily(self):
@@ -64,6 +66,7 @@ METRICS = {
             # One delivery: a road tanker carries 20–30 t, a rail tank car up to about 80 t.
             high=100,
             to_tonnes=1,
+            task="monitor.chain",
         ),
         Metric(
             "CO2_TRANSIT_LOSS_kg",
@@ -76,6 +79,7 @@ METRICS = {
             high=5000,
             zero_ok=True,
             to_tonnes=0.001,
+            task="monitor.chain",
         ),
         Metric(
             "CO2_VENTED_SITE_kg",
@@ -88,6 +92,7 @@ METRICS = {
             high=20000,
             zero_ok=True,
             to_tonnes=0.001,
+            task="monitor.chain",
         ),
         Metric(
             "CAPTURE_POWER_kW",
@@ -99,6 +104,7 @@ METRICS = {
             low=0,
             high=20000,
             cadence_minutes=2,
+            task="monitor.energy",
         ),
         Metric(
             "LCO2_TANKER_TRIPS",
@@ -110,6 +116,7 @@ METRICS = {
             low=0,
             high=50,
             zero_ok=True,
+            task="monitor.energy",
         ),
         Metric(
             "FUEL_PER_TRIP_L",
@@ -120,6 +127,7 @@ METRICS = {
             feeds="E_trn, road transport emissions",
             low=0,
             high=1000,
+            task="monitor.energy",
         ),
         Metric(
             "ENERGY_PER_TONNE_kWht",
@@ -131,6 +139,7 @@ METRICS = {
             low=0,
             high=2000,
             cadence_minutes=2,
+            task="monitor.energy",
         ),
         Metric(
             "CO2_REVERSAL_t",
@@ -142,6 +151,7 @@ METRICS = {
             low=0,
             zero_ok=True,
             to_tonnes=1,
+            task="monitor.storage",
         ),
         Metric(
             "GROSS_REMOVAL_t",
@@ -163,6 +173,7 @@ METRICS = {
             low=0,
             zero_ok=True,
             to_tonnes=1,
+            task="monitor.energy",
         ),
         Metric(
             "BIOCHAR_DRY_MASS_t",
@@ -184,6 +195,7 @@ METRICS = {
             low=0,
             zero_ok=True,
             to_tonnes=1,
+            task="monitor.energy",
         ),
     )
 }
@@ -201,6 +213,22 @@ FIXED = {
     "BIOMASS_EMISSIONS_t": "biomass sourcing emissions",
     "USE_EMISSIONS_t": "end use and transport emissions",
 }
+
+
+# The journey task each dated value is filed on.
+FIXED_TASKS = {
+    "BIOGENIC_FRACTION_pct": "monitor.biogenic",
+    "GRID_EMISSION_FACTOR_kg_per_kWh": "monitor.energy",
+    "DIESEL_EF_kg_per_L": "monitor.energy",
+}
+
+
+def task_for(metric_id=None, fixed_key=None):
+    """The journey task a finding about this metric or dated value bears on; "" when none does."""
+    if metric_id:
+        known = METRICS.get(metric_id)
+        return known.task if known else ""
+    return FIXED_TASKS.get(fixed_key or "", "")
 
 
 def metric(metric_id):

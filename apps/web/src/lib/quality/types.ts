@@ -41,6 +41,8 @@ export interface QualityFinding {
   metric: string | null;
   /** Dated value it is about (lab result, factor). */
   fixedKey: string | null;
+  /** The journey task whose records back it, where the fix is filed ("" when none); older runs lack it. */
+  task?: string;
   start: string;
   end: string;
   /** Moment inside the day, for intraday findings (ISO, UTC). */
@@ -67,6 +69,22 @@ export interface QualityRun {
   range?: DateRange | null;
   versions?: Record<string, string | number>;
   error?: string;
+  /** Claude's summary for operators, written after the verdict; never sent to viewers. */
+  summary?: RunSummary;
+}
+
+/**
+ * Claude's optional summary of a run (apps/quality-engine run_summary.py): findings
+ * that look like one problem, and what to fix first. It cites findings by id and
+ * never sets the verdict. "unavailable" when Claude could not write one.
+ */
+export interface RunSummary {
+  status: "written" | "unavailable";
+  model?: string;
+  at?: string;
+  overview?: string;
+  groups?: { title: string; cause: string; finding_ids: string[] }[];
+  first?: { finding_ids: string[]; why: string } | null;
 }
 
 export interface QualityView {
@@ -81,6 +99,8 @@ export interface QualityView {
   findings: QualityFinding[];
   /** The user may confirm, dismiss and re-run. */
   canDecide: boolean;
+  /** The user sees Claude's run summaries (operators; not viewers). */
+  showsSummary?: boolean;
 }
 
 export const DECISIONS: FindingStatus[] = ["confirmed", "dismissed", "open"];

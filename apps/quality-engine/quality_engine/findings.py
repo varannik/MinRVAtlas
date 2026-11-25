@@ -8,6 +8,7 @@ from run to run, and a person's decision on it (confirm, dismiss) carries over.
 import hashlib
 from dataclasses import dataclass, field
 
+from .catalog import task_for
 from .data import add_days
 
 # What a finding may do to a submission.
@@ -44,6 +45,26 @@ class Finding:
         return self.metric or self.fixed_key or "stream"
 
     @property
+    def task(self):
+        """The journey task where the records behind it are filed, or ""."""
+        return task_for(self.metric, self.fixed_key)
+
+    def link(self):
+        """What the graph needs of it: ids and keys, never the words."""
+        return {
+            "id": self.id,
+            "kind": self.kind,
+            "severity": self.severity,
+            "status": self.status,
+            "blocking": self.blocking(),
+            "metric": self.metric or "",
+            "fixed_key": self.fixed_key or "",
+            "task": self.task,
+            "start": self.start,
+            "end": self.end,
+        }
+
+    @property
     def id(self):
         raw = f"{self.kind}|{self.subject}|{self.start}|{self.end}".encode()
         return "F-" + hashlib.sha256(raw).hexdigest()[:16]
@@ -70,6 +91,7 @@ class Finding:
             "advisory": self.advisory,
             "metric": self.metric,
             "fixedKey": self.fixed_key,
+            "task": self.task,
             "start": self.start,
             "end": self.end,
             "at": self.at,

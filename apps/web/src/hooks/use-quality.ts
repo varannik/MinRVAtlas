@@ -7,7 +7,8 @@ import type { FindingStatus, QualityView } from "@/lib/quality/types";
 /**
  * The data quality engine's findings for one project (/api/data-quality/<id>).
  * Starts a run when the data has moved past the last one, follows a run while it
- * goes, and records people's decisions. Kept in memory only.
+ * goes (and briefly after, for Claude's summary), and records people's decisions.
+ * Kept in memory only.
  */
 
 type Payload = QualityView & { stale?: boolean; error?: string };
@@ -24,6 +25,8 @@ export interface QualityState {
 
 const POLL_MS = 4000;
 const POLL_FOR_MS = 10 * 60 * 1000;
+/** Claude writes a run's summary within seconds of the verdict; after this, stop waiting for it. */
+const SUMMARY_WAIT_MS = 3 * 60 * 1000;
 
 async function call(url: string, init?: RequestInit): Promise<Payload> {
   const response = await fetch(url, { cache: "no-store", ...init, headers: { "content-type": "application/json", ...init?.headers } });
@@ -74,6 +77,29 @@ export function useQuality(projectId: string | null): QualityState {
     }, POLL_MS);
     return () => clearInterval(timer);
   }, [running, show, url]);
+
+  // Then wait a little for Claude's summary of it, for those who see summaries.
+  const view = state.view;
+  const finishedAt = view?.run?.finishedAt;
+  const awaitingSummary = Boolean(
+    view?.showsSummary &&
+      view.run?.status === "done" &&
+      !view.run.summary &&
+      !view.running &&
+      view.findings.some((finding) => finding.status !== "dismissed" && finding.severity !== "info"),
+  );
+  useEffect(() => {
+    if (!url || !awaitingSummary || !finishedAt) return;
+    const until = Date.parse(finishedAt) + SUMMARY_WAIT_MS;
+    if (Date.now() > until) return;
+    const timer = setInterval(() => {
+      if (Date.now() > until) return clearInterval(timer);
+      call(url)
+        .then(show)
+        .catch(() => undefined);
+    }, POLL_MS);
+    return () => clearInterval(timer);
+  }, [awaitingSummary, finishedAt, show, url]);
 
   const decide = useCallback(
     async (findingId: string, decision: FindingStatus, reason: string) => {

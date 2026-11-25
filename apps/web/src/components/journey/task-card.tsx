@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import {
   Check,
   FileText,
@@ -16,6 +16,8 @@ import { CHOICE_TASKS, choiceOptions } from "@/lib/journey/steps";
 import type { CortexRole, JourneyTask, TaskKind, TaskState } from "@/lib/journey/types";
 import { laterAnswers, usePlan, useJourney } from "@/store/journey-store";
 import { FileDrop, FiledList } from "./filings";
+import { useTaskFindings } from "./floors/journey-quality";
+import { parsePeriod } from "./floors/periods";
 import { LocationPicker } from "./location-picker";
 
 export const KIND_ICON: Record<TaskKind, typeof FileText> = {
@@ -357,6 +359,10 @@ export function TaskCard({
 }) {
   const accept = useJourney((store) => store.accept);
   const registry = usePlan().registry;
+  // What the data quality checks found in the records filed here, for the period in progress.
+  const periodValue = useJourney((store) => store.tasks["monitor.period"]?.value);
+  const period = useMemo(() => (task.step === "monitor" ? parsePeriod(periodValue) : null), [periodValue, task.step]);
+  const held = useTaskFindings(task.id, period);
   const [editing, setEditing] = useState(false);
   const answered = state.status === "done" || state.status === "flagged";
   const showInput = !locked && (state.status === "open" || editing);
@@ -394,6 +400,20 @@ export function TaskCard({
         <CortexSays tone="note">
           <span className="font-semibold text-white">What I can see: </span>
           {state.note}
+        </CortexSays>
+      ) : null}
+
+      {held.length ? (
+        <CortexSays tone="warn">
+          <span className="font-semibold">The data quality checks point here: </span>
+          <ul className="mt-1 grid gap-1">
+            {held.slice(0, 3).map((finding) => (
+              <li key={finding.id}>
+                {finding.text.headline} <span className="text-[#EACD9C]/75">{finding.text.todo}</span>
+              </li>
+            ))}
+          </ul>
+          {held.length > 3 ? <p className="mt-1 text-[11.5px] text-[#EACD9C]/75">And {held.length - 3} more, on the calculation tree.</p> : null}
         </CortexSays>
       ) : null}
 

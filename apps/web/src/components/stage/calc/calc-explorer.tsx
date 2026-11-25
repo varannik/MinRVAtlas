@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronsDownUp, ChevronsUpDown, CircleAlert, Info, ListChecks, TriangleAlert, X } from "lucide-react";
+import { Calculator, ChevronsDownUp, ChevronsUpDown, CircleAlert, Info, ListChecks, Maximize2, Minimize2, TriangleAlert, X } from "lucide-react";
 import type { QualityState } from "@/hooks/use-quality";
 import { evaluate, type DailyPoint, type DatasetIndex } from "@/lib/mrv/calc/evaluate";
 import { findNode, pathTo } from "@/lib/mrv/calc/tree";
 import type { CalcNode, CalcSpec, EquationNode } from "@/lib/mrv/calc/types";
 import { runChecks } from "@/lib/mrv/checks";
-import { contains } from "@/lib/mrv/days";
+import { contains, formatRange, rangeDays } from "@/lib/mrv/days";
 import type { DateRange, IssueSeverity } from "@/lib/mrv/types";
 import { CALC_TONE, SEVERITY_TONE } from "../theme";
 import { CalcRootCard, CalcTermCard } from "./calc-cards";
@@ -16,6 +16,7 @@ import { equationIds, equationsToDepth, layoutTree } from "./calc-layout";
 import { CalcTrendPanel } from "./calc-trend";
 import { CalcViewport } from "./calc-viewport";
 import { useNodeFlags } from "./node-flags";
+import { useFullscreen } from "./use-fullscreen";
 
 const SEVERITY_ICON: Record<IssueSeverity, typeof TriangleAlert> = { blocker: TriangleAlert, warning: CircleAlert, info: Info };
 
@@ -53,7 +54,8 @@ export function CalcLegend({ className = "" }: { className?: string }) {
  * our data. Beside it, what the selected node is and how it is worked out;
  * under it, full width, the node's value day by day with the data quality
  * engine's findings marked on it. Red dashed branches have no data yet. Used
- * on the journey's calculation floor.
+ * on the journey's calculation floor. "Full screen" gives all three the whole
+ * screen; Esc or "Exit full screen" brings them back to the page.
  */
 export function CalcTreeView({
   spec,
@@ -65,6 +67,7 @@ export function CalcTreeView({
   wheel = "zoom",
   inspectorClassName = "",
   quality = null,
+  heading,
 }: {
   spec: CalcSpec;
   index: DatasetIndex | null;
@@ -77,11 +80,15 @@ export function CalcTreeView({
   inspectorClassName?: string;
   /** The data quality engine's findings for the project, marked on the trend and the cards. */
   quality?: QualityState | null;
+  /** What is being calculated, e.g. "Block #6 · Period 1", shown on the full-screen header. */
+  heading?: string;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(() => initialExpanded(spec.root, initialNodeId));
   const [selectedId, setSelectedId] = useState<string>(() => initialNodeId ?? spec.root.id);
   const [checksOpen, setChecksOpen] = useState(false);
   const [trendTall, setTrendTall] = useState(false);
+  const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
+  const screen = useFullscreen(rootEl);
   const flags = useNodeFlags(spec.root, quality?.view?.findings, range);
 
   const evaluation = useMemo(() => (index && range ? evaluate(spec, index, range) : null), [index, range, spec]);
@@ -118,9 +125,32 @@ export function CalcTreeView({
 
   const selected = findNode(spec.root, selectedId) ?? spec.root;
   const allOpen = expanded.size >= allIds.length;
+  const selectedCard = layout.cards.find((card) => card.node.id === selected.id);
+  const focusY = selectedCard ? selectedCard.y + selectedCard.h / 2 : undefined;
+
+  const ScreenIcon = screen.on ? Minimize2 : Maximize2;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div ref={setRootEl} className={`flex min-h-0 min-w-0 flex-1 flex-col ${screen.on ? "calc-fullscreen text-white" : ""}`}>
+    {screen.on ? (
+      <header className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-white/10 bg-black/25 px-5 py-3">
+        <Calculator className="size-4 shrink-0 text-[#B2BE8B]" />
+        <span className="min-w-0 text-[13px] font-semibold text-white">
+          {heading ? `${heading} · ` : null}How the CO₂ removal is calculated
+          {range ? <span className="font-normal text-white/60"> · {formatRange(range)} · {rangeDays(range)} days</span> : null}
+        </span>
+        <CalcLegend className="ml-auto hidden md:flex" />
+        <button
+          type="button"
+          onClick={screen.toggle}
+          className="flex items-center gap-2 rounded-lg border border-white/15 px-3 py-1.5 text-[12px] font-semibold text-white/85 hover:bg-white/10 hover:text-white max-md:ml-auto"
+        >
+          <Minimize2 className="size-4" />
+          Exit full screen
+          <kbd className="rounded border border-white/20 px-1 font-mono text-[10px] text-white/55">Esc</kbd>
+        </button>
+      </header>
+    ) : null}
     <div className={`flex min-h-0 ${trendTall ? "h-[34%] shrink-0" : "flex-1"}`}>
       <main className="relative min-w-0 flex-1 overflow-hidden">
         <div aria-hidden className="calc-stage__grid absolute inset-0" />
@@ -134,16 +164,30 @@ export function CalcTreeView({
             <CalcViewport
               bounds={layout.bounds}
               fitKey={fitKey}
-              wheel={wheel}
+              focusY={focusY}
+              // On the whole screen there is no page to scroll, so the wheel zooms.
+              wheel={screen.on ? "zoom" : wheel}
               actions={
-                <button
-                  type="button"
-                  onClick={() => setExpanded(new Set(allOpen ? equationsToDepth(spec.root, 0) : allIds))}
-                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-white/70 hover:bg-white/10 hover:text-white"
-                >
-                  {allOpen ? <ChevronsDownUp className="size-3.5" /> : <ChevronsUpDown className="size-3.5" />}
-                  {allOpen ? "Collapse all" : "Expand all"}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setExpanded(new Set(allOpen ? equationsToDepth(spec.root, 0) : allIds))}
+                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-white/70 hover:bg-white/10 hover:text-white"
+                  >
+                    {allOpen ? <ChevronsDownUp className="size-3.5" /> : <ChevronsUpDown className="size-3.5" />}
+                    {allOpen ? "Collapse all" : "Expand all"}
+                  </button>
+                  {screen.supported ? (
+                    <button
+                      type="button"
+                      onClick={screen.toggle}
+                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-white/70 hover:bg-white/10 hover:text-white"
+                    >
+                      <ScreenIcon className="size-3.5" />
+                      {screen.on ? "Exit full screen" : "Full screen"}
+                    </button>
+                  ) : null}
+                </>
               }
             >
               <svg className="pointer-events-none absolute top-0 left-0 overflow-visible" width={1} height={1} aria-hidden>

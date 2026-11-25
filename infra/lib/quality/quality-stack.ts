@@ -11,6 +11,7 @@ import * as sfn from "aws-cdk-lib/aws-stepfunctions";
 import * as tasks from "aws-cdk-lib/aws-stepfunctions-tasks";
 import { Construct } from "constructs";
 import {
+  QUALITY_SUMMARY_MODEL,
   atlasBucketName,
   cfnStackName,
   cortexTenantSessionRoleName,
@@ -22,6 +23,7 @@ import {
   streamBucketName,
   webTaskRoleName,
 } from "../config";
+import { anthropicSdkLayer } from "../cortex/knowledge-stack";
 import { Ew2Stack, type Ew2StackProps } from "../ew2-stack";
 
 /** The engine's Python package (standard library only), deployed as the Lambda asset. */
@@ -100,17 +102,25 @@ export class QualityStack extends Ew2Stack {
       STREAM_BUCKET: streamBucket.bucketName,
       ATLAS_BUCKET: atlasBucket.bucketName,
     };
-    const step = (name: string, handler: string, description: string, memorySize: number, seconds: number) =>
+    const step = (
+      name: string,
+      handler: string,
+      description: string,
+      memorySize: number,
+      seconds: number,
+      extra: Pick<lambda.FunctionProps, "architecture" | "layers"> & { environment?: Record<string, string> } = {},
+    ) =>
       new lambda.Function(this, name, {
         functionName: resourceName(stage, `quality-${name.toLowerCase()}`),
         description,
         runtime: lambda.Runtime.PYTHON_3_13,
-        architecture: lambda.Architecture.ARM_64,
+        architecture: extra.architecture ?? lambda.Architecture.ARM_64,
+        layers: extra.layers,
         handler: `quality_engine.handlers.${handler}`,
         code,
         memorySize,
         timeout: cdk.Duration.seconds(seconds),
-        environment,
+        environment: { ...environment, ...extra.environment },
         logGroup: new logs.LogGroup(this, `${name}Logs`, {
           logGroupName: logGroupName(stage, `quality-${name.toLowerCase()}`),
           retention,
@@ -122,6 +132,13 @@ export class QualityStack extends Ew2Stack {
     const foldFn = step("Fold", "fold", "Quality run: one batch of days' raw readings to daily cells and intraday notes", 1024, 300);
     const judgeFn = step("Judge", "judge", "Quality run: every check and detector, worded findings, verdict", 1024, 300);
     const failFn = step("Fail", "fail", "Quality run: mark a run failed", 128, 15);
+    // Optional, after the verdict is recorded and announced: Claude groups the open
+    // findings and says what to fix first, for operators. x86_64 for the SDK layer.
+    const summariseFn = step("Summarise", "summarise", "Quality run: Claude's summary of a finished run for operators (never the verdict)", 256, 120, {
+      architecture: lambda.Architecture.X86_64,
+      layers: [anthropicSdkLayer(this, "AnthropicSdk", resourceName(stage, "quality-anthropic-sdk"), "Anthropic Python SDK (Bedrock client) for the quality run summary")],
+      environment: { SUMMARY_MODEL: QUALITY_SUMMARY_MODEL },
+    });
 
     // Reads: the project's stream days and attributes, its seeded history. Never writes them.
     streamBucket.grantRead(planFn);
@@ -131,10 +148,22 @@ export class QualityStack extends Ew2Stack {
     atlasBucket.grantRead(judgeFn, "mrv/*");
     this.bucket.grantPut(foldFn, "runs/*");
     this.bucket.grantRead(judgeFn, "runs/*");
-    for (const fn of [planFn, foldFn, judgeFn, failFn]) key.grantEncryptDecrypt(fn);
+    for (const fn of [planFn, foldFn, judgeFn, failFn, summariseFn]) key.grantEncryptDecrypt(fn);
     this.table.grant(planFn, "dynamodb:PutItem");
     this.table.grant(judgeFn, "dynamodb:Query", "dynamodb:BatchWriteItem", "dynamodb:UpdateItem");
     this.table.grant(failFn, "dynamodb:UpdateItem");
+    this.table.grant(summariseFn, "dynamodb:Query", "dynamodb:UpdateItem");
+    // The EU inference profile, and the model in whichever EU region it routes to.
+    summariseFn.addToRolePolicy(
+      new iam.PolicyStatement({
+        sid: "SummaryModelOnly",
+        actions: ["bedrock:InvokeModel"],
+        resources: [
+          `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/${QUALITY_SUMMARY_MODEL}`,
+          `arn:aws:bedrock:eu-*::foundation-model/${QUALITY_SUMMARY_MODEL.replace(/^eu\./, "")}`,
+        ],
+      }),
+    );
 
     // ── The run ──────────────────────────────────────────────────────────
     const runInput = { "run.$": "$.run" };
@@ -187,7 +216,14 @@ export class QualityStack extends Ew2Stack {
       ],
       resultPath: sfn.JsonPath.DISCARD,
     });
-    judge.next(announce);
+    // The summary never holds a run up or fails it: the verdict is already recorded.
+    const summarise = new tasks.LambdaInvoke(this, "SummariseRun", {
+      lambdaFunction: summariseFn,
+      payload: sfn.TaskInput.fromObject({ ...runInput, "verdict.$": "$.judged.detail.verdict" }),
+      resultPath: sfn.JsonPath.DISCARD,
+    });
+    summarise.addCatch(new sfn.Succeed(this, "RunWithoutSummary"), { resultPath: sfn.JsonPath.DISCARD });
+    judge.next(announce).next(summarise);
 
     const noParts = new sfn.Pass(this, "SeededOrEmpty", { result: sfn.Result.fromArray([]), resultPath: "$.parts" }).next(judge);
     const bySource = new sfn.Choice(this, "StreamDays")

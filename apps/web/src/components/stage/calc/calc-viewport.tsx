@@ -6,9 +6,12 @@ import type { CalcLayout } from "./calc-layout";
 
 /**
  * A pan-and-zoom canvas for the calculation tree. Whenever the tree changes
- * shape (`fitKey`) or the window resizes, it frames the whole tree; drag the
- * background to move, scroll to zoom around the pointer, or use the toolbar.
- * Once you move it yourself, it stays where you put it until the tree changes.
+ * shape (`fitKey`) or the window resizes, it frames the tree at a size you can
+ * read: across the full width, and no smaller than READABLE_K. A tree taller
+ * than that runs off the top and bottom, centred on the selected card; drag to
+ * see the rest, or "Fit the whole tree" to see all of it small. Scroll zooms
+ * around the pointer. Once you move it yourself, it stays where you put it
+ * until the tree changes.
  */
 
 interface View {
@@ -21,21 +24,33 @@ const MIN_K = 0.2;
 const MAX_K = 2.5;
 /** Fitting never blows the tree up past this. */
 const MAX_FIT_K = 1.05;
+/** Fitting never shrinks cards past this unless the width demands it; below it their words are too small to read. */
+const READABLE_K = 0.85;
 const PAD = { left: 56, right: 56, top: 76, bottom: 64 };
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function fitView(bounds: CalcLayout["bounds"], width: number, height: number): View {
+/**
+ * Frame the tree. `whole` fits all of it; otherwise it stays readable, and when
+ * it is then taller than the frame it is centred on `focusY` (a world y), kept
+ * from scrolling past its own top or bottom.
+ */
+function fitView(bounds: CalcLayout["bounds"], width: number, height: number, options: { whole?: boolean; focusY?: number } = {}): View {
   const boxW = Math.max(1, bounds.maxX - bounds.minX);
   const boxH = Math.max(1, bounds.maxY - bounds.minY);
-  const k = clamp(Math.min((width - PAD.left - PAD.right) / boxW, (height - PAD.top - PAD.bottom) / boxH), MIN_K, MAX_FIT_K);
-  return {
-    k,
-    x: PAD.left + (width - PAD.left - PAD.right - boxW * k) / 2 - bounds.minX * k,
-    y: PAD.top + (height - PAD.top - PAD.bottom - boxH * k) / 2 - bounds.minY * k,
-  };
+  const roomW = width - PAD.left - PAD.right;
+  const roomH = height - PAD.top - PAD.bottom;
+  const widthK = roomW / boxW;
+  const heightK = roomH / boxH;
+  const k = clamp(options.whole ? Math.min(widthK, heightK) : Math.min(widthK, Math.max(heightK, READABLE_K)), MIN_K, MAX_FIT_K);
+  const x = PAD.left + (roomW - boxW * k) / 2 - bounds.minX * k;
+  if (boxH * k <= roomH || options.focusY === undefined) {
+    return { k, x, y: PAD.top + (roomH - boxH * k) / 2 - bounds.minY * k };
+  }
+  const centred = PAD.top + roomH / 2 - options.focusY * k;
+  return { k, x, y: clamp(centred, PAD.top + roomH - bounds.maxY * k, PAD.top - bounds.minY * k) };
 }
 
 function ToolButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
@@ -57,9 +72,12 @@ export function CalcViewport({
   fitKey,
   actions,
   wheel = "zoom",
+  focusY,
   children,
 }: {
   bounds: CalcLayout["bounds"];
+  /** World y of the selected card: a tree too tall to read whole is centred on it when it changes shape. */
+  focusY?: number;
   /** "modifier": plain scrolling is left to the page; pinch or ⌘/Ctrl-scroll zooms. */
   wheel?: "zoom" | "modifier";
   /** Changes whenever the tree's shape changes, to re-frame it. */
@@ -83,7 +101,11 @@ export function CalcViewport({
   }, []);
 
   const key = `${fitKey}|${Math.round(size.width)}x${Math.round(size.height)}`;
-  const fitted = size.width > 0 ? fitView(bounds, size.width, size.height) : { x: 0, y: 0, k: 1 };
+  // The card to centre on is the one selected when the tree last changed shape,
+  // so choosing another card does not move the tree under the pointer.
+  const [anchor, setAnchor] = useState({ key, focusY });
+  if (anchor.key !== key) setAnchor({ key, focusY });
+  const fitted = size.width > 0 ? fitView(bounds, size.width, size.height, { focusY: anchor.key === key ? anchor.focusY : focusY }) : { x: 0, y: 0, k: 1 };
   const manualActive = manual?.key === key;
   const view = manualActive ? manual.view : fitted;
 
@@ -168,7 +190,7 @@ export function CalcViewport({
       </div>
 
       <div data-no-pan className="absolute top-4 left-5 flex items-center gap-1 rounded-xl border border-white/10 bg-black/40 p-1 backdrop-blur-md">
-        <ToolButton label="Fit the whole tree" onClick={() => setManual(null)}>
+        <ToolButton label="Fit the whole tree" onClick={() => size.width > 0 && setManual({ key, view: fitView(bounds, size.width, size.height, { whole: true }) })}>
           <Scan className="size-4" />
         </ToolButton>
         <span className="mx-0.5 h-5 w-px bg-white/10" />

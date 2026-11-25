@@ -5,7 +5,8 @@ records a verdict that the same data and the same rule version always reproduce.
 It replaces Data Sentinel's data quality checks; Sentinel's V&V, reviewer and
 protocol registry stay where they are for now.
 
-Python, standard library only. It runs as Lambda functions in a Step Functions
+Python, standard library only; the optional summary step also has the Anthropic
+SDK, from a Lambda layer. It runs as Lambda functions in a Step Functions
 run (`infra/lib/quality/quality-stack.ts`), its own stack on Cortex's rails:
 
 - **Data in:** the stream metrics the calculation tree reads. That is the stream
@@ -60,11 +61,29 @@ Every finding is built in three layers:
    - why it matters;
    - what to do;
    - how we found it.
-3. **Summary.** This is optional. Claude will summarise a run, citing finding ids;
-   it never sets a verdict. It is not built yet.
+3. **Summary.** Optional, for operators (viewers never get it). After the verdict
+   is recorded and announced, the `summarise` step (`run_summary.py`) gives Claude
+   (EU inference profile) the run's findings, as facts and these sentences, never
+   the raw data. Claude groups findings that look like one problem and says what
+   to fix first, citing finding ids. Ids the run does not have are dropped. It
+   never sets the verdict, and a run whose summary fails is still a finished run.
 
 Templates name the meter the way the site does, give dates in full and times in
 site time with UTC, and keep statistics words in "how we found it".
+
+## What reacts to a run
+
+- **Graph.** `QualityRunCompleted` carries each finding's ids and keys, never its
+  words. The Cortex graph writer links project → run → finding, and an open
+  finding `HOLDS` the journey task its records are filed on (`catalog.py` `task`).
+  A dismissed or resolved finding closes the link.
+- **Journey.** A ledger block's details show the engine's verdict for its days and
+  its open findings. A Monitor task shows the findings that point at it for the
+  period in progress.
+- **Registry submit.** Data goes to a registry only when the latest run has seen
+  the whole period and does not block it (`apps/web/src/lib/quality/gate.ts`).
+  A finding that needs a look does not stop it. This replaced the rule that
+  Isometric writes needed a green Sentinel DQA run.
 
 ## Layout
 
@@ -79,8 +98,9 @@ site time with UTC, and keep statistics words in "how we found it".
 | `findings.py` | the finding model, fingerprint ids and the verdict |
 | `text.py` | the plain-English templates |
 | `judge.py` | runs everything for one run, applies decisions, words findings |
+| `run_summary.py` | the optional summary: what Claude reads, its schema, and the check of its answer |
 | `store.py` | the table layout |
-| `handlers.py` | the Lambda steps: plan, fold, judge, fail |
+| `handlers.py` | the Lambda steps: plan, fold, judge, summarise, fail |
 
 ## Run it
 

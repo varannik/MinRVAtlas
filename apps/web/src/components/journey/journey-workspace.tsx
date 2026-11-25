@@ -17,6 +17,7 @@ import { FLOOR_IDS, type FloorNumber } from "./floors/floor-anchors";
 import { FloorLinks } from "./floors/floor-links";
 import { FloorLift, HereBeacon, useHereFloor } from "./floors/floor-lift";
 import { FloorHeading, StepDot, WhereCard } from "./floors/floor-parts";
+import { JourneyQuality } from "./floors/journey-quality";
 import { LowerFloors } from "./floors/lower-floors";
 import { onValidationFloor } from "./layout";
 import { StepPanel } from "./step-panel";
@@ -302,6 +303,7 @@ export function JourneyWorkspace({ request }: { request: JourneyRequest }) {
   const floorStepOpen = panelOpen && onValidationFloor(selectedStep);
 
   return (
+    <JourneyQuality requested={request.project}>
     <main ref={scrollRef} className="journey-strata scroll-slim fixed inset-0 overflow-x-clip overflow-y-auto">
       <div className="relative">
         {/* Floor 1 · facility validation */}
@@ -394,5 +396,6 @@ export function JourneyWorkspace({ request }: { request: JourneyRequest }) {
         ) : null}
       </AnimatePresence>
     </main>
+    </JourneyQuality>
   );
 }

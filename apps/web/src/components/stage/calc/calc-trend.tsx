@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from "react";
-import { ChevronsDownUp, ChevronsUpDown, CircleAlert, Info, LineChart, RotateCw, Table2, TriangleAlert } from "lucide-react";
+import { ChevronDown, ChevronsDownUp, ChevronsUpDown, CircleAlert, Info, LineChart, RotateCw, Sparkles, Table2, TriangleAlert } from "lucide-react";
 
 import type { QualityState } from "@/hooks/use-quality";
 import type { DatasetIndex } from "@/lib/mrv/calc/evaluate";
-import { nodeSources, nodeTrend, trendKind, trendShape, type TrendPoint } from "@/lib/mrv/calc/trend";
+import { nodeSources, nodeTrend, trendKind, trendShape, trendUnit, type TrendPoint } from "@/lib/mrv/calc/trend";
 import type { CalcNode } from "@/lib/mrv/calc/types";
 import { addDays, diffDays, formatDay, formatRange } from "@/lib/mrv/days";
 import type { DateRange } from "@/lib/mrv/types";
@@ -76,8 +76,9 @@ function dayTicks(range: DateRange, width: number): string[] {
   return out;
 }
 
-function shortDay(day: string): string {
-  return formatDay(day).replace(/ \d{4}$/, "");
+/** "17 Jul"; the first label and the first of each new year also say the year. */
+function tickLabel(day: string, previous: string | undefined): string {
+  return previous && previous.slice(0, 4) === day.slice(0, 4) ? formatDay(day).replace(/ \d{4}$/, "") : formatDay(day);
 }
 
 /** Triangle, circle or diamond, centred on (x, y), with a ring in the surface colour. */
@@ -225,9 +226,14 @@ function TrendChart({
               </text>
             </g>
           ))}
-          {dayTicks(range, plotW).map((day) => (
-            <text key={day} x={xOf(diffDays(range.start, day)) + band / 2} y={plotBottom + 16} textAnchor="middle" fontSize="10.5" fill={TICK}>
-              {shortDay(day)}
+          {scale ? (
+            <text x={4} y={plotTop - 8} fontSize="10.5" fill={TICK}>
+              {trendUnit(node)}
+            </text>
+          ) : null}
+          {dayTicks(range, plotW).map((day, index, days) => (
+            <text key={day} x={xOf(diffDays(range.start, day)) + band / 2} y={plotBottom + 16} textAnchor={index === 0 ? "start" : "middle"} fontSize="10.5" fill={TICK}>
+              {tickLabel(day, days[index - 1])}
             </text>
           ))}
 
@@ -329,7 +335,7 @@ function TrendTable({ node, points, findings }: { node: CalcNode; points: TrendP
         <thead className="sticky top-0 bg-[#141E06] text-[10px] tracking-[0.12em] text-white/45 uppercase">
           <tr>
             <th className="px-3 py-1.5 font-semibold">Day</th>
-            <th className="px-3 py-1.5 text-right font-semibold">{node.unit}</th>
+            <th className="px-3 py-1.5 text-right font-semibold">{trendUnit(node)}</th>
             <th className="px-3 py-1.5 font-semibold">Findings</th>
           </tr>
         </thead>
@@ -477,6 +483,76 @@ function RunStatus({ quality }: { quality: QualityState | null }) {
   );
 }
 
+/**
+ * Claude's summary of the latest run, for operators: findings that look like one
+ * problem, and what to fix first. Collapsed to its overview; the cited findings
+ * on this term open in the list below. Labelled as Claude's, beside the checks'
+ * own verdict, which it never changes.
+ */
+function RunSummaryCard({ quality, here, onOpen }: { quality: QualityState | null; here: Set<string>; onOpen: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const view = quality?.view;
+  const summary = view?.run?.summary;
+  if (!view?.showsSummary || summary?.status !== "written" || !summary.overview) return null;
+  const byId = new Map(view.findings.map((finding) => [finding.id, finding]));
+
+  const cited = (ids: string[]) => (
+    <ul className="mt-1 space-y-0.5">
+      {ids.map((id) => {
+        const finding = byId.get(id);
+        if (!finding) return null;
+        const tone = QUALITY_TONE[finding.severity];
+        return (
+          <li key={id}>
+            <button
+              type="button"
+              disabled={!here.has(id)}
+              onClick={() => onOpen(id)}
+              title={here.has(id) ? "Open it below" : "It is on another term of the tree"}
+              className="flex w-full items-start gap-1.5 rounded-md px-1 py-0.5 text-left text-[11.5px] leading-snug text-white/70 enabled:hover:bg-white/[0.06] enabled:hover:text-white"
+            >
+              <tone.Icon className="mt-0.5 size-3 shrink-0" style={{ color: tone.color }} aria-label={tone.label} />
+              {finding.text.headline}
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  return (
+    <section className="mb-2 rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center justify-between gap-2 text-left">
+        <span className="flex items-center gap-1.5 text-[10px] font-semibold tracking-[0.16em] text-white/45 uppercase">
+          <Sparkles className="size-3.5" />
+          Summary of the run · by Claude
+        </span>
+        <ChevronDown className={`size-3.5 text-white/45 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      <p className="mt-1.5 text-[12px] leading-snug text-white/85">{summary.overview}</p>
+      {open ? (
+        <div className="mt-2 space-y-2.5">
+          {summary.first?.finding_ids.length ? (
+            <div>
+              <p className="text-[10.5px] font-semibold text-white/60">Fix first</p>
+              <p className="text-[11.5px] leading-snug text-white/75">{summary.first.why}</p>
+              {cited(summary.first.finding_ids)}
+            </div>
+          ) : null}
+          {summary.groups?.map((group) => (
+            <div key={group.title}>
+              <p className="text-[10.5px] font-semibold text-white/60">{group.title}</p>
+              {group.cause ? <p className="text-[11.5px] leading-snug text-white/75">{group.cause}</p> : null}
+              {cited(group.finding_ids)}
+            </div>
+          ))}
+          <p className="text-[10.5px] leading-snug text-white/40">Written by Claude from the checks&apos; findings. The verdict is the checks&apos;, not Claude&apos;s.</p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function CalcTrendPanel({
   node,
   index,
@@ -577,6 +653,7 @@ export function CalcTrendPanel({
           )}
         </div>
         <aside className="scroll-slim min-h-0 overflow-y-auto border-white/10 p-2 lg:w-[380px] lg:shrink-0 lg:border-l max-lg:max-h-48 max-lg:border-t">
+          <RunSummaryCard quality={quality} here={new Set(findings.map((finding) => finding.id))} onOpen={setOpenId} />
           <p className="px-1 pb-1.5 text-[10px] font-semibold tracking-[0.16em] text-white/45 uppercase">
             Data quality · {node.symbol} · {findings.length}
           </p>

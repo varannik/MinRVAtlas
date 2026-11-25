@@ -1,7 +1,9 @@
 import "server-only";
 
+import type { DateRange } from "@/lib/mrv/types";
+import { periodOf } from "@/lib/quality/gate";
+import { qualitySubmitBlock } from "@/lib/quality/gate.server";
 import { classifyRequirement } from "@/lib/requirement-payload";
-import { sentinelUpstreamJson } from "@/lib/sentinel/upstream";
 import type { PipelineResult } from "@/lib/sentinel/pipeline-types";
 import type { ItemKind } from "@/lib/types";
 import { RegistryApiError } from "../types";
@@ -247,25 +249,13 @@ async function putBytes(uploadUrl: string, contentType: string, bytes: Uint8Arra
   }
 }
 
-async function confirmDqa(pipeline: PipelineResult, needsDqa: boolean): Promise<void> {
-  if (!needsDqa) return;
-  if (!pipeline.runId) {
-    throw new SubmitBlockedError("DQA run id missing — run quality check first");
-  }
-  try {
-    const run = await sentinelUpstreamJson<{
-      status: string;
-      gate_passed?: boolean | null;
-    }>(`v1/runs/${pipeline.runId}`);
-    if (run.status === "failed" || run.gate_passed === false) {
-      throw new SubmitBlockedError("Sentinel DQA is not green; Certify write refused");
-    }
-  } catch (error) {
-    if (error instanceof SubmitBlockedError) throw error;
-    throw new SubmitBlockedError(
-      "Could not confirm DQA with Sentinel; Certify write refused",
-    );
-  }
+/**
+ * Data written to a registry must pass the data quality engine for its period
+ * (lib/quality/gate.ts). This replaced confirming a green Sentinel DQA run.
+ */
+async function confirmQuality(projectId: string, period: DateRange | null): Promise<void> {
+  const blocked = await qualitySubmitBlock(projectId, period);
+  if (blocked) throw new SubmitBlockedError(`${blocked} Certify write refused.`);
 }
 
 type CreateSourceResponse = {
@@ -471,7 +461,9 @@ export async function submitSlot(input: SlotWriteInput): Promise<SlotWriteResult
     };
   }
 
-  await confirmDqa(input.pipeline, classification.engines.includes("dqa"));
+  if (classification.engines.includes("dqa")) {
+    await confirmQuality(input.catalogProjectId, periodOf(input.periodStart, input.periodEnd));
+  }
 
   const sourceIds: string[] = [];
   for (const file of input.files) {
@@ -617,38 +609,8 @@ export type StatementCreateResult = {
 export async function createGhgEntry(
   input: GhgEntryWriteInput,
 ): Promise<GhgEntryWriteResult> {
-  if (
-    input.pipeline.engines.dqa?.status === "failed" ||
-    input.pipeline.gatePassed === false
-  ) {
-    return {
-      ok: false,
-      blocked: "DQA hard-gate fail — Certify write refused",
-      datapointIds: [],
-      sourceIds: [],
-      warnings: [],
-    };
-  }
-  if (input.pipeline.engines.anomaly?.status === "failed") {
-    return {
-      ok: false,
-      blocked: "Critical anomaly — Certify write refused",
-      datapointIds: [],
-      sourceIds: [],
-      warnings: [],
-    };
-  }
-  const dqaPassed = input.pipeline.engines.dqa?.status === "passed";
-  if (!dqaPassed && input.pipeline.engines.dqa?.status !== "skipped") {
-    return {
-      ok: false,
-      blocked: "Run quality check first",
-      datapointIds: [],
-      sourceIds: [],
-      warnings: [],
-    };
-  }
-  await confirmDqa(input.pipeline, dqaPassed);
+  // The entry's data must pass the data quality engine for the days it covers.
+  await confirmQuality(input.catalogProjectId, periodOf(input.startedOn, input.completedOn));
 
   const slotInput: SlotWriteInput = {
     tenantId: input.tenantId,

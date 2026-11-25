@@ -9,6 +9,7 @@ import { runChecks } from "@/lib/mrv/checks";
 import { contains, formatDay, formatRange, rangeDays } from "@/lib/mrv/days";
 import { pipelineFor, stepIndex, STAGE_META } from "@/lib/mrv/registry-pipeline";
 import type { IssueSeverity, LedgerBlock } from "@/lib/mrv/types";
+import { isBlocking, verdictFor, VERDICT_LABEL, type QualityVerdict } from "@/lib/quality/types";
 import { nextStep } from "@/lib/journey/steps";
 import type { JourneyStep, JourneyTask } from "@/lib/journey/types";
 import { firstOpenTask, stepProgress, taskState, usePlan, useJourney } from "@/store/journey-store";
@@ -17,6 +18,7 @@ import { BLOCK_TONE } from "@/components/stage/theme";
 import { SegmentBar } from "../step-panel";
 import { CortexAvatar } from "../task-card";
 import { goToFloor } from "./floor-anchors";
+import { openFindings, useJourneyQuality } from "./journey-quality";
 import { TRACK, type PeriodBox } from "./periods";
 
 /**
@@ -32,6 +34,8 @@ const SEVERITY: Record<IssueSeverity, { color: string; icon: typeof TriangleAler
   warning: { color: "#EACD9C", icon: CircleAlert },
   info: { color: "#DCDFCE", icon: Info },
 };
+
+const VERDICT_COLOR: Record<QualityVerdict, string> = { blocked: SEVERITY.blocker.color, needs_look: SEVERITY.warning.color, clear: "#B2BE8B" };
 
 const SOURCE: Record<LedgerBlock["issues"][number]["source"], string> = {
   registry: "Registry",
@@ -206,6 +210,9 @@ export function PeriodDetails({
   const selectTask = useJourney((state) => state.selectTask);
   const selectStep = useJourney((state) => state.selectStep);
   const findings = useFindings(ledger, box);
+  const quality = useJourneyQuality();
+  const engineFindings = useMemo(() => openFindings(quality?.view?.findings, box.range), [box.range, quality?.view?.findings]);
+  const engineVerdict = quality?.view?.run && box.range ? verdictFor(quality.view.findings, box.range) : null;
   const registry = ledger?.spec.registry ?? plan.registry?.label ?? "";
   const tone = BLOCK_TONE[box.tone];
   const coverage = ledger?.index && box.range ? streamCoverage(ledger.index, box.range) : null;
@@ -235,8 +242,21 @@ export function PeriodDetails({
     detail: issue.detail,
     source: SOURCE[issue.source],
   }));
+  // The data quality engine's open findings on these days. In the period in progress a
+  // finding opens the Monitor task its records are filed on; otherwise the calculation tree.
+  const qualityIssues: Issue[] = engineFindings.map((finding) => {
+    const task = box.live && finding.task ? plan.taskById[finding.task] : undefined;
+    return {
+      id: `quality:${finding.id}`,
+      severity: isBlocking(finding) ? "blocker" : "warning",
+      title: finding.text.headline,
+      detail: finding.text.todo,
+      source: "Data quality",
+      onOpen: task ? () => selectTask(task.id) : () => goToFloor(3),
+    };
+  });
   const severityRank: Record<IssueSeverity, number> = { blocker: 0, warning: 1, info: 2 };
-  const issues = [...blockIssues, ...flaggedTasks, ...findings].sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
+  const issues = [...blockIssues, ...flaggedTasks, ...qualityIssues, ...findings].sort((a, b) => severityRank[a.severity] - severityRank[b.severity]);
 
   let next: Next;
   if (box.live || box.locked) {
@@ -256,7 +276,7 @@ export function PeriodDetails({
         };
     if (box.locked) next = { ...next, title: `Validate the facility first · ${next.title}` };
   } else if (box.block) {
-    next = blockNext(box.block, registry, findings);
+    next = blockNext(box.block, registry, [...qualityIssues, ...findings]);
   } else {
     next = { title: "Give this period its dates", detail: "The Monitor step holds them.", cortex: true, action: { label: "Open Monitor", run: () => selectStep("monitor") } };
   }
@@ -330,6 +350,15 @@ export function PeriodDetails({
                   ? `${STAGE_META[box.block.stage].label} · ${formatDay(box.block.updatedOn)}`
                   : "Nothing yet"}
             </p>
+            {engineVerdict ? (
+              <p className="mt-1 text-[10.5px] text-calcite/60">
+                <span className="font-semibold text-sand">Data quality </span>
+                <span className="font-semibold" style={{ color: VERDICT_COLOR[engineVerdict] }}>
+                  {VERDICT_LABEL[engineVerdict]}
+                </span>
+                {engineFindings.length ? ` · ${plural(engineFindings.length, "finding")} open` : ""}
+              </p>
+            ) : null}
             {box.range ? (
               <div className="mt-2.5 grid grid-cols-3 gap-1.5">
                 <Stat label="Net" value={formatTonnes(net)} unit="t CO₂" />

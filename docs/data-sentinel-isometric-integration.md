@@ -63,7 +63,7 @@ MRV data + supporting docs
         └─ fail → correct data or documents and re-run
 ```
 
-V&V of documents can start as soon as files are classified. **Registry submit is blocked until DQA, anomaly, V&V, and Step-3 all pass.**
+V&V of documents can start as soon as files are classified. **Registry submit is blocked until V&V and Step-3 pass, and the data quality engine (`apps/quality-engine`) does not block the period.** Since 2026-11-25 the engine's verdict replaces Sentinel's DQA and anomaly gate (`lib/quality/gate.ts`).
 
 ---
 

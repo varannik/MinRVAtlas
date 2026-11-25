@@ -42,7 +42,7 @@ import { Ew2Stack, type Ew2StackProps } from "../ew2-stack";
 
 export const LAMBDA_DIR = path.join(__dirname, "lambda");
 export const PYTHON = lambda.Runtime.PYTHON_3_13;
-/** requirements.txt of the layer with the Claude SDK, for the label task. */
+/** requirements.txt of the layer with the Claude SDK: the label task, and the quality run's summary. */
 const ANTHROPIC_LAYER_DIR = path.join(__dirname, "anthropic-layer");
 
 /**
@@ -67,6 +67,31 @@ function pipForLambda(outputDir: string): boolean {
     { stdio: ["ignore", "ignore", "inherit"] },
   );
   return result.status === 0;
+}
+
+/**
+ * A Lambda layer with the Anthropic Python SDK (its Bedrock client) for x86_64
+ * Lambdas on PYTHON. Each stack builds its own: a layer version shared through a
+ * cross-stack export could never be updated while the other stack uses it.
+ */
+export function anthropicSdkLayer(scope: Construct, id: string, layerVersionName: string, description: string): lambda.LayerVersion {
+  return new lambda.LayerVersion(scope, id, {
+    layerVersionName,
+    description,
+    compatibleRuntimes: [PYTHON],
+    compatibleArchitectures: [lambda.Architecture.X86_64],
+    code: lambda.Code.fromAsset(ANTHROPIC_LAYER_DIR, {
+      bundling: {
+        image: PYTHON.bundlingImage,
+        command: [
+          "bash",
+          "-c",
+          "pip install -r requirements.txt --target /asset-output/python --only-binary=:all: --no-compile --quiet",
+        ],
+        local: { tryBundle: (outputDir) => pipForLambda(outputDir) },
+      },
+    }),
+  });
 }
 
 /** The tag every tenant-scoped session carries; S3, DynamoDB and the bucket policies key on it. */
@@ -590,23 +615,12 @@ export class CortexKnowledgeStack extends Ew2Stack {
     this.parsedBucket.grantDelete(this.chunkFn, "held/*");
 
     // ── Labels: what each document is, where it belongs, whether it is searched ──
-    const anthropicSdk = new lambda.LayerVersion(this, "AnthropicSdk", {
-      layerVersionName: resourceName(stage, "cortex-anthropic-sdk"),
-      description: "Anthropic Python SDK (Bedrock client) for the Cortex label task",
-      compatibleRuntimes: [PYTHON],
-      compatibleArchitectures: [lambda.Architecture.X86_64],
-      code: lambda.Code.fromAsset(ANTHROPIC_LAYER_DIR, {
-        bundling: {
-          image: PYTHON.bundlingImage,
-          command: [
-            "bash",
-            "-c",
-            "pip install -r requirements.txt --target /asset-output/python --only-binary=:all: --no-compile --quiet",
-          ],
-          local: { tryBundle: (outputDir) => pipForLambda(outputDir) },
-        },
-      }),
-    });
+    const anthropicSdk = anthropicSdkLayer(
+      this,
+      "AnthropicSdk",
+      resourceName(stage, "cortex-anthropic-sdk"),
+      "Anthropic Python SDK (Bedrock client) for the Cortex label task",
+    );
     this.labelFn = new lambda.Function(this, "Label", {
       functionName: resourceName(stage, "cortex-label"),
       description: "Label a parsed document with Claude (kind, title, version) and hold it out of search when it is not MRV material or a copy",

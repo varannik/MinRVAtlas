@@ -7,7 +7,8 @@ import { indexDataset } from "@/lib/mrv/calc/evaluate";
 import { nodeSources, nodeTrend, trendShape } from "@/lib/mrv/calc/trend";
 import type { DailyMetrics, FixedValue } from "@/lib/mrv/types";
 import { nodeFlags } from "@/components/stage/calc/node-flags";
-import { findingsForSources, isBlocking, verdictFor, withReview, type QualityFinding } from "./types";
+import { periodOf, submitBlockReason } from "./gate";
+import { findingsForSources, isBlocking, verdictFor, withReview, type QualityFinding, type QualityRun } from "./types";
 
 function finding(over: Partial<QualityFinding>): QualityFinding {
   const base: QualityFinding = {
@@ -101,5 +102,33 @@ describe("a node's trend, day by day", () => {
     assert.deepEqual(flags.get("S"), { severity: "blocks", count: 2 });
     assert.deepEqual(flags.get("f_bio"), { severity: "look", count: 1 });
     assert.equal(flags.get("one"), undefined);
+  });
+});
+
+describe("the registry submit rule", () => {
+  const run: QualityRun = { id: "20261125T121007Z-610135", status: "done", startedAt: "2026-11-25T12:10:07Z", range: { start: "2026-01-01", end: "2026-11-21" } };
+
+  it("refuses a period the engine blocks, and names the first block", () => {
+    const refused = submitBlockReason(run, [finding({})], AUGUST);
+    assert.match(refused ?? "", /^Data quality blocks this period: No readings at all for 3 days/);
+    assert.equal(submitBlockReason(run, [finding({})], { start: "2026-09-01", end: "2026-09-30" }), null);
+  });
+
+  it("lets a period through that only needs a look: a detector never blocks on its own", () => {
+    const unusual = finding({ kind: "spike", severity: "look", advisory: true });
+    assert.equal(submitBlockReason(run, [unusual], AUGUST), null);
+    assert.notEqual(submitBlockReason(run, [withReview(unusual, { decision: "confirmed" })], AUGUST), null);
+  });
+
+  it("fails closed when no run has seen the whole period", () => {
+    assert.match(submitBlockReason(null, [], AUGUST) ?? "", /have not run/);
+    assert.match(submitBlockReason({ ...run, range: null }, [], AUGUST) ?? "", /no monitoring data/);
+    assert.match(submitBlockReason(run, [], { start: "2026-11-01", end: "2026-11-30" }) ?? "", /only seen data up to 21 Nov 2026/);
+  });
+
+  it("reads a period only from two day keys in order", () => {
+    assert.deepEqual(periodOf("2026-08-01", "2026-08-31"), AUGUST);
+    assert.equal(periodOf("2026-08-31", "2026-08-01"), null);
+    assert.equal(periodOf("2026-08-01", undefined), null);
   });
 });

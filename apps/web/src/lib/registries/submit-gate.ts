@@ -9,9 +9,21 @@ import {
 import type { ItemKind } from "@/lib/types";
 
 /**
- * Client-safe gate. The BFF re-runs this and also confirms DQA with Sentinel.
- * Never treat a client `readyToSubmit: true` as sufficient on its own.
+ * Client-safe gate for Sentinel's remaining engines: document V&V and the registry's
+ * step-3 rules. Data quality is the quality engine's: the BFF refuses a data write
+ * whose period the engine blocks (lib/quality/gate.ts), so Sentinel's DQA and anomaly
+ * runs no longer gate a write. Never treat a client `readyToSubmit: true` as enough.
  */
+
+/** Sentinel engines whose job the data quality engine took over. */
+const ENGINE_OWNED = new Set<string>(["dqa", "anomaly"]);
+
+function sentinelEngines(pipeline: PipelineResult): PipelineResult {
+  return {
+    ...pipeline,
+    engines: Object.fromEntries(Object.entries(pipeline.engines).filter(([engine]) => !ENGINE_OWNED.has(engine))) as PipelineResult["engines"],
+  };
+}
 export function slotSubmitBlockReason(
   pipeline: PipelineResult | undefined,
   kind: ItemKind,
@@ -26,7 +38,7 @@ export function slotSubmitBlockReason(
   const quality = qualityBlockReason(pipeline, classification);
   if (quality) return quality;
 
-  if (!computeReadyToSubmit(pipeline)) {
+  if (!computeReadyToSubmit(sentinelEngines(pipeline))) {
     return pipeline.blockReason || "Quality gates are not green";
   }
   return null;
@@ -36,12 +48,6 @@ export function qualityBlockReason(
   pipeline: PipelineResult,
   classification: RequirementClassification,
 ): string | null {
-  if (pipeline.engines.dqa?.status === "failed" || pipeline.gatePassed === false) {
-    return "DQA hard-gate fail — Certify write refused";
-  }
-  if (pipeline.engines.anomaly?.status === "failed") {
-    return "Critical anomaly — Certify write refused";
-  }
   if (pipeline.engines.vv?.status === "failed") {
     return "V&V checkpoint fail — Certify write refused";
   }
@@ -50,6 +56,7 @@ export function qualityBlockReason(
   }
 
   for (const engine of classification.engines) {
+    if (ENGINE_OWNED.has(engine)) continue;
     const status = pipeline.engines[engine]?.status;
     if (engine === "vv") {
       if (status !== "passed" && status !== "skipped") {

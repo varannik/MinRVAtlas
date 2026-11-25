@@ -9,7 +9,7 @@ import { loadDataset } from "@/lib/mrv/data/load";
 import { resolveOwnedProject } from "@/lib/registries/server";
 import type { Project } from "@/lib/types";
 import { isStale, loadQuality, qualityEnv, startRun, type QualityEnv, type StoredQuality } from "./store.server";
-import type { QualityView } from "./types";
+import type { QualityRun, QualityView } from "./types";
 
 /** Shared by the data-quality routes: who is asking, and the project as they may see it. */
 
@@ -55,8 +55,14 @@ export function emptyView(reason: string): QualityView {
   return { available: false, reason, run: null, running: null, findings: [], canDecide: false };
 }
 
+/** Claude's run summary is for operators first: a viewer (a verifier, an auditor) sees the checks' own words only. */
+function forRole(run: QualityRun | null, session: SessionPayload): QualityRun | null {
+  if (!run || session.role !== "viewer") return run;
+  return { ...run, summary: undefined };
+}
+
 export function view(stored: StoredQuality, session: SessionPayload): QualityView {
-  return { available: true, ...stored, canDecide: canUploadAs(session.role) };
+  return { available: true, ...stored, run: forRole(stored.run, session), canDecide: canUploadAs(session.role), showsSummary: session.role !== "viewer" };
 }
 
 /** The last day of data the calculation reads, to tell whether the latest run is out of date. */

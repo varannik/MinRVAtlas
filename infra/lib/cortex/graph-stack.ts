@@ -113,10 +113,11 @@ export class CortexGraphStack extends Ew2Stack {
       }),
     );
 
-    // Evidence links from journey changes: a document filed on a task SATISFIES it.
+    // Evidence links from journey changes (a document filed on a task SATISFIES it) and
+    // from finished data quality runs (an open finding HOLDS the task its records are filed on).
     this.writerFn = new lambda.Function(this, "Writer", {
       functionName: resourceName(stage, "cortex-graph-writer"),
-      description: "Link documents filed on journey tasks to those tasks in the Cortex graph",
+      description: "Link documents filed on journey tasks, and data quality findings, to those tasks in the Cortex graph",
       runtime: PYTHON,
       handler: "graph_writer.handler",
       code: lambda.Code.fromAsset(LAMBDA_DIR, { exclude: ["__pycache__", "*.pyc"] }),
@@ -156,6 +157,22 @@ export class CortexGraphStack extends Ew2Stack {
         detailType: ["JourneyChanged"],
         detail: { dynamodb: { NewImage: { action: { S: ["answer"] }, files: { S: [{ exists: true }] } } } },
       },
+      targets: [
+        new targets.LambdaFunction(this.writerFn, {
+          retryAttempts: 8,
+          maxEventAge: cdk.Duration.hours(6),
+          deadLetterQueue: unlinked,
+        }),
+      ],
+    });
+
+    // Every finished quality run (quality stack, source minrv.quality): its findings, the
+    // run that found them and the journey tasks they hold. Ids and keys only.
+    new events.Rule(this, "QualityRunsToGraph", {
+      eventBus: props.eventBus,
+      ruleName: resourceName(stage, "cortex-quality-runs-to-graph"),
+      description: "Finished data quality runs, to the graph writer",
+      eventPattern: { source: ["minrv.quality"], detailType: ["QualityRunCompleted"] },
       targets: [
         new targets.LambdaFunction(this.writerFn, {
           retryAttempts: 8,

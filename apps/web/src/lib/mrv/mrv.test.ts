@@ -6,6 +6,7 @@ import { equation, fixed, series } from "./calc/build";
 import { dailySeries, evaluate, indexDataset, streamCoverage } from "./calc/evaluate";
 import { calcSpecFor } from "./calc/specs";
 import { fixedKeys, leaves, pathTo } from "./calc/tree";
+import { trendUnit } from "./calc/trend";
 import type { CalcSpec } from "./calc/types";
 import { runChecks } from "./checks";
 import { ledgerTotals } from "./summary";
@@ -184,5 +185,18 @@ describe("ledger summary", () => {
       blocks,
     );
     assert.deepEqual(totals, { net: 100, issued: 10, inReview: 20, draft: 30, unclaimed: 40, pendingDays: 1 });
+  });
+});
+
+describe("trend unit", () => {
+  it("reads a total as per day and a rate or factor in its own unit", () => {
+    const delivered = series("m_del", "M_del", "Liquid CO₂ delivered", "t", "LCO2_DELIVERED_t", "sum");
+    const power = series("p_cap", "P_cap", "Mean capture power", "kW", "CAPTURE_POWER_kW", "mean");
+    const share = fixed("f_bio", "f_bio", "Biogenic share", "fraction", "BIOGENIC_FRACTION_pct", "intensity");
+    assert.equal(trendUnit(delivered), "t a day");
+    assert.equal(trendUnit(power), "kW");
+    assert.equal(trendUnit(share), "fraction");
+    assert.equal(trendUnit(equation("s", "S", "Eligible CO₂ stored", "t", "product", [delivered, share])), "t a day");
+    assert.equal(trendUnit(equation("e", "e", "Energy per tonne", "kWh/t", "quotient", [delivered, delivered])), "kWh/t");
   });
 });

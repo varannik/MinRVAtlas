@@ -2,8 +2,9 @@
 
   plan   record the run, find the project's data, split stream days into batches
   fold   read a batch of days' raw readings: daily cells and intraday notes, to S3
-  judge  every check and detector over the whole history; findings and the verdict
-  fail   mark the run failed, with a message safe to show
+  judge      every check and detector over the whole history; findings and the verdict
+  summarise  optional, after the run is announced: Claude's summary for operators
+  fail       mark the run failed, with a message safe to show
 
 Each step gets {"run": {run_id, tenant_id, project_id, registry_slug, requested_by,
 site_tz?}}. Ids are checked before any key is built from them.
@@ -17,7 +18,7 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from . import store
+from . import run_summary, store
 from .data import Cell, Dataset, finish, fixed_from_attributes, from_mrv_json
 from .intraday import fold_day
 from .judge import judge as judge_findings
@@ -32,6 +33,8 @@ DAY_KEY = re.compile(r"/dt=(\d{4}-\d{2}-\d{2})/observations\.csv$")
 MAX_DAYS = 1100
 BATCH_DAYS = 31
 READERS = 8
+# Findings the QualityRunCompleted event carries for the graph (EventBridge takes 256 KB).
+MAX_EVENT_FINDINGS = 200
 
 _clients = {}
 
@@ -254,15 +257,99 @@ def judge(event, _context=None):
         ExpressionAttributeValues=store.run_finished(dataset.source, plan_result.get("dataHash"), result),
     )
     log.info(json.dumps({"quality_run": run["run_id"], "project": run["project_id"], "verdict": result["verdict"], "counts": result["counts"]}))
+    # The event detail: the graph links each finding to its project, run and journey
+    # task from it, so it carries ids and keys only, never the sentences.
     return {
         "tenant_id": run["tenant_id"],
         "project_id": run["project_id"],
         "run_id": run["run_id"],
+        "finished_at": store.now(),
         "source": dataset.source,
         "verdict": result["verdict"],
         "counts": result["counts"],
         "range": result["range"],
+        "findings_total": len(findings),
+        "findings": [finding.link() for finding in findings[:MAX_EVENT_FINDINGS]],
     }
+
+
+# ── summarise ───────────────────────────────────────────────────────────────
+
+
+def run_findings(run):
+    dynamodb = client("dynamodb")
+    items, start = [], None
+    while True:
+        page = dynamodb.query(
+            TableName=os.environ["QUALITY_TABLE"],
+            KeyConditionExpression="pk = :pk AND begins_with(sk, :found)",
+            ExpressionAttributeValues={
+                ":pk": store.s(store.project_key(run["tenant_id"], run["project_id"])),
+                ":found": store.s(f"FINDING#{run['run_id']}#"),
+            },
+            **({"ExclusiveStartKey": start} if start else {}),
+        )
+        items.extend(page.get("Items", []))
+        start = page.get("LastEvaluatedKey")
+        if not start:
+            return [json.loads(item["finding"]["S"]) for item in items if item.get("finding", {}).get("S")]
+
+
+_claude = None
+
+
+def claude():
+    global _claude
+    if _claude is None:
+        import anthropic  # the Anthropic SDK layer; only this step has it
+
+        _claude = anthropic.AnthropicBedrock(aws_region=os.environ["AWS_REGION"], timeout=60.0, max_retries=2)
+    return _claude
+
+
+def ask_claude(asked):
+    """Claude's answer to one run's facts, as a dict, and the tokens it used."""
+    response = claude().messages.create(
+        model=os.environ["SUMMARY_MODEL"],
+        max_tokens=run_summary.MAX_TOKENS,
+        system=run_summary.SYSTEM,
+        messages=[{"role": "user", "content": run_summary.prompt(asked)}],
+        output_config={"format": {"type": "json_schema", "schema": run_summary.SCHEMA}},
+    )
+    if response.stop_reason != "end_turn":
+        raise ValueError(f"Claude stopped with {response.stop_reason}")
+    text = next((block.text for block in response.content if block.type == "text"), None)
+    if not text:
+        raise ValueError("Claude gave no answer")
+    return json.loads(text), response.usage
+
+
+def summarise(event, _context=None):
+    """Claude's summary of a finished run, on its run record. Never touches the verdict;
+    when Claude cannot help, the record says the summary is unavailable."""
+    run = checked_run(event)
+    findings = run_findings(run)
+    if not run_summary.needs_summary(findings):
+        return {"summary": "none"}
+    asked = run_summary.facts(str(event.get("verdict") or ""), findings)
+    record = {"status": "unavailable", "model": os.environ["SUMMARY_MODEL"], "at": store.now()}
+    try:
+        answer, usage = ask_claude(asked)
+        written = run_summary.checked(answer, {finding["id"] for finding in findings})
+        if written:
+            record = {**record, "status": "written", **written}
+        log.info(json.dumps({"quality_summary": run["run_id"], "status": record["status"], "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens}))
+    except Exception as error:  # noqa: BLE001 - the summary is optional; the run stands without it
+        log.warning(json.dumps({"quality_summary": run["run_id"], "status": "unavailable", "error": type(error).__name__}))
+    client("dynamodb").update_item(
+        TableName=os.environ["QUALITY_TABLE"],
+        Key={"pk": store.s(store.project_key(run["tenant_id"], run["project_id"])), "sk": store.s(f"RUN#{run['run_id']}")},
+        UpdateExpression="SET #summary = :summary",
+        ConditionExpression="attribute_exists(sk)",
+        ExpressionAttributeNames={"#summary": "summary"},
+        ExpressionAttributeValues={":summary": store.s(json.dumps(record, separators=(",", ":"), ensure_ascii=False))},
+    )
+    return {"summary": record["status"]}
 
 
 # ── fail ────────────────────────────────────────────────────────────────────

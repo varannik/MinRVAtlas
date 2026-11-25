@@ -42,7 +42,7 @@ function Floors({ scope, ledger }: { scope: string; ledger: Ledger | null }) {
   return (
     <>
       <LedgerFloor scope={scope} ledger={ledger} boxes={boxes} netById={netById} selectedId={selected?.id ?? null} onSelect={setChosen} />
-      <CalcFloor ledger={ledger} box={selected} projectId={ledger ? scope : null} />
+      <CalcFloor ledger={ledger} box={selected} />
     </>
   );
 }

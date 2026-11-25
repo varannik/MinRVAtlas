@@ -370,7 +370,7 @@ Demo tenants `verdant`, `helios`, `terrafix` exist so the globe looks multi-tena
 | Bind catalog project → Sentinel UUID | Next `lib/sentinel/*` |
 | Run DQA / anomaly / V&V | Sentinel FastAPI + Celery |
 | Overlay chips on the board | `lib/sentinel/overlay.ts` |
-| Block Certify submit on failed DQA | `lib/registries/submit-gate.ts` |
+| Block Certify submit when data quality blocks the period | `lib/quality/gate.ts` (the quality engine's verdict); `lib/registries/submit-gate.ts` (V&V, Step-3) |
 | Step-3 (MASIP, bubble-point, cadences) | Next `lib/registries/step3.ts` — **not** Sentinel |
 
 Sentinel’s Python `engines/registry/*` (including a Puro stub) is leftover V&V modelling. It is **not** the product adapter. Do not dual-write registry logic there.

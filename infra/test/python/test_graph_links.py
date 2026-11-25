@@ -81,7 +81,17 @@ class StatementsTest(unittest.TestCase):
         self.assertEqual(queries[-1][1]["keep"], [])
 
     def test_no_statement_deletes_or_removes(self):
-        for query in (graph_writer.TASK_AND_PROJECT, graph_writer.LINK_DOCUMENTS, graph_writer.CLOSE_REPLACED):
+        for query in (
+            graph_writer.TASK_AND_PROJECT,
+            graph_writer.LINK_DOCUMENTS,
+            graph_writer.CLOSE_REPLACED,
+            graph_writer.QUALITY_RUN,
+            graph_writer.QUALITY_FINDINGS,
+            graph_writer.HOLD_TASKS,
+            graph_writer.RELEASE_DISMISSED,
+            graph_writer.RELEASE_RESOLVED,
+            graph_writer.MARK_RESOLVED,
+        ):
             self.assertNotRegex(query.upper(), r"\b(DELETE|REMOVE|DETACH)\b")
 
     def test_handler_runs_the_statements_for_a_journey_changed_event(self):
@@ -92,6 +102,64 @@ class StatementsTest(unittest.TestCase):
         self.assertEqual(fake.execute_open_cypher_query.call_count, 3)
         sent = json.loads(fake.execute_open_cypher_query.call_args_list[1].kwargs["parameters"])
         self.assertEqual(sent["documents"][0]["uid"], f"{T}#document#{KYC}")
+
+
+RUN_ID = "20261125T121007Z-610135"
+
+
+def quality_detail(findings, total=None):
+    return {
+        "tenant_id": T,
+        "project_id": P,
+        "run_id": RUN_ID,
+        "finished_at": "2026-11-25T12:11:00Z",
+        "verdict": "blocked",
+        "counts": {"blocks": 1, "look": 1, "info": 0, "dismissed": 1},
+        "range": {"start": "2025-01-01", "end": "2026-11-21"},
+        "findings_total": len(findings) if total is None else total,
+        "findings": findings,
+    }
+
+
+def link(finding_id, task="", status="open", severity="blocks"):
+    return {"id": finding_id, "kind": "fixed_coverage", "severity": severity, "status": status, "blocking": severity == "blocks",
+            "metric": "", "fixed_key": "BIOGENIC_FRACTION_pct", "task": task, "start": "2026-10-01", "end": "2026-11-21"}
+
+
+class QualityRunTest(unittest.TestCase):
+    LAB, SPIKE, GAP = "F-" + "a" * 16, "F-" + "b" * 16, "F-" + "c" * 16
+
+    def test_findings_hold_their_tasks_and_dismissed_or_resolved_ones_let_go(self):
+        run = graph_writer.quality_run(quality_detail([link(self.LAB, "monitor.biogenic"), link(self.SPIKE, "monitor.chain", "dismissed", "look"), link(self.GAP)]))
+        statements = graph_writer.quality_statements(run)
+        self.assertEqual(
+            [query for query, _ in statements],
+            [graph_writer.QUALITY_RUN, graph_writer.QUALITY_FINDINGS, graph_writer.HOLD_TASKS, graph_writer.RELEASE_DISMISSED, graph_writer.RELEASE_RESOLVED, graph_writer.MARK_RESOLVED],
+        )
+        held = statements[2][1]["held"]
+        self.assertEqual([(f["uid"], f["task_uid"]) for f in held], [(f"{T}#finding#{P}#{self.LAB}", f"{T}#task#{P}#monitor.biogenic")])
+        self.assertEqual(statements[3][1]["released"], [f"{T}#finding#{P}#{self.SPIKE}"])
+        self.assertEqual(len(statements[4][1]["present"]), 3)
+        self.assertEqual(statements[0][1]["run_uid"], f"{T}#quality-run#{P}#{RUN_ID}")
+
+    def test_a_run_whose_event_was_cut_short_resolves_nothing(self):
+        run = graph_writer.quality_run(quality_detail([link(self.LAB, "monitor.biogenic")], total=250))
+        queries = [query for query, _ in graph_writer.quality_statements(run)]
+        self.assertNotIn(graph_writer.RELEASE_RESOLVED, queries)
+        self.assertNotIn(graph_writer.MARK_RESOLVED, queries)
+
+    def test_names_the_engine_did_not_write_are_dropped(self):
+        self.assertIsNone(graph_writer.quality_run({**quality_detail([]), "tenant_id": "../other"}))
+        self.assertIsNone(graph_writer.quality_run({**quality_detail([]), "run_id": "latest"}))
+        run = graph_writer.quality_run(quality_detail([link("F-nothex", "monitor.chain"), link(self.LAB, "MATCH (n) DETACH DELETE n")]))
+        self.assertEqual([(f["id"], f["task"]) for f in run["findings"]], [(self.LAB, "")])
+
+    def test_handler_links_a_quality_run_completed_event(self):
+        fake = mock.Mock()
+        with mock.patch.object(graph_writer, "_client", fake):
+            result = graph_writer.handler({"detail-type": "QualityRunCompleted", "source": "minrv.quality", "detail": quality_detail([link(self.LAB, "monitor.biogenic")])}, None)
+        self.assertEqual(result, {"linked": 1})
+        self.assertEqual(fake.execute_open_cypher_query.call_count, 5)
 
 
 CALLER = {"tenant_id": T, "sub": "s", "role": "operator", "project_ids": [P], "project_id": P}

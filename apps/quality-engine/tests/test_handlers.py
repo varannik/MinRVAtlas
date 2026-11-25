@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from quality_engine import handlers  # noqa: E402
 
-ENV = {"QUALITY_TABLE": "quality", "QUALITY_BUCKET": "quality-parts", "STREAM_BUCKET": "stream", "ATLAS_BUCKET": "atlas"}
+ENV = {"QUALITY_TABLE": "quality", "QUALITY_BUCKET": "quality-parts", "STREAM_BUCKET": "stream", "ATLAS_BUCKET": "atlas", "SUMMARY_MODEL": "eu.anthropic.test", "AWS_REGION": "eu-west-2"}
 RUN = {"run_id": "20261124T101500Z-ab12", "tenant_id": "fourfourone", "project_id": "fujairah-mineral", "registry_slug": "puro", "requested_by": "u1"}
 
 
@@ -60,7 +60,7 @@ class FakeDynamo:
             raise ConditionalCheckFailedException()
         self.items[key] = Item
 
-    def update_item(self, TableName, Key, UpdateExpression, ExpressionAttributeValues, ExpressionAttributeNames=None):
+    def update_item(self, TableName, Key, UpdateExpression, ExpressionAttributeValues, ExpressionAttributeNames=None, ConditionExpression=None):
         item = self.items.setdefault((Key["pk"]["S"], Key["sk"]["S"]), dict(Key))
         names = ExpressionAttributeNames or {}
         for part in UpdateExpression.removeprefix("SET ").split(", "):
@@ -68,7 +68,8 @@ class FakeDynamo:
             item[names.get(field, field)] = ExpressionAttributeValues[value]
 
     def query(self, TableName, KeyConditionExpression, ExpressionAttributeValues, **_):
-        pk, prefix = ExpressionAttributeValues[":pk"]["S"], ExpressionAttributeValues[":review"]["S"]
+        pk = ExpressionAttributeValues[":pk"]["S"]
+        prefix = next(value["S"] for name, value in ExpressionAttributeValues.items() if name != ":pk")
         return {"Items": [item for (p, s), item in sorted(self.items.items()) if p == pk and s.startswith(prefix)]}
 
     def batch_write_item(self, RequestItems):
@@ -119,6 +120,58 @@ class HandlerTest(unittest.TestCase):
         findings = [json.loads(item["finding"]["S"]) for (pk, sk), item in self.dynamo.items.items() if sk.startswith("FINDING#")]
         self.assertEqual([(f["kind"], f["start"], f["end"]) for f in findings], [("missing_days", "2026-08-03", "2026-08-05")])
         self.assertTrue(findings[0]["text"]["headline"].startswith("No readings at all for 3 days"))
+
+    def stream_run_with_gap(self):
+        prefix = "fourfourone/puro/fujairah-mineral/"
+        for day in ("2026-08-01", "2026-08-02", "2026-08-06"):
+            self.s3.put("stream", f"{prefix}dt={day}/observations.csv", day_csv(day))
+        return self.run_all()
+
+    def run_record(self):
+        return self.dynamo.items[("TENANT#fourfourone#PROJECT#fujairah-mineral", f"RUN#{RUN['run_id']}")]
+
+    def test_the_event_carries_ids_and_keys_for_the_graph(self):
+        _, result = self.stream_run_with_gap()
+        self.assertEqual(result["findings_total"], 1)
+        [link] = result["findings"]
+        self.assertEqual(
+            {key: link[key] for key in ("kind", "severity", "status", "blocking", "task", "start", "end")},
+            {"kind": "missing_days", "severity": "blocks", "status": "open", "blocking": True, "task": "", "start": "2026-08-03", "end": "2026-08-05"},
+        )
+        self.assertNotIn("text", link)
+
+    def test_a_summary_cites_only_the_runs_findings(self):
+        _, result = self.stream_run_with_gap()
+        finding_id = result["findings"][0]["id"]
+        answer = {
+            "overview": "The site sent nothing for three days in August.",
+            "groups": [{"title": "Three silent days", "cause": "The data link may have been down.", "finding_ids": [finding_id, "F-0000000000000000"]}],
+            "first": {"finding_ids": ["F-0000000000000000"], "why": "Made up."},
+        }
+        usage = mock.Mock(input_tokens=900, output_tokens=120)
+        with mock.patch.object(handlers, "ask_claude", return_value=(answer, usage)) as asked:
+            self.assertEqual(handlers.summarise({"run": RUN, "verdict": "blocked"}), {"summary": "written"})
+        facts = asked.call_args.args[0]
+        self.assertEqual(facts["verdict"], "blocked")
+        self.assertEqual([f["id"] for f in facts["findings"]], [finding_id])
+        summary = json.loads(self.run_record()["summary"]["S"])
+        self.assertEqual(summary["status"], "written")
+        self.assertEqual(summary["groups"][0]["finding_ids"], [finding_id])
+        self.assertIsNone(summary["first"])  # it cited no finding the run has
+        self.assertEqual(self.run_record()["verdict"]["S"], "blocked")
+
+    def test_the_run_stands_when_claude_cannot_help(self):
+        self.stream_run_with_gap()
+        with mock.patch.object(handlers, "ask_claude", side_effect=TimeoutError()):
+            self.assertEqual(handlers.summarise({"run": RUN, "verdict": "blocked"}), {"summary": "unavailable"})
+        self.assertEqual(json.loads(self.run_record()["summary"]["S"])["status"], "unavailable")
+        self.assertEqual(self.run_record()["status"]["S"], "done")
+
+    def test_no_summary_when_nothing_is_open(self):
+        self.run_all()
+        with mock.patch.object(handlers, "ask_claude") as asked:
+            self.assertEqual(handlers.summarise({"run": RUN, "verdict": "clear"}), {"summary": "none"})
+        asked.assert_not_called()
 
     def test_a_seeded_project(self):
         seeded = {"days": [{"day": "2026-08-01", "metrics": {"GROSS_REMOVAL_t": {"sum": 10, "mean": 10, "min": 10, "max": 10, "last": 10, "count": 1}}}], "fixed": []}
