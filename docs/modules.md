@@ -111,9 +111,8 @@ A user is never “on the platform”. They are on **registry desks inside a ten
 | `control_room.read` | Globe, rail, board for granted registries | `components/dashboard.tsx`, `GET /api/registry/projects`, `GET /api/registry/requirements`, `GET /api/projects/locations` |
 | `control_room.write` | Pins / location overlay | `PUT /api/projects/locations` |
 | `pipeline.run` | Run quality check on a slot | `POST /api/sentinel/pipeline` |
-| `quality.configure` | Rules, protocols, models, V&V | `/quality/rules`, `/quality/protocols`, `/quality/models`, `/quality/vv` → Sentinel allowlist |
-| `quality.operate` | Datasets, runs, workbench, anomaly | `/quality/datasets`, `/quality/runs`, … |
-| `quality.compliance` | Audit, reports | `/quality/audit`, `/quality/reports` |
+| `quality.configure` | Document V&V and protocols | `/quality/vv`, `/quality/protocols` → Sentinel allowlist (`v2/vv`, `v2/protocols`) |
+| `quality.operate` | Data quality findings and decisions | The calculation tree's trend and the journey (`/api/data-quality/*`); Sentinel's data quality pages were removed on 2026-11-25 |
 | `admin.users` | Not built | Planned `/api/admin/users` |
 | `admin.tenant` | Not built | Planned registry **connections** |
 

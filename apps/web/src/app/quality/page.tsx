@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Quality is now Cortex. The /quality/* console pages stay until Cortex has its own backend. */
+/** The console is Sentinel's document V&V now; data quality is the quality engine's, on the calculation tree. */
 export default function QualityIndexPage() {
-  redirect("/cortex");
+  redirect("/quality/vv");
 }

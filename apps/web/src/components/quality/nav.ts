@@ -9,38 +9,18 @@ export type QualityNavSection = {
   items: QualityNavItem[];
 };
 
+/**
+ * Sentinel's console keeps document V&V and the protocols it scores against. Data
+ * quality is the quality engine's (apps/quality-engine): on the calculation tree,
+ * the journey and the registry submit rule.
+ */
 export const QUALITY_NAV: QualityNavSection[] = [
   {
-    id: "configure",
-    label: "Configure",
+    id: "vv",
+    label: "Document V&V",
     items: [
-      { href: "/quality/rules", label: "Rule Manager" },
-      { href: "/quality/corrections", label: "Correction Manager" },
-      { href: "/quality/correction-rules", label: "Correction Rules" },
-      { href: "/quality/protocols", label: "Protocol Manager" },
-      { href: "/quality/models", label: "Models" },
-      { href: "/quality/knowledge", label: "Knowledge Base" },
       { href: "/quality/vv", label: "V&V Projects" },
-    ],
-  },
-  {
-    id: "operate",
-    label: "Operate",
-    items: [
-      { href: "/quality/datasets", label: "Datasets" },
-      { href: "/quality/runs", label: "DQA Runs" },
-      { href: "/quality/violations", label: "Violations" },
-      { href: "/quality/workbench", label: "Workbench" },
-      { href: "/quality/anomaly", label: "Anomaly" },
-      { href: "/quality/schedules", label: "Schedules" },
-    ],
-  },
-  {
-    id: "compliance",
-    label: "Compliance",
-    items: [
-      { href: "/quality/audit", label: "Audit Trail" },
-      { href: "/quality/reports", label: "Reports" },
+      { href: "/quality/protocols", label: "Protocol Manager" },
     ],
   },
 ];

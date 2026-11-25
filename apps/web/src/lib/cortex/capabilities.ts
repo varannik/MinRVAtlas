@@ -86,7 +86,7 @@ export interface Capability {
   metadata?: MetadataIntake;
   /** Where this lives in today's Sentinel service. */
   source: string;
-  /** Current console page, kept until the new backend replaces it. */
+  /** Current console page (Sentinel's V&V console), kept until the new backend replaces it. */
   consoleHref?: string;
 }
 
@@ -190,7 +190,6 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     source: "/v1/datasets · /v1/ingest",
-    consoleHref: "/quality/datasets",
   },
   {
     id: "connectors",
@@ -279,7 +278,6 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     source: "/v1/rules · /v1/rule-studio · engines/dqa",
-    consoleHref: "/quality/rules",
   },
   {
     id: "runs",
@@ -302,7 +300,6 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     source: "/v1/runs · engines/dqa · sentinel-worker",
-    consoleHref: "/quality/runs",
   },
   {
     id: "anomaly",
@@ -335,7 +332,6 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     source: "/v1/anomaly · engines/anomaly",
-    consoleHref: "/quality/anomaly",
   },
   {
     id: "violations",
@@ -358,7 +354,6 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     source: "/v1/violations",
-    consoleHref: "/quality/violations",
   },
 
   // ── Correct ───────────────────────────────────────────────────────────────
@@ -385,7 +380,6 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     source: "/v1/corrections · engines/correction",
-    consoleHref: "/quality/corrections",
   },
   {
     id: "calibration",
@@ -449,7 +443,6 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     source: "/v1/knowledge-base · engines/ai",
-    consoleHref: "/quality/knowledge",
   },
   {
     id: "protocols",
@@ -510,7 +503,6 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     source: "/v1/ml · ml/model_store · sentinel-beat",
-    consoleHref: "/quality/models",
   },
 
   // ── Assure ────────────────────────────────────────────────────────────────
@@ -590,7 +582,6 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     source: "/v1/reports · /v1/audit · /v1/digest",
-    consoleHref: "/quality/reports",
   },
 
   // ── Operate ───────────────────────────────────────────────────────────────
@@ -616,7 +607,6 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     source: "/v1/schedules · sentinel-beat",
-    consoleHref: "/quality/schedules",
   },
 ];
 

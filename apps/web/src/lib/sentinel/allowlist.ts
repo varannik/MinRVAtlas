@@ -5,23 +5,11 @@
  * Upstream is `${SENTINEL_BASE_URL}/api/${path}` except `health` → `/api/health`.
  */
 
+// Document V&V and its protocols only. Sentinel's data quality paths (datasets, runs,
+// rules, anomaly, corrections, …) closed with its console pages: data quality is the
+// quality engine's (/api/data-quality). The server-side pipeline route does not use this list.
 const ALLOWED_PREFIXES = [
   "health",
-  "v1/datasets",
-  "v1/runs",
-  "v1/rules",
-  "v1/corrections",
-  "v1/anomaly",
-  "v1/knowledge-base",
-  "v1/ml",
-  "v1/schedules",
-  "v1/audit",
-  "v1/reports",
-  "v1/violations",
-  "v1/projects",
-  "v1/status",
-  "v1/rule-studio",
-  "v1/ai",
   "v2/vv",
   "v2/protocols",
 ] as const;

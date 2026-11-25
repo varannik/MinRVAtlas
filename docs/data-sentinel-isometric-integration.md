@@ -133,6 +133,13 @@ Quality Console is a **separate App Router tree** (2D, dense tables). It does no
 
 ### 3.2 Quality Console — information architecture
 
+> **2026-11-25:** the console's data quality pages (datasets, runs, violations,
+> workbench, anomaly, schedules, rules, corrections, models, knowledge, audit,
+> reports) were removed. Data quality is the quality engine's
+> (`apps/quality-engine`, `/api/data-quality/*`, the calculation tree's trend).
+> `/quality` keeps document V&V and Protocol Manager. The tables below are the
+> original design.
+
 This is the **best place** to configure Data Sentinel.
 
 **Operate** (also linked from the board later)

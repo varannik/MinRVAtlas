@@ -210,8 +210,9 @@ export function QualityShell({ children }: { children: ReactNode }) {
           ) : null}
           {projects.length > 0 && !ready && !binding && !bindError ? (
             <Banner kind="info">
-              Select an existing project to configure rules, models, and document
-              checks. Those stay empty until you seed defaults or define them.
+              Select an existing project to check its documents against a
+              protocol. Data quality checks are on the project&apos;s calculation
+              tree, in its journey.
             </Banner>
           ) : null}
           {ready ? children : null}

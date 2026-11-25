@@ -4,7 +4,7 @@ import { QualityShell } from "@/components/quality/shell";
 export const metadata = {
   title: "Quality Console — 3DMinRV",
   description:
-    "Configure Data Sentinel DQA, anomaly, protocols and V&V. This is the only operator quality UI.",
+    "Sentinel's document V&V and the protocols it scores against. Data quality checks are on each project's calculation tree.",
 };
 
 export default function QualityLayout({ children }: { children: ReactNode }) {

@@ -181,8 +181,8 @@ export function UserManual() {
               <Place
                 name="Quality"
                 href="/quality"
-                who="Technical and digital MRV staff who configure checks."
-                detail="Rules, document checkpoints, datasets, and run history. Open it from Quality in the switcher at the bottom of the screen, and return with Atlas in the same switcher."
+                who="Technical and digital MRV staff who check documents."
+                detail="Document V&V projects and the protocols their checkpoints come from. Data quality checks are on each project's calculation tree, in its journey. Open it from Quality in the switcher at the bottom of the screen, and return with Atlas in the same switcher."
               />
               <Place
                 name="Ledger"
@@ -602,51 +602,26 @@ export function UserManual() {
 
           <Section id="quality" title="Quality Console">
             <p>
-              Quality checks whether a table or a document is fit to file. It
-              does not create a registry project, and it does not issue a
-              credit. Open it when you are configuring those checks or
-              inspecting a run. A project developer who only needs to attach
-              this month’s file can stay on the map and use Run quality check
-              on that file.
+              Quality checks whether a document is fit to file: a V&V project
+              scores a set of documents against a protocol&apos;s checkpoints.
+              It does not create a registry project, and it does not issue a
+              credit.
+            </p>
+            <p>
+              Monitoring data is checked by the data quality engine, not here.
+              Open a project&apos;s journey and go to the calculation tree: click
+              any term to see it day by day, with every finding marked on the
+              trend and explained in plain English beside it. Confirm or
+              dismiss a finding there. The ledger&apos;s period details show each
+              period&apos;s verdict, and a period the checks block cannot be
+              written to the registry.
             </p>
             <p>
               The first control is the Project menu in the header. Pages stay
               empty until you select a project. The menu lists the same
-              projects as the map. Selecting one connects it to the checking
-              engine for this session.
+              projects as the map. The left menu has two pages: V&V Projects
+              and Protocol Manager.
             </p>
-            <p>The left menu is three groups:</p>
-            <ul className="mt-3 list-disc space-y-2 pl-5 text-[15px] leading-relaxed text-mist">
-              <li>
-                <strong className="font-medium text-frost">Configure</strong> —
-                Rule Manager, correction tools, Protocol Manager, models,
-                knowledge base, V&V projects. This is where a technical owner
-                decides what “good” looks like.
-              </li>
-              <li>
-                <strong className="font-medium text-frost">Operate</strong> —
-                Datasets, DQA runs, violations, the workbench, anomaly, and
-                schedules. This is where a file is uploaded on its own, a run
-                is inspected, and a suggested correction is accepted or
-                rejected. Use it after a check on the map, or when you want to
-                test a file before it is attached to a requirement.
-              </li>
-              <li>
-                <strong className="font-medium text-frost">Compliance</strong> —
-                the audit trail and downloadable reports.
-              </li>
-            </ul>
-            <p>
-              A practical sequence for a technical owner on a BioCCS or DAC
-              project:
-            </p>
-            <ol className="mt-3 list-decimal space-y-2 pl-5 text-[15px] leading-relaxed text-mist">
-              <li>Select the project.</li>
-              <li>On Rule Manager, if the list is empty, click Seed CO₂ rules. Those defaults are CO₂ removal checks. They do not enrol you in a forestry methodology.</li>
-              <li>On the map, run the check from the requirement or the GHG entry. Open DQA runs and Violations when you need the detail.</li>
-              <li>Use the workbench only when the run offers a correction to approve or reject.</li>
-              <li>Export from Reports when someone outside the console needs the result.</li>
-            </ol>
             <p>
               Atlas in the switcher at the bottom of the screen returns to the
               map. User guide is at the bottom of the Quality menu.
