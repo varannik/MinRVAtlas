@@ -113,6 +113,15 @@ export class CortexGraphStack extends Ew2Stack {
       }),
     );
 
+    // Changes the writer could not apply wait here: events the bus could not deliver,
+    // and events the writer failed on after Lambda's own retries. The bus archive can
+    // also replay them.
+    const unlinked = new sqs.Queue(this, "UnlinkedChanges", {
+      queueName: resourceName(stage, "cortex-graph-unlinked"),
+      encryption: sqs.QueueEncryption.SQS_MANAGED,
+      enforceSSL: true,
+      retentionPeriod: cdk.Duration.days(14),
+    });
     // Evidence links from journey changes (a document filed on a task SATISFIES it) and
     // from finished data quality runs (an open finding HOLDS the task its records are filed on).
     this.writerFn = new lambda.Function(this, "Writer", {
@@ -132,22 +141,18 @@ export class CortexGraphStack extends Ew2Stack {
         removalPolicy: cfg.deletionProtection ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
       }),
       environment: { NEPTUNE_ENDPOINT: this.cluster.attrEndpoint },
+      deadLetterQueue: unlinked,
     });
-    // MERGE and SET only: links are closed, never deleted, so no delete permission.
+    // MERGE and SET only: links are closed, never deleted. Neptune still asks for
+    // DeleteDataViaQuery on any openCypher SET, because a SET may replace a value; the
+    // writer's fixed statements never DELETE, REMOVE or DETACH (test_graph_links.py).
     this.writerFn.addToRolePolicy(
       new cdk.aws_iam.PolicyStatement({
         sid: "ReadAndWriteGraph",
-        actions: ["neptune-db:connect", "neptune-db:ReadDataViaQuery", "neptune-db:WriteDataViaQuery"],
+        actions: ["neptune-db:connect", "neptune-db:ReadDataViaQuery", "neptune-db:WriteDataViaQuery", "neptune-db:DeleteDataViaQuery"],
         resources: [`arn:aws:neptune-db:${this.region}:${this.account}:${this.cluster.attrClusterResourceId}/*`],
       }),
     );
-    // Changes the writer could not apply after its retries wait here; the bus archive can also replay them.
-    const unlinked = new sqs.Queue(this, "UnlinkedChanges", {
-      queueName: resourceName(stage, "cortex-graph-unlinked"),
-      encryption: sqs.QueueEncryption.SQS_MANAGED,
-      enforceSSL: true,
-      retentionPeriod: cdk.Duration.days(14),
-    });
     new events.Rule(this, "JourneyFilingsToGraph", {
       eventBus: props.eventBus,
       ruleName: resourceName(stage, "cortex-journey-filings-to-graph"),

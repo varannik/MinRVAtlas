@@ -11,8 +11,9 @@ documents on a task becomes:
 
 Links are closed, never deleted: when a task's files are replaced, the links to
 documents no longer filed get open=false and valid_to (a document filed again
-reopens its link). No statement removes a property or an element, so the writer
-needs Neptune's write permission only. Every statement is a MERGE
+reopens its link). No statement deletes an element or removes a property (the
+tests check). Neptune still asks for its delete permission on any SET, since a SET
+may replace a value, so the writer's role has it. Every statement is a MERGE
 keyed by the change's version, so a replay or a repeat changes nothing, and an
 older change arriving late never undoes a newer one.
 
