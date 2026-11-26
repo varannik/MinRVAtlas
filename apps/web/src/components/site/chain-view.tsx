@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft, Box, Route } from "lucide-react";
+import { ArrowLeft, Box, DatabaseZap, Route } from "lucide-react";
 import type { Highlight, SiteLayout } from "@/lib/site-layouts";
 import { journeyHref } from "@/lib/journey/atlas";
 import type { Project } from "@/lib/types";
@@ -91,6 +91,15 @@ function ChainBar({ project, onClose }: { project: Project; onClose: () => void 
         <p className="truncate text-[10px] font-semibold tracking-[0.16em] text-sand uppercase">CO₂ removal chain · {project.registry}</p>
         <p className="truncate text-[13.5px] font-semibold tracking-tight">{project.name}</p>
       </div>
+      {/* The site's monitoring data in: mapped, approved, loaded, then checked by the data quality engine. */}
+      <Link
+        href={`/projects/${encodeURIComponent(project.id)}/data`}
+        title="Load the site's monitoring data from a spreadsheet"
+        className="ml-1 flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-calcite px-3 text-[11.5px] font-semibold text-earth transition-colors hover:bg-white"
+      >
+        <DatabaseZap className="size-4" />
+        Load data
+      </Link>
     </div>
   );
 }

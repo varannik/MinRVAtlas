@@ -251,6 +251,21 @@ class SeedTest(unittest.TestCase):
         lab = next(f for f in found if f.kind == "fixed_coverage")
         self.assertEqual(lab.start, "2026-10-01")
 
+class SiteDailyTotalsTest(unittest.TestCase):
+    def test_a_daily_total_from_the_site_sheet_gets_no_intraday_notes(self):
+        text = "timestamp_utc,metric,value,unit,quality,source\n2026-07-17T00:00:00Z,CO2_CAPTURED_t,52.1,t,ok,u1\n2026-07-17T00:00:00Z,ENERGY_CAPTURE_kWh,1830,kWh,ok,u1\n"
+        cells, notes = fold_day("2026-07-17", text, RULES)
+        self.assertEqual(notes, [])
+        self.assertEqual(cells["CO2_CAPTURED_t"]["sum"], 52.1)
+
+    def test_the_chain_meters_name_their_journey_tasks(self):
+        from quality_engine.catalog import task_for
+
+        self.assertEqual(task_for("CO2_INJECTED_t"), "monitor.injected")
+        self.assertEqual(task_for("ENERGY_LIQUEFACTION_kWh"), "monitor.energy")
+        self.assertEqual(task_for("WATER_INJECTED_t"), "monitor.storage")
+
+
 class TaskAndSummaryTest(unittest.TestCase):
     def test_a_finding_names_the_journey_task_its_records_are_filed_on(self):
         from quality_engine.findings import Finding

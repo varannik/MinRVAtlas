@@ -245,6 +245,11 @@ async function projectClient(session: SessionPayload, env: CortexEnv, projectId:
   return (await projectSession(session, env, projectId)).s3;
 }
 
+/** An S3 client limited by the same session tags: its own tenant's and project's prefixes only. */
+export async function projectS3(session: SessionPayload, env: CortexEnv, projectId: string): Promise<S3Client> {
+  return projectClient(session, env, projectId);
+}
+
 /** A DynamoDB client whose every read and write is limited to this tenant's project (IAM leading keys). */
 export async function projectDynamo(session: SessionPayload, env: CortexEnv, projectId: string): Promise<DynamoDBClient> {
   return (await projectSession(session, env, projectId)).dynamo;

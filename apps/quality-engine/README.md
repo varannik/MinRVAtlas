@@ -12,6 +12,8 @@ run (`infra/lib/quality/quality-stack.ts`), its own stack on Cortex's rails:
 - **Data in:** the stream metrics the calculation tree reads. That is the stream
   bucket (`<tenant>/<registry>/<project>/dt=YYYY-MM-DD/observations.csv` and
   `attributes.json`), or a demo project's seeded history in the Atlas bucket.
+  Site spreadsheets reach the stream from the web's monitoring data page, through
+  the project's approved tag map; each load starts a run on what it wrote.
 - **Out:** runs, findings and decisions in the quality table, one partition per
   project. Each finished run is announced on the Cortex event bus as
   `QualityRunCompleted`.

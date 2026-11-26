@@ -23,7 +23,7 @@ import {
   streamBucketName,
   webTaskRoleName,
 } from "../config";
-import { anthropicSdkLayer } from "../cortex/knowledge-stack";
+import { PROJECT_TAG, TENANT_TAG, anthropicSdkLayer } from "../cortex/knowledge-stack";
 import { Ew2Stack, type Ew2StackProps } from "../ew2-stack";
 
 /** The engine's Python package (standard library only), deployed as the Lambda asset. */
@@ -267,6 +267,32 @@ export class QualityStack extends Ew2Stack {
         }),
       ],
     });
+    // Monitoring data loaded from the web (the project's data page): each day's stream file
+    // and the original upload, written as the user's project only. The stream bucket is
+    // versioned, so a day that is loaded again keeps its earlier file. No delete.
+    const streamSlugs = ["isometric", "puro", "verra", "gold-standard"];
+    new iam.Policy(this, "TenantSessionMonitoringUploads", {
+      policyName: resourceName(stage, "tenant-session-monitoring-uploads"),
+      roles: [tenantSession],
+      statements: [
+        new iam.PolicyStatement({
+          sid: "OwnProjectStreamDaysAndUploads",
+          actions: ["s3:GetObject", "s3:PutObject"],
+          resources: streamSlugs.flatMap((slug) => [
+            streamBucket.arnForObjects(`${TENANT_TAG}/${slug}/${PROJECT_TAG}/dt=*`),
+            streamBucket.arnForObjects(`${TENANT_TAG}/${slug}/${PROJECT_TAG}/uploads/*`),
+          ]),
+        }),
+        new iam.PolicyStatement({
+          // So a day with no file yet reads as missing, not as refused.
+          sid: "ListOwnProjectStream",
+          actions: ["s3:ListBucket"],
+          resources: [streamBucket.bucketArn],
+          conditions: { StringLike: { "s3:prefix": streamSlugs.map((slug) => `${TENANT_TAG}/${slug}/${PROJECT_TAG}/*`) } },
+        }),
+      ],
+    });
+
     const webRole = iam.Role.fromRoleName(this, "WebTaskRole", webTaskRoleName(stage));
     new iam.Policy(this, "WebQualityRuns", {
       policyName: resourceName(stage, "web-quality-runs"),

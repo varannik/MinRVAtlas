@@ -67,6 +67,11 @@ function compact(dataset: MrvDataset): MrvDataset {
   };
 }
 
+/** Drop the cached dataset after new data is loaded, so the next read sees it. */
+export function forgetDataset(project: Project): void {
+  cache.delete(`${project.tenantId}:${project.registry}:${project.id}`);
+}
+
 export async function loadDataset(project: Project): Promise<MrvDataset> {
   const key = `${project.tenantId}:${project.registry}:${project.id}`;
   const hit = cache.get(key);
