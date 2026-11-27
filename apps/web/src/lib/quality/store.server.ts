@@ -6,7 +6,7 @@ import { randomBytes } from "node:crypto";
 
 import type { Registry } from "@/lib/types";
 import { registrySlug } from "@/lib/stream-schema";
-import { withReview, type FindingReview, type FindingStatus, type QualityFinding, type QualityRun, type RunSummary } from "./types";
+import { withReview, type DecisionRecord, type FindingReview, type FindingStatus, type QualityFinding, type QualityRun, type RunSummary } from "./types";
 
 /**
  * The data quality engine's table, read and written as the user's project.
@@ -75,7 +75,7 @@ function parseJson<T>(raw: string | undefined): T | null {
 }
 
 export function runFromItem(item: Record<string, AttributeValue>): QualityRun {
-  const result = parseJson<Pick<QualityRun, "verdict" | "counts" | "range" | "versions">>(text(item, "result")) ?? {};
+  const result = parseJson<Pick<QualityRun, "verdict" | "counts" | "range" | "versions" | "rules">>(text(item, "result")) ?? {};
   return {
     id: text(item, "runId") ?? "",
     status: (text(item, "status") as QualityRun["status"]) ?? "running",
@@ -88,7 +88,33 @@ export function runFromItem(item: Record<string, AttributeValue>): QualityRun {
     versions: result.versions,
     error: text(item, "error"),
     summary: parseJson<RunSummary>(text(item, "summary")) ?? undefined,
+    requestedBy: text(item, "requestedBy"),
+    dataHash: text(item, "dataHash"),
+    rules: result.rules,
   };
+}
+
+/** The newest runs first, finished or not. */
+export async function listRuns(dynamo: DynamoDBClient, table: string, tenantId: string, projectId: string, limit = 25): Promise<QualityRun[]> {
+  return (await query(dynamo, table, projectKey(tenantId, projectId), "RUN#", { newestFirst: true, limit })).slice(0, limit).map(runFromItem);
+}
+
+/** One run's findings as that run wrote them (decisions as they stood then). */
+export async function runFindings(dynamo: DynamoDBClient, table: string, tenantId: string, projectId: string, runId: string): Promise<QualityFinding[]> {
+  const items = await query(dynamo, table, projectKey(tenantId, projectId), `FINDING#${runId}#`);
+  return items.map((item) => parseJson<QualityFinding>(text(item, "finding"))).filter((finding): finding is QualityFinding => Boolean(finding));
+}
+
+/** Every decision on the project, newest first. Decisions are never deleted. */
+export async function listDecisions(dynamo: DynamoDBClient, table: string, tenantId: string, projectId: string): Promise<DecisionRecord[]> {
+  const items = await query(dynamo, table, projectKey(tenantId, projectId), "REVIEW#");
+  return items
+    .map((item) => {
+      const review = parseJson<Omit<DecisionRecord, "findingId">>(text(item, "review"));
+      return review ? { findingId: (text(item, "sk") ?? "").slice("REVIEW#".length), ...review } : null;
+    })
+    .filter((decision): decision is DecisionRecord => Boolean(decision))
+    .sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""));
 }
 
 function isLive(run: QualityRun, now = Date.now()): boolean {

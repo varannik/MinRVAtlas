@@ -148,7 +148,7 @@ def _missing_days(f, _info, _tz):
 def _metric_gap(f, info, _tz):
     return {
         "headline": f"The {info.meter} sent nothing {when(f)}.",
-        "saw": f"Other meters reported on {'that day' if f.days == 1 else 'those days'}, but {f.metric} has no readings.",
+        "saw": f"Other meters reported on {'that day' if f.days == 1 else 'those days'}, but the {info.meter} has no readings.",
         "matters": f"{feeds_sentence(info)} {'That day is' if f.days == 1 else 'Those days are'} missing from it.".strip(),
         "todo": "Check the meter's link to the PLC for those days, and ask the site for its own log.",
         "how": "A meter that reports every day has no readings on days the rest of the stream reported.",
@@ -176,7 +176,7 @@ def _stuck_zero(f, info, _tz):
     whole = f.observed.get("whole_range")
     return {
         "headline": f"The {info.meter} reads 0 in every file." if whole else f"The {info.meter} read exactly 0 for {f.days} days, {window(f.start, f.end)}.",
-        "saw": f"Every reading from {f.metric} {'in the data' if whole else 'on those days'} is 0.",
+        "saw": f"Every reading from the {info.meter} {'in the data' if whole else 'on those days'} is 0.",
         "matters": f"{feeds_sentence(info)} A working meter on a running plant doesn't read zero for days, so that term is probably too low.".strip(),
         "todo": "Check the meter is connected and whether the plant ran. If it was stopped, dismiss this with the operations log.",
         "how": "A meter that should move reads exactly 0 for days in a row.",
@@ -253,7 +253,7 @@ def _meter_agreement(f, info, _tz):
     tolerance = f.rule.get("threshold", {}).get("value")
     return {
         "headline": f"The {info.meter} and the {other.meter} disagree by {pct(o['share'])} {when(f)}.",
-        "saw": f"{f.metric} counts {qty(o['first'], info.unit)} and {o['other_metric']} counts {qty(o['second'], other.unit)}. The tolerance is {pct(tolerance)}.",
+        "saw": f"The {info.meter} counts {qty(o['first'], info.unit)} and the {other.meter} counts {qty(o['second'], other.unit)}. The tolerance is {pct(tolerance)}.",
         "matters": f"{feeds_sentence(info)} Until the difference is explained, the conservative figure is the lower one.".strip(),
         "todo": "Confirm which meter the monitoring plan names as the point of measurement, and explain the difference.",
         "how": "Two meters on the same quantity, compared day by day.",

@@ -7,7 +7,7 @@ import { isGenericSpec } from "@/lib/mrv/calc/specs";
 import { formatRange, rangeDays } from "@/lib/mrv/days";
 import { STAGE_META } from "@/lib/mrv/registry-pipeline";
 import { CalcLegend, CalcTreeView } from "@/components/stage/calc/calc-explorer";
-import { ORIGIN_BADGE } from "@/components/stage/theme";
+import { originBadge } from "@/components/stage/theme";
 import { FloorHeading } from "./floor-parts";
 import { useJourneyQuality } from "./journey-quality";
 import type { PeriodBox } from "./periods";
@@ -33,7 +33,7 @@ export function CalcFloor({ ledger, box }: { ledger: Ledger | null; box: PeriodB
   const quality = useJourneyQuality();
   const range = box?.range ?? null;
   const spec = ledger?.spec ?? null;
-  const badge = ORIGIN_BADGE[ledger?.dataset?.origin ?? "none"];
+  const badge = originBadge(ledger?.dataset, box?.range);
   const ready = Boolean(ledger && spec && range && ledger.status === "ready");
 
   return (

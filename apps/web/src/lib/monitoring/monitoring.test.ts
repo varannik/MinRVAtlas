@@ -5,7 +5,7 @@ import { deflateRawSync } from "node:zlib";
 
 import { applyMapping, approvedFor, cleanEntries, tableRange, type TagMap } from "./mapping";
 import { suggestMetric, suggestScale, monitoringMetric } from "./metrics";
-import { mergeDay } from "./stream-write.server";
+import { mergeDay, withoutUpload } from "./stream-write.server";
 import { cellDay, readSheets, readTable, type Sheet, type SourceTable } from "./table";
 import { readXlsx } from "./xlsx.server";
 
@@ -125,6 +125,18 @@ describe("applying a tag map", () => {
 
   it("drops entries that name no known metric or a factor that is not positive", () => {
     assert.deepEqual(cleanEntries({ a: { metric: "NOPE", reads: "daily_total", scale: 1 }, b: { metric: "CO2_CAPTURED_t", reads: "daily_total", scale: -1 }, c: null }), { c: null });
+  });
+});
+
+describe("taking a load back out", () => {
+  it("drops only that load's rows, and says when nothing is left", () => {
+    const day = "timestamp_utc,metric,value,unit,quality,source\n2026-07-17T00:00:00Z,CO2_CAPTURED_t,50,t,ok,u-new\n2026-07-17T10:00:00Z,LCO2_DELIVERED_t,22.4,t,ok,u-old\n";
+    const out = withoutUpload(day, "u-new");
+    assert.equal(out.removed, 1);
+    assert.equal(out.left, 1);
+    assert.equal(out.text, "timestamp_utc,metric,value,unit,quality,source\n2026-07-17T10:00:00Z,LCO2_DELIVERED_t,22.4,t,ok,u-old\n");
+    assert.deepEqual({ ...withoutUpload(out.text, "u-old"), text: undefined }, { removed: 1, left: 0, text: undefined });
+    assert.equal(withoutUpload(day, "u-other").removed, 0);
   });
 });
 

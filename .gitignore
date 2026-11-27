@@ -10,6 +10,8 @@ node_modules/
 
 # testing
 coverage/
+# ...but not a route named coverage (the data quality page's /api/data-quality/[id]/coverage).
+!apps/web/src/app/**/coverage/
 
 # next.js
 apps/web/.next/

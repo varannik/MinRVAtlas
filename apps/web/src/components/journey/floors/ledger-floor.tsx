@@ -13,7 +13,7 @@ import type { StepId } from "@/lib/journey/types";
 import { stepProgress, usePlan, useJourney } from "@/store/journey-store";
 import { formatTonnes } from "@/components/stage/format";
 import { CubeShell } from "@/components/stage/ledger/cube-shell";
-import { BLOCK_TONE, ORIGIN_BADGE } from "@/components/stage/theme";
+import { BLOCK_TONE, originBadge } from "@/components/stage/theme";
 import { useElementSize } from "@/components/stage/use-element-size";
 import { CortexAvatar } from "../task-card";
 import {
@@ -559,7 +559,7 @@ export function LedgerFloor({
     };
   }, [firstLeft, scrollerRef]);
 
-  const badge = ORIGIN_BADGE[ledger?.dataset?.origin ?? "none"];
+  const badge = originBadge(ledger?.dataset);
   const selected = boxes.find((box) => box.id === selectedId) ?? null;
   const trendReady = Boolean(history && ledger?.status === "ready" && bins.length);
 

@@ -269,7 +269,8 @@ export class QualityStack extends Ew2Stack {
     });
     // Monitoring data loaded from the web (the project's data page): each day's stream file
     // and the original upload, written as the user's project only. The stream bucket is
-    // versioned, so a day that is loaded again keeps its earlier file. No delete.
+    // versioned, so a day loaded again or removed keeps its earlier file for 90 days. A
+    // day file is deleted only when removing a load leaves it empty; originals are kept.
     const streamSlugs = ["isometric", "puro", "verra", "gold-standard"];
     new iam.Policy(this, "TenantSessionMonitoringUploads", {
       policyName: resourceName(stage, "tenant-session-monitoring-uploads"),
@@ -282,6 +283,11 @@ export class QualityStack extends Ew2Stack {
             streamBucket.arnForObjects(`${TENANT_TAG}/${slug}/${PROJECT_TAG}/dt=*`),
             streamBucket.arnForObjects(`${TENANT_TAG}/${slug}/${PROJECT_TAG}/uploads/*`),
           ]),
+        }),
+        new iam.PolicyStatement({
+          sid: "RemoveOwnProjectStreamDays",
+          actions: ["s3:DeleteObject"],
+          resources: streamSlugs.map((slug) => streamBucket.arnForObjects(`${TENANT_TAG}/${slug}/${PROJECT_TAG}/dt=*`)),
         }),
         new iam.PolicyStatement({
           // So a day with no file yet reads as missing, not as refused.

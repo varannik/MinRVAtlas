@@ -31,11 +31,11 @@ async function mapLimit<T, R>(items: T[], limit: number, run: (item: T) => Promi
   return out;
 }
 
-function foldDay(day: string, text: string, wanted: Set<string>): { row: DailyMetrics; latest: string | null } {
+function foldDay(day: string, text: string, wanted: Set<string> | null): { row: DailyMetrics; latest: string | null } {
   const metrics: Record<string, MetricDay> = {};
   let latest: string | null = null;
   for (const observation of parseObservationsCsv(text)) {
-    if (!wanted.has(observation.metric) || observation.quality === "missing") continue;
+    if ((wanted && !wanted.has(observation.metric)) || observation.quality === "missing") continue;
     const value = Number(observation.value);
     if (!Number.isFinite(value)) continue;
     if (!latest || observation.timestampUtc > latest) latest = observation.timestampUtc;
@@ -70,8 +70,8 @@ function attributesToFixed(text: string | null): FixedValue[] {
   });
 }
 
-/** Null when the bucket is not configured or holds nothing for the project. */
-export async function streamDataset(project: Project, metrics: string[]): Promise<MrvDataset | null> {
+/** Null when the bucket is not configured or holds nothing for the project. `metrics` null reads every metric. */
+export async function streamDataset(project: Project, metrics: string[] | null): Promise<MrvDataset | null> {
   if (!streamConfigured()) return null;
   const listed = await listObservationKeys({
     tenantId: project.tenantId,
@@ -83,7 +83,7 @@ export async function streamDataset(project: Project, metrics: string[]): Promis
   if (listed.length === 0) return null;
 
   const prefix = sourcePrefix(project.tenantId, project.registry, project.id);
-  const wanted = new Set(metrics);
+  const wanted = metrics ? new Set(metrics) : null;
   const keys = listed.slice(-MAX_DAYS);
   const folded = await mapLimit(keys, CONCURRENCY, async ({ key, day }) => foldDay(day, await getObjectText(key, prefix), wanted));
 

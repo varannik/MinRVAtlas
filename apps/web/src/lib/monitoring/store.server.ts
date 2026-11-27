@@ -25,6 +25,8 @@ export interface UploadRecord {
   tagMapVersion: number;
   runId?: string;
   notes: string[];
+  /** Taken out again: its rows left the stream; the original file is kept. */
+  removed?: { by: string; at: string; reason: string; days: number; runId?: string };
 }
 
 export class TagMapConflict extends Error {}
@@ -123,6 +125,29 @@ export async function saveUpload(dynamo: DynamoDBClient, table: string, tenantId
         upload: { S: JSON.stringify(upload) },
       },
       ConditionExpression: "attribute_not_exists(sk)",
+    }),
+  );
+}
+
+export async function getUpload(dynamo: DynamoDBClient, table: string, tenantId: string, projectId: string, uploadId: string): Promise<UploadRecord | null> {
+  const result = await dynamo.send(
+    new GetItemCommand({ TableName: table, Key: { pk: { S: projectKey(tenantId, projectId) }, sk: { S: `UPLOAD#${uploadId}` } }, ConsistentRead: true }),
+  );
+  return parse<UploadRecord>(result.Item?.upload?.S);
+}
+
+/** Record that a load was taken out, once: a second removal of the same load is refused. */
+export async function markRemoved(dynamo: DynamoDBClient, table: string, tenantId: string, projectId: string, upload: UploadRecord): Promise<void> {
+  await dynamo.send(
+    new PutItemCommand({
+      TableName: table,
+      Item: {
+        pk: { S: projectKey(tenantId, projectId) },
+        sk: { S: `UPLOAD#${upload.id}` },
+        upload: { S: JSON.stringify(upload) },
+        removedAt: { S: upload.removed?.at ?? new Date().toISOString() },
+      },
+      ConditionExpression: "attribute_exists(sk) AND attribute_not_exists(removedAt)",
     }),
   );
 }

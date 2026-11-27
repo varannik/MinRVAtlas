@@ -1,5 +1,6 @@
 import type { NodeStatus } from "@/lib/mrv/calc/types";
-import type { BlockStage, DataOrigin, IssueSeverity } from "@/lib/mrv/types";
+import { addDays, formatDay } from "@/lib/mrv/days";
+import type { BlockStage, DataOrigin, DateRange, IssueSeverity, MrvDataset } from "@/lib/mrv/types";
 
 /**
  * Colours for the project stage, in one place so a restyle is a one-file
@@ -40,9 +41,9 @@ export const SEVERITY_TONE: Record<IssueSeverity, { color: string; label: string
 
 export const ORIGIN_BADGE: Record<DataOrigin, { label: string; className: string; title: string }> = {
   stream: {
-    label: "Stream",
+    label: "Loaded data",
     className: "bg-olivine-100 text-olivine-800",
-    title: "Read from the project's stream bucket",
+    title: "The project's loaded monitoring data (its stream)",
   },
   sample: {
     label: "Sample data",
@@ -55,6 +56,25 @@ export const ORIGIN_BADGE: Record<DataOrigin, { label: string; className: string
     title: "No monitoring data for this project",
   },
 };
+
+type Badge = (typeof ORIGIN_BADGE)[DataOrigin];
+
+/**
+ * The data badge for a dataset, or for one period of it. Loaded data with sample
+ * history before it says where the sample stops; a period says which it is.
+ */
+export function originBadge(dataset: Pick<MrvDataset, "origin" | "sampleUntil" | "range"> | null | undefined, period?: DateRange | null): Badge {
+  const base = ORIGIN_BADGE[dataset?.origin ?? "none"];
+  const until = dataset?.origin === "stream" ? dataset.sampleUntil : undefined;
+  if (!until) return base;
+  const from = formatDay(addDays(until, 1));
+  if (period && period.end <= until) {
+    return { ...ORIGIN_BADGE.sample, title: `Sample history: this period ends before the loaded data starts on ${from}` };
+  }
+  if (period && period.start > until) return { ...base, title: `Loaded data, from ${from}` };
+  if (period) return { ...ORIGIN_BADGE.sample, label: "Sample, then loaded", title: `Sample history until ${formatDay(until)}, loaded data from ${from}` };
+  return { ...base, label: `Loaded from ${from}`, title: `Sample history before ${from}, labelled sample; the project's loaded data from then on` };
+}
 
 /** Calculation view, on its dark canvas. */
 export const CALC_TONE: Record<NodeStatus, { line: string; ink: string; glow: string; label: string }> = {

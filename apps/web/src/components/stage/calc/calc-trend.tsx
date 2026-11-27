@@ -356,7 +356,7 @@ function TrendTable({ node, points, findings }: { node: CalcNode; points: TrendP
   );
 }
 
-function Decide({ finding, quality }: { finding: QualityFinding; quality: QualityState }) {
+export function Decide({ finding, quality }: { finding: QualityFinding; quality: QualityState }) {
   const [dismissing, setDismissing] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);

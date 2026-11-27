@@ -7,7 +7,10 @@ import { indexDataset } from "@/lib/mrv/calc/evaluate";
 import { nodeSources, nodeTrend, trendShape } from "@/lib/mrv/calc/trend";
 import type { DailyMetrics, FixedValue } from "@/lib/mrv/types";
 import { nodeFlags } from "@/components/stage/calc/node-flags";
+import { calcSpecFor } from "@/lib/mrv/calc/specs";
 import { periodOf, submitBlockReason } from "./gate";
+import { taskLabel, termsFor } from "./links";
+import { findingsCsv, periodState, periodsFor, ruleValue, subjectOf } from "./page";
 import { findingsForSources, isBlocking, verdictFor, withReview, type QualityFinding, type QualityRun } from "./types";
 
 function finding(over: Partial<QualityFinding>): QualityFinding {
@@ -130,5 +133,55 @@ describe("the registry submit rule", () => {
     assert.deepEqual(periodOf("2026-08-01", "2026-08-31"), AUGUST);
     assert.equal(periodOf("2026-08-31", "2026-08-01"), null);
     assert.equal(periodOf("2026-08-01", undefined), null);
+  });
+});
+
+describe("the data quality page", () => {
+  it("splits a short history into months and a long one into quarters, clipped to the data", () => {
+    assert.deepEqual(
+      periodsFor({ start: "2026-07-17", end: "2026-08-17" }).map((period) => [period.label, period.range.start, period.range.end]),
+      [
+        ["Jul 2026", "2026-07-17", "2026-07-31"],
+        ["Aug 2026", "2026-08-01", "2026-08-17"],
+      ],
+    );
+    assert.deepEqual(
+      periodsFor({ start: "2025-01-01", end: "2026-02-10" }).map((period) => period.label),
+      ["Q1 2025", "Q2 2025", "Q3 2025", "Q4 2025", "Q1 2026"],
+    );
+    assert.deepEqual(periodsFor(null), []);
+  });
+
+  it("gives each period its verdict and its open findings", () => {
+    const gap = finding({});
+    const dismissed = withReview(finding({ id: "F-1111111111111111", start: "2026-08-20", end: "2026-08-20" }), { decision: "dismissed", reason: "Planned stop" });
+    assert.deepEqual(periodState([gap, dismissed], AUGUST), { verdict: "blocked", open: 1 });
+    assert.deepEqual(periodState([gap], { start: "2026-09-01", end: "2026-09-30" }), { verdict: "clear", open: 0 });
+  });
+
+  it("exports a period's findings in the engine's words, with the decision", () => {
+    const dismissed = withReview(finding({}), { decision: "dismissed", reason: "Site export lost, substitute agreed", by: "qe@site", at: "2026-11-25T10:00:00Z" });
+    const csv = findingsCsv([dismissed], AUGUST);
+    const [header, row] = csv.trim().split("\n");
+    assert.match(header, /^finding,severity,status,kind,about,/);
+    assert.match(row, /^F-0000000000000000,blocks,dismissed,Missing days,Whole stream,2026-08-03,2026-08-05,/);
+    assert.match(row, /qe@site,2026-11-25T10:00:00Z,"Site export lost, substitute agreed"$/);
+    assert.equal(findingsCsv([dismissed], { start: "2026-09-01", end: "2026-09-30" }).trim().split("\n").length, 1);
+  });
+
+  it("names what a finding is about, and shows shares as percentages", () => {
+    assert.equal(subjectOf({ metric: "CO2_CAPTURED_t", fixedKey: null }), "CO₂ captured");
+    assert.equal(subjectOf({ metric: null, fixedKey: "BIOGENIC_FRACTION_pct" }), "C-14 lab result");
+    assert.equal(subjectOf({ metric: null, fixedKey: null }), "Whole stream");
+    assert.equal(ruleValue("shift_share", 0.5), "50");
+    assert.equal(ruleValue("missing_days_block", 3), "3");
+  });
+
+  it("leads a finding to its calculation term and its journey task", () => {
+    const spec = calcSpecFor({ registry: "Puro.earth", methodology: "Puro Geologically Stored Carbon", methodologyKey: "puro-geologically-stored-carbon" });
+    assert.ok(termsFor(spec, { metric: "LCO2_DELIVERED_t", fixedKey: null }).some((term) => term.symbol === "M_del"));
+    assert.deepEqual(termsFor(spec, { metric: "CO2_CAPTURED_t", fixedKey: null }), []);
+    assert.equal(taskLabel("monitor.chain"), "Monitor · Chain reconciliation");
+    assert.equal(taskLabel("nope.task"), null);
   });
 });

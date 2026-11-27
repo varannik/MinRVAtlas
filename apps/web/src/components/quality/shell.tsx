@@ -211,14 +211,13 @@ export function QualityShell({ children }: { children: ReactNode }) {
           {projects.length > 0 && !ready && !binding && !bindError ? (
             <Banner kind="info">
               Select an existing project to check its documents against a
-              protocol. Data quality checks are on the project&apos;s calculation
-              tree, in its journey.
+              protocol. Data quality checks are on the Data quality page.
             </Banner>
           ) : null}
           {ready ? children : null}
         </main>
       </div>
-      <AppSwitcher active="cortex" />
+      <AppSwitcher active="quality" />
     </div>
   );
 }

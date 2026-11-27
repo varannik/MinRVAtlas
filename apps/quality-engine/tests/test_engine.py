@@ -237,6 +237,8 @@ class JudgeTest(unittest.TestCase):
     def test_verdict_and_counts(self):
         found = judge(self.data)
         result = summary(self.data, found)
+        self.assertEqual(result["rules"]["missing_days_block"], 3)
+        self.assertNotIn("version", result["rules"])
         self.assertEqual(result["verdict"], "blocked")
         self.assertEqual(result["counts"]["blocks"], 1)
         self.assertEqual(verdict(found, "2026-07-20", "2026-07-31"), "clear")

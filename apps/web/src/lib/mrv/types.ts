@@ -108,6 +108,11 @@ export interface MrvDataset {
   asOf: DayKey;
   /** Registry history that came with sample data. Empty for real data. */
   blocks: LedgerBlock[];
+  /**
+   * With loaded data: the day before the first loaded day. Days up to it come from the
+   * project's sample history, labelled sample; the quality engine never reads them.
+   */
+  sampleUntil?: DayKey;
 }
 
 export function emptyDataset(projectId: string, asOf: DayKey, note?: string): MrvDataset {

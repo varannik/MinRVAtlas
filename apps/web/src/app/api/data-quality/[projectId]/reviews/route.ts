@@ -47,7 +47,7 @@ export async function POST(request: NextRequest, { params }: Context) {
     const stored = await loadQuality(dynamo, env.table, session.tenantId, project.id);
     const finding = stored.findings.find((candidate) => candidate.id === findingId);
     if (!finding) return refuse("That finding is not in the latest run. Reload and try again.", 404);
-    const review = await saveReview(dynamo, env.table, { tenantId: session.tenantId, projectId: project.id, finding, decision, reason, by: session.sub });
+    const review = await saveReview(dynamo, env.table, { tenantId: session.tenantId, projectId: project.id, finding, decision, reason, by: session.email ?? session.sub });
 
     let next = { ...stored, findings: stored.findings.map((candidate) => (candidate.id === findingId ? withReview(candidate, review) : candidate)) };
     try {

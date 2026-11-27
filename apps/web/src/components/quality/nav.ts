@@ -16,6 +16,11 @@ export type QualityNavSection = {
  */
 export const QUALITY_NAV: QualityNavSection[] = [
   {
+    id: "data",
+    label: "Data",
+    items: [{ href: "/quality", label: "Data quality" }],
+  },
+  {
     id: "vv",
     label: "Document V&V",
     items: [

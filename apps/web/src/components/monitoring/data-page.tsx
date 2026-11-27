@@ -179,6 +179,84 @@ function LoadCheck({ projectId, loaded }: { projectId: string; loaded: Loaded })
   );
 }
 
+/**
+ * One earlier load, and taking it back out: only its rows leave the stream, with
+ * a reason on its record; the data quality engine then runs on what is left.
+ */
+function UploadRow({ upload, base, canRemove, onRemoved }: { upload: UploadRecord; base: string; canRemove: boolean; onRemoved: () => void }) {
+  const [asking, setAsking] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function remove() {
+    setBusy(true);
+    setError(null);
+    try {
+      await call(`${base}/uploads/${encodeURIComponent(upload.id)}`, {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reason: reason.trim() }),
+      });
+      setAsking(false);
+      onRemoved();
+    } catch (failure) {
+      setError((failure as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li className={`rounded-xl px-3 py-2 text-[12.5px] ${upload.removed ? "bg-calcite/[0.03]" : "bg-calcite/5"}`}>
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+        <span className={`font-semibold ${upload.removed ? "text-calcite/50 line-through" : "text-calcite"}`}>{upload.fileName}</span>
+        <span className="text-calcite/70">
+          {formatDay(upload.period.start)} to {formatDay(upload.period.end)} · {upload.days} days · {upload.metrics.length} metrics
+        </span>
+        <span className="text-calcite/50">
+          {upload.by} · {formatDay(upload.at.slice(0, 10))} · map v{upload.tagMapVersion}
+        </span>
+        {!upload.removed && canRemove && !asking ? (
+          <button type="button" onClick={() => setAsking(true)} className="ml-auto rounded-lg px-2 py-0.5 text-[11.5px] font-semibold text-[#F2C4B8] hover:bg-[#963E32]/25">
+            Remove…
+          </button>
+        ) : null}
+      </div>
+      {upload.removed ? (
+        <p className="mt-1 text-[11.5px] text-calcite/55">
+          Removed by {upload.removed.by} on {formatDay(upload.removed.at.slice(0, 10))}: “{upload.removed.reason}”. {upload.removed.days} days changed; the original file is kept.
+        </p>
+      ) : null}
+      {asking ? (
+        <div className="mt-2 grid gap-2">
+          <p className="text-[11.5px] leading-snug text-calcite/70">
+            Takes this load&apos;s rows out of the stream for {formatDay(upload.period.start)} to {formatDay(upload.period.end)}; other loads&apos; rows stay. What it replaced
+            is not brought back. The data quality checks run again afterwards.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              maxLength={500}
+              placeholder="Why it is removed, e.g. test load"
+              aria-label="Why the load is removed"
+              className={`${FIELD} min-w-[240px] flex-1`}
+            />
+            <button type="button" disabled={busy || reason.trim().length < 3} onClick={() => void remove()} className={`${BUTTON} bg-[#963E32] text-white hover:bg-[#A9483A]`}>
+              {busy ? <LoaderCircle className="size-4 animate-spin" /> : null} Remove the load
+            </button>
+            <button type="button" disabled={busy} onClick={() => setAsking(false)} className={SECONDARY}>
+              Keep it
+            </button>
+          </div>
+          {error ? <Note tone="error">{error}</Note> : null}
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
 export function MonitoringDataPage({ projectId }: { projectId: string }) {
   const selectProject = useDashboard((state) => state.selectProject);
   const [setup, setSetup] = useState<Setup | null>(null);
@@ -327,7 +405,7 @@ export function MonitoringDataPage({ projectId }: { projectId: string }) {
   }
 
   const project = setup?.project;
-  const firstLoad = setup ? setup.uploads.length === 0 : false;
+  const firstLoad = setup ? !setup.uploads.some((upload) => !upload.removed) : false;
 
   return (
     <main className="journey-strata scroll-slim fixed inset-0 overflow-y-auto">
@@ -593,8 +671,8 @@ export function MonitoringDataPage({ projectId }: { projectId: string }) {
                     ))}
                     {firstLoad ? (
                       <Note tone="warn">
-                        This is the project&apos;s first load. From now on its ledger and calculation tree read this data, not the sample history, and the data
-                        quality engine checks it.
+                        This is the project&apos;s first load. From its first day on, the ledger and calculation tree read this data; the sample history before
+                        it stays, labelled sample. The data quality engine checks only loaded data.
                       </Note>
                     ) : null}
                   </div>
@@ -618,15 +696,7 @@ export function MonitoringDataPage({ projectId }: { projectId: string }) {
             {setup?.uploads.length ? (
               <ul className="grid gap-1.5">
                 {setup.uploads.map((upload) => (
-                  <li key={upload.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 rounded-xl bg-calcite/5 px-3 py-2 text-[12.5px]">
-                    <span className="font-semibold text-calcite">{upload.fileName}</span>
-                    <span className="text-calcite/70">
-                      {formatDay(upload.period.start)} to {formatDay(upload.period.end)} · {upload.days} days · {upload.metrics.length} metrics
-                    </span>
-                    <span className="text-calcite/50">
-                      {upload.by} · {formatDay(upload.at.slice(0, 10))} · map v{upload.tagMapVersion}
-                    </span>
-                  </li>
+                  <UploadRow key={upload.id} upload={upload} base={base} canRemove={Boolean(setup.canPropose)} onRemoved={() => void refresh()} />
                 ))}
               </ul>
             ) : (

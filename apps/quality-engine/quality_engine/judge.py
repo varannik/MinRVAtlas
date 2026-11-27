@@ -4,6 +4,8 @@ Pure: a dataset, the intraday notes and the decisions in; worded findings,
 counts and a verdict out. The Lambda handlers do the reading and writing.
 """
 
+from dataclasses import asdict
+
 from . import ENGINE_VERSION, checks, detectors, text
 from .catalog import TAG_MAP_VERSION
 from .data import day_range
@@ -50,4 +52,6 @@ def summary(dataset, findings, rules=DEFAULT_RULES):
         "range": {"start": dataset.start, "end": dataset.end} if dataset.start else None,
         "metrics": dataset.metrics(),
         "versions": {"engine": ENGINE_VERSION, "rules": rules.version, "rules_source": rules.source, "tag_map": TAG_MAP_VERSION},
+        # The thresholds this run used, so a page can show the rules in force and a run can be replayed.
+        "rules": {name: value for name, value in asdict(rules).items() if name not in ("version", "source")},
     }

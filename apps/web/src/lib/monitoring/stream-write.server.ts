@@ -1,6 +1,6 @@
 import "server-only";
 
-import { GetObjectCommand, PutObjectCommand, type S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand, type S3Client } from "@aws-sdk/client-s3";
 import { createHash } from "node:crypto";
 
 import { parseCsvTable } from "@/lib/stream-coverage";
@@ -102,6 +102,74 @@ export async function writeDays(s3: S3Client, bucket: string, prefix: string, up
   };
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, days.length) }, worker));
   return { days: days.length, updated };
+}
+
+/**
+ * A day's file without one load's rows (rows carry their load's id in `source`).
+ * `left` counts the rows that stay; with none, the day's file is deleted.
+ */
+export function withoutUpload(existing: string, uploadId: string): { text: string; removed: number; left: number } {
+  const { headers, rows } = parseCsvTable(existing);
+  const at = (name: string) => headers.findIndex((header) => header.trim().toLowerCase() === name);
+  const columns = HEADER.map(at);
+  const source = columns[5];
+  let removed = 0;
+  const kept: string[][] = [];
+  for (const row of rows) {
+    if (!(row[columns[1]] ?? "").trim()) continue;
+    if (source >= 0 && (row[source] ?? "").trim() === uploadId) {
+      removed += 1;
+      continue;
+    }
+    kept.push(columns.map((index) => (index >= 0 ? (row[index] ?? "").trim() : "")));
+  }
+  return { text: [HEADER, ...kept].map((line) => line.map(csvCell).join(",")).join("\n") + "\n", removed, left: kept.length };
+}
+
+/**
+ * Take one load's rows out of the stream over its days. A day left with no rows
+ * loses its file, so the project reads as having no data there (and, with no days
+ * left at all, falls back to its sample history). What the load replaced is not
+ * brought back: load that file again.
+ */
+export async function removeUploadRows(
+  s3: S3Client,
+  bucket: string,
+  prefix: string,
+  uploadId: string,
+  period: { start: string; end: string },
+): Promise<{ days: number; deleted: number }> {
+  const keys: string[] = [];
+  let token: string | undefined;
+  do {
+    const page = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: `${prefix}dt=`, ContinuationToken: token }));
+    for (const item of page.Contents ?? []) {
+      const day = /dt=(\d{4}-\d{2}-\d{2})\/observations\.csv$/.exec(item.Key ?? "")?.[1];
+      if (day && day >= period.start && day <= period.end) keys.push(item.Key!);
+    }
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+
+  let days = 0;
+  let deleted = 0;
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < keys.length) {
+      const key = keys[cursor];
+      cursor += 1;
+      const result = withoutUpload(await readText(s3, bucket, key), uploadId);
+      if (!result.removed) continue;
+      days += 1;
+      if (result.left) {
+        await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: result.text, ContentType: "text/csv; charset=utf-8" }));
+      } else {
+        await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+        deleted += 1;
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, keys.length) }, worker));
+  return { days, deleted };
 }
 
 /** The original file, kept beside the stream for the audit trail. */

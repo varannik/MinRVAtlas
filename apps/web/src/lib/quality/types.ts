@@ -71,6 +71,25 @@ export interface QualityRun {
   error?: string;
   /** Claude's summary for operators, written after the verdict; never sent to viewers. */
   summary?: RunSummary;
+  /** Who started it: a person's id, "make quality-run", or "system". */
+  requestedBy?: string;
+  /** Fingerprint of the data it read (stream listing or seed object). */
+  dataHash?: string;
+  /** The thresholds it used (rules.py), by name. */
+  rules?: Record<string, number>;
+}
+
+/** A person's decision as the record keeps it, with what it was about. */
+export interface DecisionRecord {
+  findingId: string;
+  decision: FindingStatus;
+  reason?: string;
+  by?: string;
+  at?: string;
+  kind?: string;
+  metric?: string | null;
+  start?: string;
+  end?: string;
 }
 
 /**

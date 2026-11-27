@@ -10,12 +10,14 @@ import { seriesMetrics } from "../calc/tree";
 import { pulseReadingsFor } from "../pulse";
 import { todayUtc } from "../days";
 import { emptyDataset, type MrvDataset } from "../types";
+import { withSampleBefore } from "./merge";
 import { streamDataset } from "./stream";
 
 /**
  * Picks the data behind a project's ledger and calculation: the stream bucket
- * when it holds rows for the project, otherwise the history seeded for it in
- * the Atlas bucket (badged as sample data), otherwise an empty dataset that
+ * when it holds rows for the project, with the project's seeded sample history
+ * before its first loaded day (labelled sample, see merge.ts); otherwise the
+ * seeded history alone (badged as sample data); otherwise an empty dataset that
  * says why. Nothing is made up here.
  */
 
@@ -82,6 +84,14 @@ export async function loadDataset(project: Project): Promise<MrvDataset> {
   let dataset: MrvDataset | null = null;
   try {
     dataset = await streamDataset(project, metrics);
+    // Loaded data from its first day; the sample history, labelled, before it.
+    if (dataset) {
+      try {
+        dataset = withSampleBefore(dataset, await seededDataset(project));
+      } catch {
+        // The loaded data stands alone.
+      }
+    }
   } catch (error) {
     reason = `Stream bucket unreadable: ${error instanceof Error ? error.message : "unknown error"}`;
   }

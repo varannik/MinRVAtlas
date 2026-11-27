@@ -7,6 +7,8 @@ import { dailySeries, evaluate, indexDataset, streamCoverage } from "./calc/eval
 import { calcSpecFor } from "./calc/specs";
 import { fixedKeys, leaves, pathTo } from "./calc/tree";
 import { trendUnit } from "./calc/trend";
+import { withSampleBefore } from "./data/merge";
+import { originBadge } from "@/components/stage/theme";
 import type { CalcSpec } from "./calc/types";
 import { runChecks } from "./checks";
 import { ledgerTotals } from "./summary";
@@ -198,5 +200,58 @@ describe("trend unit", () => {
     assert.equal(trendUnit(share), "fraction");
     assert.equal(trendUnit(equation("s", "S", "Eligible CO₂ stored", "t", "product", [delivered, share])), "t a day");
     assert.equal(trendUnit(equation("e", "e", "Energy per tonne", "kWh/t", "quotient", [delivered, delivered])), "kWh/t");
+  });
+});
+
+describe("loaded data with the sample history before it", () => {
+  const cell = (value: number) => ({ sum: value, mean: value, min: value, max: value, last: value, count: 1 });
+  const sample = {
+    projectId: "p",
+    origin: "sample" as const,
+    asOf: "2026-11-27",
+    range: { start: "2026-07-10", end: "2026-07-20" },
+    days: ["2026-07-10", "2026-07-15", "2026-07-17", "2026-07-20"].map((day) => ({ day, metrics: { LCO2_DELIVERED_t: cell(20) } })),
+    fixed: [
+      { key: "BIOGENIC_FRACTION_pct", value: 38, source: "lab", validFrom: "2026-01-01" },
+      { key: "GRID_EMISSION_FACTOR_kg_per_kWh", value: 0.4, source: "factor", validFrom: "2026-08-01" },
+    ],
+    blocks: [
+      { id: "q2", sequence: 1, range: { start: "2026-04-01", end: "2026-06-30" }, label: "Q2", stage: "issued" as const, origin: "sample" as const, hash: "x", issues: [] },
+      { id: "q3", sequence: 2, range: { start: "2026-07-01", end: "2026-09-30" }, label: "Q3", stage: "draft" as const, origin: "sample" as const, hash: "y", issues: [] },
+    ],
+  };
+  const loaded = {
+    projectId: "p",
+    origin: "stream" as const,
+    asOf: "2026-11-27",
+    range: { start: "2026-07-17", end: "2026-08-17" },
+    days: [{ day: "2026-07-17", metrics: { CO2_CAPTURED_t: cell(50) } }],
+    fixed: [],
+    blocks: [],
+  };
+
+  it("keeps the sample only before the first loaded day, and cuts its dated values off there", () => {
+    const merged = withSampleBefore(loaded, sample);
+    assert.deepEqual(merged.days.map((row) => row.day), ["2026-07-10", "2026-07-15", "2026-07-17"]);
+    assert.deepEqual(merged.days[2].metrics, { CO2_CAPTURED_t: cell(50) });
+    assert.deepEqual(merged.range, { start: "2026-07-10", end: "2026-08-17" });
+    assert.equal(merged.sampleUntil, "2026-07-16");
+    assert.deepEqual(merged.fixed.map((value) => [value.key, value.validTo, value.source]), [["BIOGENIC_FRACTION_pct", "2026-07-16", "lab (sample)"]]);
+    assert.deepEqual(merged.blocks.map((block) => block.id), ["q2"]);
+    assert.equal(merged.origin, "stream");
+  });
+
+  it("leaves loaded data alone when there is no sample before it", () => {
+    assert.equal(withSampleBefore(loaded, null), loaded);
+    assert.equal(withSampleBefore(loaded, { ...sample, days: sample.days.filter((row) => row.day >= "2026-07-17") }), loaded);
+  });
+
+  it("badges a period as sample, loaded, or both", () => {
+    const merged = withSampleBefore(loaded, sample);
+    assert.equal(originBadge(merged, { start: "2026-04-01", end: "2026-06-30" }).label, "Sample data");
+    assert.equal(originBadge(merged, { start: "2026-07-17", end: "2026-08-17" }).label, "Loaded data");
+    assert.equal(originBadge(merged, { start: "2026-07-01", end: "2026-09-30" }).label, "Sample, then loaded");
+    assert.equal(originBadge(merged).label, "Loaded from 17 Jul 2026");
+    assert.equal(originBadge(sample).label, "Sample data");
   });
 });
