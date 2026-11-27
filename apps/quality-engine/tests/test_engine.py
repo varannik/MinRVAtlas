@@ -195,6 +195,29 @@ class DetectorTest(unittest.TestCase):
         # The dismissed day itself is still judged, but it no longer feeds anyone's baseline.
         self.assertEqual(len(found), 1)
 
+    def test_a_step_that_wobbles_is_one_shift(self):
+        # Capture electricity steps from about 1000 kWh a day to about 300-520 from 1 Aug. The
+        # week from 2 Aug sits just short of the threshold, so the weeks from 1 Aug and from 3 Aug
+        # each count as the start of a shift. They overlap, so they are one shift on one meter.
+        metric = "ENERGY_CAPTURE_kWh"
+        after = [300, 520, 520, 520, 300, 300, 300, 520, 300, 300, 300, 300, 300, 300, 300, 300, 300]
+        days = {day: {metric: cell(1000.0 + (i % 5) * 4)} for i, day in enumerate(day_range("2026-07-01", "2026-07-31"))}
+        for offset, value in enumerate(after):
+            days[add_days("2026-08-01", offset)] = {metric: cell(float(value))}
+        found = detectors.level_shifts(dataset(days), RULES)
+        self.assertEqual([(f.metric, f.start, f.end) for f in found], [(metric, "2026-08-01", "2026-08-17")])
+        self.assertIn("dropped from about", text.word(found[0])["headline"])
+
+    def test_a_drop_then_a_rise_stay_two_shifts(self):
+        metric = "ENERGY_CAPTURE_kWh"
+        days = {day: {metric: cell(1000.0 + (i % 5) * 4)} for i, day in enumerate(day_range("2026-05-01", "2026-06-30"))}
+        for day in day_range("2026-07-01", "2026-08-15"):
+            days[day] = {metric: cell(300.0)}
+        for day in day_range("2026-08-16", "2026-09-30"):
+            days[day] = {metric: cell(1000.0)}
+        found = detectors.level_shifts(dataset(days), RULES)
+        self.assertEqual([f.observed["change"] < 0 for f in found], [True, False])
+
     def test_a_plant_that_stops(self):
         days = steady("2026-06-01", 60)
         for day in day_range("2026-07-20", "2026-07-30"):

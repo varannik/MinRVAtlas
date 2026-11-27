@@ -110,7 +110,20 @@ def level_shifts(dataset, rules, excluded=None):
             same_side = all(v > was for v in after) or all(v < was for v in after)
             if abs(change) >= rules.shift_share and same_side:
                 onsets[day] = (was, now, change)
-        for start, end, days in windows(onsets):
+        # Each run of days that start a qualifying week is a shift. A meter that wobbles as it
+        # steps can start a qualifying week, miss the next day, and start one again: runs on
+        # one meter that move the same way and whose weeks overlap are one shift, told from
+        # the first day it showed.
+        shifts = []
+        for start, end, _days in windows(onsets):
+            last = min(add_days(end, rules.shift_after_days - 1), dataset.end)
+            falling = onsets[start][2] < 0
+            if shifts and shifts[-1]["falling"] == falling and start <= shifts[-1]["end"]:
+                shifts[-1]["end"] = max(shifts[-1]["end"], last)
+                continue
+            shifts.append({"start": start, "end": last, "falling": falling})
+        for shift in shifts:
+            start = shift["start"]
             was, now, change = onsets[start]
             found.append(
                 Finding(
@@ -125,7 +138,7 @@ def level_shifts(dataset, rules, excluded=None):
                         "threshold": threshold(rules, rules.shift_share, "share of the earlier level"),
                     },
                     start=start,
-                    end=min(add_days(end, rules.shift_after_days - 1), dataset.end),
+                    end=shift["end"],
                     metric=metric_id,
                     observed={"onset": start, "before": was, "after": now, "change": round(change, 3)},
                     expected={"before_days": rules.shift_before_days, "after_days": rules.shift_after_days},
