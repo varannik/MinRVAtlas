@@ -242,6 +242,16 @@ export function cortexMoveStateMachineName(stage: StageName): string {
  * findings and people's decisions on them. Fixed names, so the web and the Cortex
  * tool reach them without cross-stack exports.
  */
+/** The mock verifier's record per project: the imported Audit Document Index, submission files, filings. */
+export function verificationTableName(stage: StageName): string {
+  return resourceName(stage, "verification");
+}
+
+/** A project's submission as received, every file as delivered, under <tenant>/<project>/. */
+export function verificationBucketName(stage: StageName, account = ACCOUNT): string {
+  return `${STACK_PREFIX}-${stage}-verification-${account}`;
+}
+
 export function qualityTableName(stage: StageName): string {
   return resourceName(stage, "quality");
 }
@@ -347,6 +357,7 @@ export const CORTEX_STACKS = [
   "cortex-knowledge",
   "cortex-graph",
   "quality",
+  "verification",
   "cortex-agent",
 ] as const;
 

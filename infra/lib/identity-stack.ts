@@ -24,6 +24,7 @@ export const COGNITO_GROUPS = [
   "tenant_admin",
   "quality_engineer",
   "operator",
+  "verifier",
   "viewer",
 ] as const;
 
@@ -34,6 +35,7 @@ const GROUP_DESCRIPTIONS: Record<CognitoGroupName, string> = {
   tenant_admin: "Invite users and set grants for one tenant",
   quality_engineer: "Quality Console configuration and runs",
   operator: "Control room and pipeline for granted registries",
+  verifier: "Outside verifier (VVB): reviews the submissions of granted projects; read-only elsewhere",
   viewer: "Read-only on granted projects and registries",
 };
 

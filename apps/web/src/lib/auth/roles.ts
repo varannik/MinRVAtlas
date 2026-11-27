@@ -3,6 +3,7 @@ export const OPERATOR_ROLES = [
   "tenant_admin",
   "quality_engineer",
   "operator",
+  "verifier",
   "viewer",
 ] as const;
 

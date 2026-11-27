@@ -32,6 +32,8 @@ import {
   ecrSentinelRepo,
   qualityRunStateMachineName,
   qualityTableName,
+  verificationBucketName,
+  verificationTableName,
   ecrWebRepo,
   entraSecretName,
   evidenceBucketName,
@@ -240,6 +242,8 @@ export class ComputeStack extends Ew2Stack {
               CORTEX_AGENT_RUNTIME_PARAM: cortexAgentRuntimeParamName(cfg.stageName),
               // Data quality engine (quality stack, deployed after this one): runs, findings, decisions.
               QUALITY_TABLE: qualityTableName(cfg.stageName),
+              VERIFICATION_TABLE: verificationTableName(cfg.stageName),
+              VERIFICATION_BUCKET: verificationBucketName(cfg.stageName),
               QUALITY_RUN_STATE_MACHINE_ARN: `arn:aws:states:${REGION}:${ACCOUNT}:stateMachine:${qualityRunStateMachineName(cfg.stageName)}`,
             }
           : {}),

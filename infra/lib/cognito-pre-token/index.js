@@ -5,6 +5,7 @@ const KNOWN = [
   "tenant_admin",
   "quality_engineer",
   "operator",
+  "verifier",
   "viewer",
 ];
 

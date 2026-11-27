@@ -14,7 +14,7 @@ import json
 import re
 
 TENANT_ID = re.compile(r"^[a-z0-9][a-z0-9-]{1,39}$")
-ROLES = ("platform_admin", "tenant_admin", "quality_engineer", "operator", "viewer")
+ROLES = ("platform_admin", "tenant_admin", "quality_engineer", "operator", "verifier", "viewer")
 # Roles that see every project inside their own tenant (never another tenant).
 TENANT_WIDE_ROLES = frozenset({"platform_admin", "tenant_admin"})
 SCOPES = ("shared", "tenant", "project")

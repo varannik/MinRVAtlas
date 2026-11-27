@@ -14,6 +14,7 @@ import { IdentityStack } from "./identity-stack";
 import { NetworkStack } from "./network-stack";
 import { ObservabilityStack } from "./observability-stack";
 import { QualityStack } from "./quality/quality-stack";
+import { VerificationStack } from "./verification/verification-stack";
 import { SecurityStack } from "./security-stack";
 
 export interface MinrvStageProps extends cdk.StageProps {
@@ -34,6 +35,7 @@ export class MinrvStage extends cdk.Stage {
     knowledge: CortexKnowledgeStack;
     graph?: CortexGraphStack;
     quality: QualityStack;
+    verification: VerificationStack;
     agent: CortexAgentStack;
   };
 
@@ -167,6 +169,11 @@ export class MinrvStage extends cdk.Stage {
     quality.addStackDependency(this.compute);
     quality.addStackDependency(knowledge);
 
+    // Mock verifier (VVB): the Audit Document Index, the submission as received, filings.
+    // Its tenant-session policy attaches to the role the knowledge stack creates.
+    const verification = new VerificationStack(this, "verification", { env, cfg, keyArn });
+    verification.addStackDependency(knowledge);
+
     const agent = new CortexAgentStack(this, "cortex-agent", {
       env,
       cfg,
@@ -188,6 +195,6 @@ export class MinrvStage extends cdk.Stage {
       agent.addStackDependency(graph);
     }
 
-    return { core, knowledge, graph, quality, agent };
+    return { core, knowledge, graph, quality, verification, agent };
   }
 }

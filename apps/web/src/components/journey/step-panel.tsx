@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ArrowRight, Check, ChevronDown, Lock, X } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, BadgeCheck, Check, ChevronDown, Lock, X } from "lucide-react";
 
 import { nextStep, stepState, type Plan } from "@/lib/journey/steps";
 import type { JourneyStep, StepId, TaskStatus, TaskState } from "@/lib/journey/types";
@@ -79,6 +80,7 @@ export function StepPanel({ stepId }: { stepId: StepId }) {
   const selectStep = useJourney((state) => state.selectStep);
   const hoverTask = useJourney((state) => state.hoverTask);
   const advance = useJourney((state) => state.advance);
+  const projectId = useJourney((state) => state.project?.id ?? null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const state = stepState(stepId, current);
@@ -148,6 +150,15 @@ export function StepPanel({ stepId }: { stepId: StepId }) {
           </button>
         </div>
         <p className="mt-2 text-[12.5px] leading-snug text-white/75">{step.caption}</p>
+        {/* The verifier's view of this step: the Facility audit at validation, the Output audit each period. */}
+        {projectId && (step.id === "validation" || step.id === "audit") ? (
+          <Link
+            href={`/verification?project=${encodeURIComponent(projectId)}&audit=${step.id === "validation" ? "facility" : "output"}`}
+            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-2.5 py-1 text-[11.5px] font-semibold text-white/85 hover:bg-white/16 hover:text-white"
+          >
+            <BadgeCheck className="size-3.5" /> {step.id === "validation" ? "Open the Facility audit" : "Open the Output audit"}
+          </Link>
+        ) : null}
         <div className="mt-3 flex items-center gap-3">
           <SegmentBar step={step} className="flex-1" />
           <span className="tabular shrink-0 text-[11.5px] font-semibold text-white">
